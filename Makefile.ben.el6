@@ -1,0 +1,52 @@
+GXX=g++
+MPICXX=mpic++ 
+MPIFLAGS=-I/opt/pkg/OPENMPI/openmpi-1.6.3.el6/include
+CXXFLAGS = -I/opt/pkg/NIFTICLIB/nifticlib-2.0.0.el6/include -O3 -fopenmp -fPIC -g
+WARNINGFLAGS = -Wall -Werror -Wextra
+LDFLAGS=-L/opt/pkg/NIFTICLIB/nifticlib-2.0.0.el6/lib -L/opt/pkg/GOTOBLAS2/gotoblas2-1.13-gcc44.el6
+LD_LIBS = -lm -lz -lgoto2_nehalemp-r1.13 -lniftiio -lznz  -lgfortran #-lth#-lgomp 
+OBJ = svm.o Preprocessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
+
+corr-sum: $(OBJ)
+	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
+
+svm.o: svm.h
+	$(GXX) -c svm.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+Preprocessing.o: common.h Preprocessing.h
+	$(GXX) -c Preprocessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+MatComputation.o: common.h MatComputation.h
+	$(GXX) -c MatComputation.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+CorrMatAnalysis.o: common.h CorrMatAnalysis.h
+	$(GXX) -c CorrMatAnalysis.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+Classification.o: common.h Classification.h
+	$(GXX) -c Classification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+Scheduler.o: common.h Scheduler.h
+	$(MPICXX) -c Scheduler.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
+
+LibSVM.o: common.h LibSVM.h
+	$(GXX) -c LibSVM.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+SVMClassification.o: common.h SVMClassification.h
+	$(GXX) -c SVMClassification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+SVMPredictor.o: common.h SVMPredictor.h
+	$(GXX) -c SVMPredictor.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+SVMPredictorWithMasks.o: common.h SVMPredictorWithMasks.h
+	$(GXX) -c SVMPredictorWithMasks.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+Searchlight.o: common.h Searchlight.h
+	$(GXX) -c Searchlight.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+main.o: common.h
+	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
+
+PROGS=corr-sum
+
+clean:
+		rm -f $(PROGS) $(OBJ) *~

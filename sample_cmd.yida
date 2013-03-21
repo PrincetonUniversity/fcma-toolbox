@@ -1,0 +1,20 @@
+1. use MPI to compute correlation
+OMP_NUM_THREADS=4 mpirun -np 30 -hostfile host ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -t 0202101_top_correlation.txt -l 0 -s 20 -k 0 -h 12 -n 17 -b blocks.txt -x masks/mask.nii.gz -y masks/mask.nii.gz
+
+2. searchlight, no MPI
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -t 0202101_top_activity.txt -l 0 -k 2 -h 12 -n 17 -b blocks.txt -x masks/mask.nii.gz
+
+3. test
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -t 0202101_top_correlation.txt -l 0 -c 1 -h 12 -n 17 -b blocks.txt -k 0 -x masks/mask.nii.gz -y masks/mask.nii.gz
+
+4. two parts correlation and test
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -l 0 -c 1 -h 12 -b blocks.txt -k 4 -x masks/prefrontal_top_mask.nii.gz -y masks/visual_top_mask.nii.gz
+
+5. cross validation of two parts correlation
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -l 0 -c 1 -h 12 -b blocks.txt -k 5 -x masks/prefrontal_top_mask.nii.gz -y masks/visual_top_mask.nii.gz
+
+6. one part activation and test
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -l 0 -c 1 -h 12 -b blocks.txt -k 6 -x masks/activation_visual_top_mask.nii.gz
+
+7. cross validation of one part activation
+OMP_NUM_THREADS=4 ./corr-sum -d /state/partition3/yidawang/face_scene/ -m .nii.gz -l 0 -c 1 -h 12 -b blocks.txt -k 7 -x masks/activation_visual_top_mask.nii.gz

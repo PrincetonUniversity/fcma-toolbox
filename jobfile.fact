@@ -1,0 +1,64 @@
+# no spaces before or after colon(:)!
+#
+# number of cores per (slave) task
+#  (master is always 1 core)
+omp_num_threads:8
+
+# number of tasks
+#  master (1) + # slaves here
+num_processors:9
+
+# file of nodes that can run this        
+hostfile:/opt/pni/doc/fchosts
+
+# name of the program compiled
+exefile:/opt/pkg/PNIFACT/bin/pni_fact
+
+# directory, relative to PWD, containing
+# the image data to correlate/analyze
+datadir:face_scene/
+
+# image file format
+matrix_format:.nii.gz
+
+# file to write results to
+outputfile:top_correlation.txt
+
+# task
+#  0 for voxel selection using svm
+#  1 for smart distance ratio
+#  2 for searchlight
+#  3 for correlation sum
+#  4 for two parts correlation and test
+#  5 for cross validation of two parts correlation
+#  6 for one part activation and test
+#  7 for cross validation of one part activation
+task_type:0
+
+# block information file
+blockfile:blocks.txt
+
+# step, number of rows to be assigned per round
+rows_per_round:100
+
+# the first block id that is being left out
+#   -1 means do not leave out anything
+first_left_out_block_id:0
+
+# number of items that are held for test
+# (in conjunction with first_left_out_block_id)
+num_items_held_for_test:12
+
+# test mode? 0=no, 1=yes
+is_test_mode:0
+
+# number of folds in feature selection
+num_folds_in_feature_selection:17
+
+# the first mask file, otherwise brain voxels
+# are auto-detected
+first_maskfile:masks/mask.nii.gz
+
+# second mask file
+second_maskfile:masks/mask.nii.gz
+
