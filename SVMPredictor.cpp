@@ -6,25 +6,30 @@
 //#include "Searchlight.h"
 
 /***************************************
-predict a new sample based on a trained SVM model and a variation of the numbers of top voxels
-input: the raw activation matrix array, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results
+predict a new sample based on a trained SVM model and a variation of the numbers of top voxels. if correlation, assume that it's a self correlation, so only one mask file is enough
+input: the raw activation matrix array, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results, the mask file
 output: the results are displayed on the screen
 ****************************************/
-void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile)
+void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file)
 {
-  int row = r_matrices[0]->row;
-  int col = r_matrices[0]->col;
+  RawMatrix** masked_matrices=NULL;
+  if (mask_file!=NULL)
+    masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file);
+  else
+    masked_matrices = r_matrices;
+  int row = masked_matrices[0]->row;
+  int col = masked_matrices[0]->col;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = ReadTopVoxelFile(topVoxelFile, row);
-  RearrangeMatrix(r_matrices, scores, row, col, nSubs);
+  RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
   int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 4000, 5000, 10000, 20000, 34470};
   switch (taskType)
   {
     case 0:
     case 1:
-      CorrelationBasedClassification(tops, nSubs, nTrials, trials, nTests,  r_matrices);
+      CorrelationBasedClassification(tops, nSubs, nTrials, trials, nTests, masked_matrices);
       break;
-    case 2:
+    case 2: // not right now
       ActivationBasedClassification(tops, nTrials, trials, nTests, avg_matrices);
       break;
     default:

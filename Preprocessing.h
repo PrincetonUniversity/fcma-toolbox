@@ -1,3 +1,4 @@
+#include <cstring>
 #include "common.h"
 #ifdef USE_MKL
 #include <mkl_cblas.h>
@@ -8,12 +9,13 @@ extern "C" {
 #endif
 
 RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSubs);
-RawMatrix* ReadGzData(const char* file, int sid);
-RawMatrix* ReadNiiGzData(const char* file, int sid);
+RawMatrix* ReadGzData(string fileStr, int sid);
+RawMatrix* ReadNiiGzData(string fileStr, int sid);
 int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts);
 int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Point* pts);
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* maskFile);
 Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file);
+Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matrices, const char* dir);
 void leaveSomeTrialsOut(Trial* trials, int nTrials, int tid, int nLeaveOut);
 void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs);
 float fisherTransformation(float v);

@@ -18,9 +18,10 @@ void exit_with_help()
   "required:\n"
   "-d matrix directory, contains files in binary gz format, beginning with numbers of row and column\n"
   "-m matrix file type, usually the extension name\n"
-  "-b block information file\n"
   "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation\n"
   "-t output file for task 0,1,2,3 in the voxel selection mode, input file for the same tasks in the test mode\n"
+  "-b block information file, if no block information file, a block information directory is required\n"
+  "-e block directory name, will check this if -b is not provided\n"
   "optional:\n"
   "-s step, the number of rows to be assigned per round, default 100\n"
   "-l leave out id, the first block id that being left out, default -1, which means don't leave out anything\n"
@@ -36,6 +37,7 @@ void exit_with_help()
 void set_default_parameters()
 {
   Parameters.fmri_directory = Parameters.fmri_file_type = Parameters.output_file = NULL;
+  Parameters.block_information_file = Parameters.block_information_directory = NULL;
   Parameters.step = 100;
   Parameters.taskType = -1;
   Parameters.leave_out_id = -1;
@@ -57,9 +59,9 @@ void check_parameters()
     cout<<"no fmri file type, general information below"<<endl;
     exit_with_help();
   }
-  if (Parameters.block_information_file==NULL)
+  if (Parameters.block_information_file==NULL && Parameters.block_information_directory==NULL)
   {
-    cout<<"no block information file, general information below"<<endl;
+    cout<<"no block information, general information below"<<endl;
     exit_with_help();
   }
   if (Parameters.taskType==-1)
@@ -112,6 +114,9 @@ void parse_command_line(int argc, char **argv)
       case 'b':
         Parameters.block_information_file = argv[i];
         break;
+      case 'e':
+        Parameters.block_information_directory = argv[i];
+        break;
       case 't':
         Parameters.output_file = argv[i];
         break;
@@ -161,6 +166,7 @@ int main(int argc, char** argv)
   const char* fmri_directory = Parameters.fmri_directory;
   const char* fmri_file_type = Parameters.fmri_file_type;
   const char* block_information_file = Parameters.block_information_file;
+  const char* block_information_directory = Parameters.block_information_directory;
   const char* output_file = Parameters.output_file;
   const char* mask_file1 = Parameters.mask_file1;
   const char* mask_file2 = Parameters.mask_file2;
@@ -179,7 +185,15 @@ int main(int argc, char** argv)
     cout<<"data reading done!"<<endl;
   }
   Point* pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects have the same format, so we can randomly pick one
-  Trial* trials = GenRegularTrials(nSubs, 0, nTrials, block_information_file);  // 0 for no shift, nTrials is assigned a value here
+  Trial* trials=NULL;
+  if (block_information_file!=NULL)
+  {
+    trials = GenRegularTrials(nSubs, 0, nTrials, block_information_file);  // 0 for no shift, nTrials is assigned a value here
+  }
+  else
+  {
+    trials = GenBlocksFromDir(nSubs, 0, nTrials, r_matrices, block_information_directory);  // 0 for no shift, nTrials is assigned a value here
+  }
   int nBlocksPerSub = nTrials / nSubs;  // assume each subject has the same number of blocks
   if (me == 0)
   {
@@ -210,7 +224,7 @@ int main(int argc, char** argv)
       case 1:
       case 2:
       case 3:
-        SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file);
+        SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1);
         break;
       case 4:
         result = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds);

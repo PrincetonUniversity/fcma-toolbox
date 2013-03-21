@@ -1,0 +1,28 @@
+1.0
+the very beginning version using command line and ad-hoc input.
+
+1.1
+the input data and mask are in nifti format, the selectors and regressors are in a text file.
+the RT regression part is removed
+the flexibility of dealing with different data types is still needed.
+the location.bin is not supposed to be there any more, since we have nifti files.
+
+1.2
+a huge progress and a lot of changes
+add four tasks to use masks to do correlation and activation tasks.
+incorporate libsvm code in the toolbox, no more -lsvm.
+rewrite part of the svm code, use blas dot product instead of its own, and compute the length of a vector in libsvm before hand, by assuming that all vectors are with the same length. this accelerates the code by about 25%.
+rewrite the voxel selection cross validation part, now if using linear svm, the code will use precomputed kernel instead of computing the kernel every fold. this accelerates the code quite a lot, say, from 10 hours to 20 minutes. but if using other kernel, currently the redundant computing is still needed.
+add -Wextra -Werror to Makefile to eliminate a lot warnings, most of which are unused variables, unnecessarily passed from the function's input arguments.
+add MPI_Barrier to make sure all nodes finish reading and progress together.
+put all mask files in a sub directory.
+nifti files are in two categories: 1) data, must be in short; 2) mask, can be in short or int.
+
+1.2.1
+redesigned the shared memory parallelization
+fixed some minor bugs
+allowed mask file data type to be float
+
+1.2.2
+allowed data file data type to be float
+add a new input argument -e to specify the block file directory

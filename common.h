@@ -1,6 +1,25 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+// head files
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <cstring>
+#include <cmath>
+//#include <omp.h>
+#include <iomanip>
+
+using namespace std;
+
 // Matrix multiplication parameters
 #define MAXTRIAL 10000
 #define MAXTASK 10000
@@ -11,6 +30,7 @@ typedef unsigned short uint16;
 
 typedef struct raw_matrix_t
 {
+  string sname;  // subject name (file name without extension)
   int sid;  // subject id
   int row;
   int col;
@@ -41,6 +61,7 @@ typedef struct param_t
   const char* fmri_directory;
   const char* fmri_file_type;
   const char* block_information_file;
+  const char* block_information_directory;
   const char* mask_file1;
   const char* mask_file2;
   int step;
@@ -80,21 +101,3 @@ extern unsigned long long counter;
 #define ELAPSETAG 4
 
 #endif
-
-#include <vector>
-#include <map>
-#include <algorithm>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <cstring>
-#include <cmath>
-//#include <omp.h>
-#include <iomanip>
-
-using namespace std;

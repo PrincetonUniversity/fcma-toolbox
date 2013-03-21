@@ -52,8 +52,8 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   for (int i=0; i<count; i++)
   {
     //cout<<strFilenames[i]<<endl; // output the file name to know the file sequance
-    //r_matrices[i] = ReadGzData(strFilenames[i].c_str(), i);
-    r_matrices[i] = ReadNiiGzData(strFilenames[i].c_str(), i);
+    //r_matrices[i] = ReadGzData(strFilenames[i], i);
+    r_matrices[i] = ReadNiiGzData(strFilenames[i], i);
   }
   closedir(pDir);
   return r_matrices;
@@ -65,8 +65,9 @@ read matrix data from gz files, the first eight bytes are two 32-bit ints, indic
 input: the gz file name, subject id
 output: the raw matrix data
 **************************/
-RawMatrix* ReadGzData(const char* file, int sid)
+RawMatrix* ReadGzData(string fileStr, int sid)
 {
+  const char* file = fileStr.c_str();
   gzFile fp = gzopen(file, "rb");
   //cout<<sid+1<<": "<<file<<endl;
   if (fp == NULL)
@@ -79,6 +80,10 @@ RawMatrix* ReadGzData(const char* file, int sid)
   int row, col;
   gzread(fp, &row, sizeof(int));
   gzread(fp, &col, sizeof(int));
+  int startPos = fileStr.find_last_of('/');
+  int endPos = fileStr.find_first_of('.', startPos);
+  string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
+  r_matrix->sname = sname;
   r_matrix->row = row;
   r_matrix->col = col;
   r_matrix->matrix = new double[row*col];
@@ -98,8 +103,9 @@ read matrix data from nii.gz files
 input: the gz file name, subject id
 output: the raw matrix data
 **************************/
-RawMatrix* ReadNiiGzData(const char* file, int sid)
+RawMatrix* ReadNiiGzData(string fileStr, int sid)
 {
+  const char* file = fileStr.c_str();
   nifti_image* nim;
   nim = nifti_image_read(file, 1);
   if (nim == NULL)
@@ -116,6 +122,10 @@ RawMatrix* ReadNiiGzData(const char* file, int sid)
   cout<<"byteorder: "<<nim->byteorder<<endl;
   exit(1);*/
   RawMatrix* r_matrix = new RawMatrix();
+  int startPos = fileStr.find_last_of('/');
+  int endPos = fileStr.find_first_of('.', startPos);
+  string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
+  r_matrix->sname = sname;
   r_matrix->sid = sid;
   r_matrix->row = nim->nx * nim->ny * nim->nz;
   r_matrix->col = nim->nt;
@@ -123,21 +133,48 @@ RawMatrix* ReadNiiGzData(const char* file, int sid)
   r_matrix->ny = nim->ny;
   r_matrix->nz = nim->nz;
   r_matrix->matrix = new double[r_matrix->row * r_matrix->col];
-  short* data=NULL;
+  short* data_short=NULL;
+  unsigned short* data_ushort=NULL;
+  int* data_int=NULL;
+  float* data_float=NULL;
   switch (nim->datatype)  // now only get one type
   {
     case DT_SIGNED_SHORT:
-      data = (short*)nim->data;
+      data_short = (short*)nim->data;
+      break;
+    case DT_UINT16:
+      data_ushort = (unsigned short*)nim->data;
+      break;
+    case DT_SIGNED_INT:
+      data_int = (int*)nim->data;
+      break;
+    case DT_FLOAT:
+      data_float = (float*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of data file!"<<endl;
+      cerr<<"wrong data type of data file! "<<nim->datatype<<endl;
       exit(1);
   }
   for (int i=0; i<r_matrix->row*r_matrix->col; i++) // not efficient
   {
     int t1 = i / r_matrix->row;
     int t2 = i % r_matrix->row;
-    r_matrix->matrix[t2*r_matrix->col+t1] = (double)data[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+    if (data_short!=NULL)
+    {
+      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_short[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+    }
+    if (data_ushort!=NULL)
+    {
+      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_ushort[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+    }
+    if (data_int!=NULL)
+    {
+      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_int[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+    }
+    if (data_int!=NULL)
+    {
+      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_float[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+    }
   }
   nifti_image_free(nim);
   return r_matrix;
@@ -291,6 +328,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
   }
   int* data_int = NULL;
   short* data_short = NULL;
+  unsigned char* data_uchar = NULL;
   //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; exit(1);
   switch (nim->datatype)  // now only get one type
   {
@@ -299,6 +337,9 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
       break;
     case DT_SIGNED_SHORT:
       data_short = (short*)nim->data;
+      break;
+    case DT_UNSIGNED_CHAR:
+      data_uchar = (unsigned char*)nim->data;
       break;
     default:
       cerr<<"wrong data type of mask file!"<<endl;
@@ -331,6 +372,11 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
         memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
         count++;
       }
+      if (data_uchar!=NULL && data_uchar[j])
+      {
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        count++;
+      }
     }
     masked_matrix->row = count; // update the row information
     masked_matrices[i] = masked_matrix;
@@ -340,13 +386,18 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
 }
 
 /******************************
-Generate trial information for same trials across subjects, some infomration (sc, ec, #trial per subject) is hard coded
+Generate trial information for same trials across subjects
 input: the number of subjects, the shift number, the number of trials, the block information file
 output: the trial data structure array, the number of trials
 *******************************/
 Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file)
 {
   ifstream ifile(file);
+  if (ifile==NULL)
+  {
+    cerr<<"no block file found!"<<endl;
+    exit(1);
+  }
   int nPerSubs = -1;
   ifile>>nPerSubs;
   Trial* trials = new Trial[nSubs*nPerSubs];  //12 trials per subject
@@ -389,6 +440,60 @@ Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file)
     }
   }
   nTrials = nSubs * nPerSubs;
+  return trials;
+}
+
+/******************************
+Generate block information from a block directory, one-to-one mapping to the data file.
+The block files are in txt extension
+input: the number of subjects, the shift number, the number of trials, the block information directory
+output: the trial data structure array, the number of trials
+*******************************/
+Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matrices, const char* dir)
+{
+  DIR *pDir;
+  if ((pDir=opendir(dir)) == NULL)
+  {
+    cerr<<"invalid block information directory"<<endl;
+    exit(1);
+  }
+  closedir(pDir);
+  string dirStr = string(dir);
+  if (dirStr[dirStr.length()-1] != '/')
+  {
+    dirStr += '/';
+  }
+  int i, j;
+  nTrials = 0;
+  Trial* trials = new Trial[nSubs*12];  //12 trials per subject
+  for (i=0; i<nSubs; i++)
+  {
+    string blockFileStr = r_matrices[i]->sname + ".txt";
+    blockFileStr = dirStr + blockFileStr;
+    ifstream ifile(blockFileStr.c_str());
+    if (ifile==NULL)
+    {
+      cerr<<"no block file found!"<<endl;
+      exit(1);
+    }
+    int nPerSubs = -1;
+    ifile>>nPerSubs;
+    int trial_labels[nPerSubs];
+    int scs[nPerSubs];
+    int ecs[nPerSubs];
+    for (j=0; j<nPerSubs; j++)
+    {
+      ifile>>trial_labels[j]>>scs[j]>>ecs[j];
+      int index = i*nPerSubs+j;
+      trials[index].sid = i;
+      trials[index].label = trial_labels[j];
+      trials[index].sc = scs[j] + nShift;
+      trials[index].ec = ecs[j] + nShift;
+      trials[index].tid = j;
+    }
+    ifile.close();
+    nTrials += nPerSubs;
+  }
   return trials;
 }
 

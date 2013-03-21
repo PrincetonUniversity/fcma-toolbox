@@ -1,9 +1,6 @@
 #include "LibSVM.h"
 
-void print_null(const char* s)
-{
-	s='\0'; /*cheat the compiler*/
-} // for SVM print quietly
+void print_null(const char* s) {s='\0';/*cheat the compiler*/} // for SVM print quietly
 
 /*******************************************
 set the SVM paramters, most of them are set by default

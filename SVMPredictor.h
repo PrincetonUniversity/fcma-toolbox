@@ -1,7 +1,7 @@
 #include "common.h"
 #include "LibSVM.h"
 
-void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile);
+void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file);
 void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices);
 void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nTests, RawMatrix** avg_matrices);
 VoxelScore* ReadTopVoxelFile(const char* file, int n);
