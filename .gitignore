@@ -1,0 +1,7 @@
+.snapshot/
+masks/
+corr-sum
+*.o
+*.bin
+!.gitignore
+
