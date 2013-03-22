@@ -1,8 +1,10 @@
 #!/bin/bash
 set -u
 
+#defaults 
 JOBFILE="/opt/pni/doc/jobfile.fact"
 HOSTFILE="/opt/pni/doc/fchosts"
+APP="/opt/pkg/PNIFACT/bin/pni_fact"
 VERSION=$(cat /opt/pkg/PNIFACT/src/VERSION)
 APPMODULE="pni_fact/$VERSION"
 USE_QSUB=1
@@ -19,6 +21,9 @@ DRY_RUN=0
 # or cat script not run it
 (( DRY_RUN )) && drycat="cat" || drycat=""
 
+# ----------------
+#      list of possible settings
+#      and corresponding cmdline flags
 # ----------------
 declare -a key_and_flags
 key_and_flags=(
@@ -39,7 +44,6 @@ key_and_flags=(
 	first_maskfile			'-x '
 	second_maskfile			'-y '
 )
-
 numflags=${#key_and_flags[@]}
 
 hget() {
@@ -49,33 +53,39 @@ hget() {
 
 #----------------
 
-jtemp=$(mktemp)
-cmdline=""
+# first app arg in list above is datadir,
+# index 4 (if starting from 0)
+app_arg_index=4
+app_args=""
 # get lines that set a value
+jtemp=$(mktemp)
 grep -v '\#' jobfile.fact  | grep '\:[^\w]' > $jtemp
-for (( i=0; i<numflags; i+=2 )); do
+for (( i=app_arg_index; i<numflags; i+=2 )); do
 	(( j = i + 1 ))
 	# substitute the corresponding flag from above
 	key="${key_and_flags[$i]}"
 	flag="${key_and_flags[$j]}"
 	line="$(grep $key $jtemp)"
-	cmdline="$cmdline $(echo $line | sed "s/${key}\:/${flag}/")"
+	app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
 done
 
 N=$(hget $jtemp num_processors)
+[[ -z $N ]] && "num_processors must be specified" && exit 1
 M=$(hget $jtemp omp_num_threads)
-HOSTFILE="$(hget $jtemp hostfile)"
+[[ -z $M ]] && "omp_num_threads must be specified" && exit 1
+uHOSTFILE="$(hget $jtemp hostfile)"
+uAPP="$(hget $jtemp exefile)"
+[[ -f $uHOSTFILE ]] && HOSTFILE=$uHOSTFILE
+[[ -x $uAPP ]] && APP=$uAPP
 
 if (( USE_QSUB )); then
 	# gridengine config knows about hosts eligible 
 	# for $PROJECT, so hostfile not used here
-	# cmdline up to & inc hostfile should be stripped
-	hostleaf=$(basename $HOSTFILE | sed "s/\///g")
-	app_args=$(echo $cmdline | sed "s/.*${hostleaf}//")
-	$dryecho pni_mpirun -P fullcorr $N $M $app_args
+	$dryecho pni_mpirun -P fullcorr $N $M $APP $app_args
 else
-	# use cmdline but insert mpirun after threads set
-	mpicmd=$(echo $cmdline | sed "s/=$M/=$M mpirun/")
+	# Note that this is not used on rondo but could be
+	# if gridengine qsub method has issues
+	mpicmd="OMP_NUM_THREADS=$M mpirun -np $N -hostfile $HOSTFILE $APP $app_args"
 	tmpdir="/opt/tmp/pni_fact"
 	mkdir -p $tmpdir
 	tmpf="$(mktemp)"

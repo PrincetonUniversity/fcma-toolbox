@@ -3,6 +3,9 @@
 # can comment out optional params
 # or supply no value on right side of colon
 #
+#  list of all possible settings 
+#  is in pni_fact_submit
+#
 # number of cores per (slave) task
 omp_num_threads:8
 
@@ -10,18 +13,9 @@ omp_num_threads:8
 #  master (1) + # slaves here
 num_processors:9
 
-# file of nodes that can run this        
-hostfile:/opt/pni/doc/fchosts
-
-# name of the program compiled
-exefile:/opt/pkg/PNIFACT/bin/pni_fact
-
 # directory, relative to PWD, containing
 # the image data to correlate/analyze
 datadir:face_scene/
-
-# image file format
-matrix_format:.nii.gz
 
 # file to write results to
 outputfile:top_correlation.txt
