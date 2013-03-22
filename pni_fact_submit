@@ -1,0 +1,103 @@
+#!/bin/bash
+set -u
+
+JOBFILE="/opt/pni/doc/jobfile.fact"
+HOSTFILE="/opt/pni/doc/fchosts"
+VERSION=$(cat /opt/pkg/PNIFACT/src/VERSION)
+APPMODULE="pni_fact/$VERSION"
+USE_QSUB=1
+DRY_RUN=0
+
+(( $# == 0 )) && printf "%s jobfile.fact\n example jobfile.fact: \n" $(basename $0) && cat $JOBFILE && exit 1
+(( $# > 0 )) && JOBFILE=$1
+(( $# > 1 )) && [[ $@ =~ noqsub ]] && USE_QSUB=0
+(( $# > 1 )) && [[ $@ =~ dry ]] && DRY_RUN=1
+
+# prefix commands that launch jobs with
+# dryecho -- on dryrun just prints command
+(( DRY_RUN )) && dryecho="echo" || dryecho=""
+# or cat script not run it
+(( DRY_RUN )) && drycat="cat" || drycat=""
+
+# ----------------
+declare -a key_and_flags
+key_and_flags=(
+	omp_num_threads			'OMP_NUM_THREADS='
+	num_processors			'-np '
+	hostfile			'-hostfile '
+	exefile				' '
+	datadir				'-d '
+	matrix_format			'-m '
+	outputfile			'-t '
+	task_type			'-k '
+	blockfile			'-b '
+	rows_per_round			'-s '
+	first_left_out_block_id		'-l '
+	num_items_held_for_test		'-h '
+	is_test_mode			'-c '
+	num_folds_in_feature_selection	'-n '
+	first_maskfile			'-x '
+	second_maskfile			'-y '
+)
+
+numflags=${#key_and_flags[@]}
+
+hget() {
+	hfile=$1
+	grep $2 $1 | cut -d: -f2
+}
+
+#----------------
+
+jtemp=$(mktemp)
+cmdline=""
+# get lines that set a value
+grep -v '\#' jobfile.fact  | grep '\:[^\w]' > $jtemp
+for (( i=0; i<numflags; i+=2 )); do
+	(( j = i + 1 ))
+	# substitute the corresponding flag from above
+	key="${key_and_flags[$i]}"
+	flag="${key_and_flags[$j]}"
+	line="$(grep $key $jtemp)"
+	cmdline="$cmdline $(echo $line | sed "s/${key}\:/${flag}/")"
+done
+
+N=$(hget $jtemp num_processors)
+M=$(hget $jtemp omp_num_threads)
+HOSTFILE="$(hget $jtemp hostfile)"
+
+if (( USE_QSUB )); then
+	# gridengine config knows about hosts eligible 
+	# for $PROJECT, so hostfile not used here
+	# cmdline up to & inc hostfile should be stripped
+	hostleaf=$(basename $HOSTFILE | sed "s/\///g")
+	app_args=$(echo $cmdline | sed "s/.*${hostleaf}//")
+	$dryecho pni_mpirun -P fullcorr $N $M $app_args
+else
+	# use cmdline but insert mpirun after threads set
+	mpicmd=$(echo $cmdline | sed "s/=$M/=$M mpirun/")
+	tmpdir="/opt/tmp/pni_fact"
+	mkdir -p $tmpdir
+	tmpf="$(mktemp)"
+	mv $tmpf $tmpdir
+	tmpfile="$tmpdir/$(basename $tmpf)"
+cat<<EOF>$tmpfile
+	#!/bin/bash
+
+	. /etc/profile
+	module load $APPMODULE
+
+	cd $PWD
+	$mpicmd
+EOF
+	chmod +x $tmpfile
+	shorthost=$(hostname -s)
+	grep $shorthost $HOSTFILE >/dev/null 2>&1
+	if (( $? )); then
+		shorthost=$(head -n 1 $HOSTFILE)
+		$dryecho ssh $shorthost $tmpfile
+	else
+		$drycat $tmpfile
+	fi
+fi
+
