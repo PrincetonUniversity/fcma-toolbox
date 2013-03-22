@@ -54,13 +54,13 @@ hget() {
 #----------------
 
 # first app arg in list above is datadir,
-# index 4 (if starting from 0)
-app_arg_index=4
+# index 8 (if starting from 0) -- row * 2 cols
+app_arg_index=8
 app_args=""
 # get lines that set a value
 jtemp=$(mktemp)
-grep -v '\#' jobfile.fact  | grep '\:[^\w]' > $jtemp
-for (( i=app_arg_index; i<numflags; i+=2 )); do
+grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
+for (( i=$app_arg_index; i<$numflags; i+=2 )); do
 	(( j = i + 1 ))
 	# substitute the corresponding flag from above
 	key="${key_and_flags[$i]}"
@@ -70,9 +70,9 @@ for (( i=app_arg_index; i<numflags; i+=2 )); do
 done
 
 N=$(hget $jtemp num_processors)
-[[ -z $N ]] && "num_processors must be specified" && exit 1
+[[ -z $N ]] && echo "num_processors must be specified" && exit 1
 M=$(hget $jtemp omp_num_threads)
-[[ -z $M ]] && "omp_num_threads must be specified" && exit 1
+[[ -z $M ]] && echo "omp_num_threads must be specified" && exit 1
 uHOSTFILE="$(hget $jtemp hostfile)"
 uAPP="$(hget $jtemp exefile)"
 [[ -f $uHOSTFILE ]] && HOSTFILE=$uHOSTFILE
@@ -94,7 +94,7 @@ else
 cat<<EOF>$tmpfile
 	#!/bin/bash
 
-	. /etc/profile
+	. /usr/share/Modules/init/bash
 	module load $APPMODULE
 
 	cd $PWD
