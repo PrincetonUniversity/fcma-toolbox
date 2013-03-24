@@ -36,6 +36,7 @@ key_and_flags=(
 	outputfile			'-t '
 	task_type			'-k '
 	blockfile			'-b '
+	blockdir			'-e '
 	rows_per_round			'-s '
 	first_left_out_block_id		'-l '
 	num_items_held_for_test		'-h '
