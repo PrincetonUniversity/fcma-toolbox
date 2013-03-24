@@ -17,6 +17,9 @@ num_processors:9
 # the image data to correlate/analyze
 datadir:face_scene/
 
+# image file format
+matrix_format:.nii.gz
+
 # file to write results to
 outputfile:top_correlation.txt
 
