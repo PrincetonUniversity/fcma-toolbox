@@ -4,7 +4,7 @@ MPIFLAGS=-I/opt/pkg/OPENMPI/openmpi-1.6.2/include
 CXXFLAGS = -I/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6/include -I/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6/finclude -I/opt/pkg/NIFTICLIB/nifticlib-2.0.0/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra #-Wno-unused-but-set-parameter
 LDFLAGS=-L/opt/pkg/NIFTICLIB/nifticlib-2.0.0/lib -L/opt/pkg/GOTOBLAS2/gotoblas2-1.13-gcc44 -L/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6
-LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz  -lgfortran -lstdc++ -lgomp
+LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran #-lstdc++ -lgomp
 OBJ = svm.o Preprocessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
 
 corr-sum: $(OBJ)
