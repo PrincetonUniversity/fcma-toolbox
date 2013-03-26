@@ -329,6 +329,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
+  float* data_float = NULL;
   //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; exit(1);
   switch (nim->datatype)  // now only get one type
   {
@@ -340,6 +341,9 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
       break;
     case DT_UNSIGNED_CHAR:
       data_uchar = (unsigned char*)nim->data;
+      break;
+    case DT_FLOAT32:
+      data_float = (float*)nim->data;
       break;
     default:
       cerr<<"wrong data type of mask file!"<<endl;
@@ -373,6 +377,11 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
         count++;
       }
       if (data_uchar!=NULL && data_uchar[j])
+      {
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        count++;
+      }
+      if (data_float!=NULL && data_float[j]>=1-TINYNUM)
       {
         memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
         count++;
