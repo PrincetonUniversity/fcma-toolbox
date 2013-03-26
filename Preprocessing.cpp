@@ -475,6 +475,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
   int i, j;
   nTrials = 0;
   Trial* trials = new Trial[nSubs*12];  //12 trials per subject
+  int index=0;
   for (i=0; i<nSubs; i++)
   {
     string blockFileStr = r_matrices[i]->sname + ".txt";
@@ -493,12 +494,12 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
     for (j=0; j<nPerSubs; j++)
     {
       ifile>>trial_labels[j]>>scs[j]>>ecs[j];
-      int index = i*nPerSubs+j;
       trials[index].sid = i;
       trials[index].label = trial_labels[j];
       trials[index].sc = scs[j] + nShift;
       trials[index].ec = ecs[j] + nShift;
       trials[index].tid = j;
+      index++;
     }
     ifile.close();
     nTrials += nPerSubs;
