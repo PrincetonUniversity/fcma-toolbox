@@ -171,7 +171,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
     {
       r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_int[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
-    if (data_int!=NULL)
+    if (data_float!=NULL)
     {
       r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_float[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
