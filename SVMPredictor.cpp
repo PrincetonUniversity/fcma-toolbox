@@ -33,7 +33,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       ActivationBasedClassification(tops, nTrials, trials, nTests, avg_matrices);
       break;
     default:
-      cout<<"Unknown task type"<<endl;
+      cerr<<"Unknown task type"<<endl;
       exit(1);
   }
 }

@@ -474,7 +474,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
   }
   int i, j;
   nTrials = 0;
-  Trial* trials = new Trial[nSubs*12];  //12 trials per subject
+  Trial* trials = new Trial[nSubs*12];  //maximal 12 trials per subject
   int index=0;
   for (i=0; i<nSubs; i++)
   {

@@ -26,3 +26,6 @@ allowed mask file data type to be float
 1.2.2
 allowed data file data type to be float
 add a new input argument -e to specify the block file directory
+
+1.2.3
+allows different files to have different TRs. Tested with Megan's simulation data.

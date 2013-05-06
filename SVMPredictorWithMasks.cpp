@@ -95,8 +95,7 @@ float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr, int row
 {
   int i;
   int row1 = masked_matrices1[0]->row;
-  int row2 = masked_matrices2[0]->row;
-  int col = masked_matrices1[0]->col; // the column of 1 and 2 should be the same, i.e. the number of TRs of a block
+  int row2 = masked_matrices2[0]->row;  //rows should be the same across subjects since we are using the same mask file to filter out voxels
   float* values= new float[nTrials*rowLength*row2];
   float* simMatrix = new float[nTrials*nTrials];
   memset((void*)simMatrix, 0, nTrials*nTrials*sizeof(float));
@@ -105,6 +104,7 @@ float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr, int row
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
+    int col = masked_matrices1[sid]->col; // the column of 1 and 2 should be the same, i.e. the number of TRs of a block; columns may be different, since different subjects have different TRs
     double* mat1 = masked_matrices1[sid]->matrix;
     double* mat2 = masked_matrices2[sid]->matrix;
     float* buf1 = new float[row1*col]; // col is more than what really need, just in case

@@ -218,6 +218,9 @@ int main(int argc, char** argv)
   if (Parameters.isTestMode && me == 0) // program in test mode only uses one node to predict
   {
     int l = 0, result = 0, f = 0;
+    cout<<"data directory: "<<fmri_directory<<endl;
+    cout<<"mask file(s): "<<mask_file1<<" "<<mask_file2<<endl;
+    cout<<"task type: "<<taskType<<endl;
     switch (taskType)
     {
       case 0:
@@ -261,7 +264,7 @@ int main(int argc, char** argv)
         cout<<"total accuracy: "<<result<<"/"<<nTrials<<"="<<result*1.0/nTrials<<endl;
         break;
       default:
-        cout<<"Unknown task type"<<endl;
+        cerr<<"Unknown task type"<<endl;
         exit_with_help();
     }
   }
@@ -286,7 +289,7 @@ int main(int argc, char** argv)
         Searchlight(avg_matrices, nSubs, trials, nTrials, nHolds, nFolds, pts, output_file, mask_file1);  // doesn't need mpi
         break;
       default:
-        cout<<"Unknown task type"<<endl;
+        cerr<<"Unknown task type"<<endl;
         exit_with_help();
     }
   }
