@@ -7,7 +7,7 @@ LDFLAGS=-L/opt/pkg/NIFTICLIB/nifticlib-2.0.0/lib -L/opt/pkg/GOTOBLAS2/gotoblas2-
 LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran #-lstdc++ -lgomp
 OBJ = svm.o Preprocessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
 
-corr-sum: $(OBJ)
+pni_fcma: $(OBJ)
 	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
 
 svm.o: svm.h
@@ -46,7 +46,7 @@ Searchlight.o: common.h Searchlight.h
 main.o: common.h
 	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
 
-PROGS=corr-sum
+PROGS=pni_fcma
 
 clean:
 		rm -f $(PROGS) $(OBJ) *~
