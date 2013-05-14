@@ -1,3 +1,0 @@
-<FilesMatch "\.(?i:doc|odf|pdf|rtf|txt|fcma)$">
-  Header set Content-Disposition attachment
-</FilesMatch>
