@@ -2,5 +2,7 @@
 
 echo
 echo "$(basename $0) will be available soon."
+echo "please use the FCMA File Generator in the meantime, at"
+echo "http://rondo.pni.princeton.edu/fcma/config"
 echo
 
