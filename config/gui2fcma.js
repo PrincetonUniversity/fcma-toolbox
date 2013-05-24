@@ -86,9 +86,34 @@ var createFCMA = function() {
 	ta.innerHTML = res;
 };
 
+function IE(v) {
+  var r = RegExp('msie' + (!isNaN(v) ? ('\\s' + v) : ''), 'i');
+  return r.test(navigator.userAgent);
+}
+
+function SaveContents(element) {
+    if (typeof element == "string")
+        element = document.getElementById(element);
+    if (element) {
+        if (document.execCommand) {
+            var oWin = window.open("about:blank", "_blank");
+            oWin.document.write(element.value);
+            oWin.document.close();
+            var success = oWin.document.execCommand('SaveAs', true, ".txt");
+            oWin.close();
+            // if (!success)
+                // alert("Sorry, your browser does not support this feature");
+        }
+    }
+}
+
 var downloadFCMA = function() {
-	var ta = document.getElementById("fcma-out");
-	window.location = "data:application/octet-stream,"+encodeURIComponent(ta.innerHTML);
+	if (IE()) {
+		SaveContents("fcma-out");
+	} else {
+		var ta = document.getElementById("fcma-out");
+		window.location = "data:application/octet-stream,"+encodeURIComponent(ta.innerHTML);
+	}
 };
 
 var params = {

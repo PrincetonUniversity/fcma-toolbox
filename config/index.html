@@ -10,7 +10,7 @@
 <html lang="en">
 <head>
 <!-- Force latest IE rendering engine or ChromeFrame if installed -->
-<!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><![endif]-->
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <meta charset="utf-8">
 <title>Princeton FCMA Toolbox</title>
 <meta name="description" content="The Princeton Full Correlation Matrix Analysis (FCMA) Toolbox is a suite of tools for correlating, analyzing, and classifying patterns of correlation in functional neuroimaging datasets.">
@@ -41,8 +41,7 @@ var refLoader = function() {
 	$('#fcma-reference').load('reference.html');
 };
 
-<!-- <http://stackoverflow.com/questions/9434/how-do-i-add-an-additional-window-onload-event-in-javascript>
--->
+<!-- <http://stackoverflow.com/questions/9434/how-do-i-add-an-additional-window-onload-event-in-javascript> -->
 if (window.addEventListener) // W3C standard
 {
   window.addEventListener('load', refLoader, false); // NB **not** 'onload'
@@ -54,53 +53,48 @@ else if (window.attachEvent) // Microsoft
 </script>
 </head>
 <body>
-<div class="navbar navbar-fixed-top">
-    <div class="navbar-inner">
-        <div class="container">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </a>
-            <a class="brand" href="..">FCMA Toolbox</a>
-            <div class="nav-collapse">
-                <ul class="nav">
-                    <li><a href="../#using">Using</a></li>
-                    <li class="active"><a href="../config">FCMA File</a>
-                   	<li><a href="../cluster">Cluster</a></li>
-                   	<li><a href="../demo">Demo</a></li>
-			<li><a href="../source">Source</a></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="container">
-    <div class="page-header">
-    <h2>FCMA File Generator</h2>
-    </div>
-	<blockquote>
-		<p>Here you can generate an FCMA file, which can be used on the cluster to run the FCMA Toolbox (see main page on <a href="../#using">Using FCMA</a> for details)</p><br>
-		<p>Set your desired FCMA parameters on the left, and the corresponding FCMA file will be automatically generated on the right in response to your changes. You can then  use either copy & paste or download to create an FCMA file (and rename it to something like <code>myparams.fcma</code>.) You will need to create two .fcma files, one for the voxel selection phase and, after you have selected the top-k voxels and produced NiFTI masks for them, one for the accuracy prediction phase. Consult the <a href="#reference">reference</a> below for more information.</p><br><br>
-	</blockquote>
-
-	<div id="fcma-setup" class="fcma-setup">
-		<div id="fcma-gui" class="fcma-gui">
-		</div>
-		<div class="fcma-file">
-			<h3>Corresponding FCMA File:</h3>
-			<textarea id="fcma-out" rows="20" cols="60" readonly>
-			</textarea>
-			<a href="#" class="myButton" onClick="downloadFCMA()">Download</a>	
+	<div class="navbar navbar-fixed-top">
+		<div class="navbar-inner">
+			<div class="container">
+				<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+				</a>
+				<a class="brand" href="..">FCMA Toolbox</a>
+				<div class="nav-collapse">
+					<ul class="nav">
+						<li><a href="../#using">Using</a></li>
+						<li class="active"><a href="../config">FCMA File</a>
+						<li><a href="../cluster">Cluster</a></li>
+						<li><a href="../demo">Demo</a></li>
+						<li><a href="../source">Source</a></li>
+					</ul>
+				</div>
+			</div>
 		</div>
 	</div>
-	
-	<a name="reference"></a>
-	<h3>Reference</h3>
+	<div class="container">
+		<div class="page-header">
+		<h2>FCMA File Generator</h2>
+		</div>
+		<blockquote>
+			<p>Here you can generate an FCMA file, which can be used on the cluster to run the FCMA Toolbox (see main page on <a href="../#using">Using FCMA</a> for details)</p><br>
+			<p>Set your desired FCMA parameters on the left, and the corresponding FCMA file will be automatically generated on the right in response to your changes. You can then  use either copy & paste or download to create an FCMA file (and rename it to something like <code>myparams.fcma</code>.) You will need to create two .fcma files, one for the voxel selection phase and, after you have selected the top-k voxels and produced NiFTI masks for them, one for the accuracy prediction phase. Consult the <a href="#reference">reference</a> below for more information.</p>
+		</blockquote>
+		<div id="fcma-setup" class="fcma-setup">
+			<div id="fcma-gui" class="fcma-gui"></div>
+			<div class="fcma-file">
+				<h3>Corresponding FCMA File:</h3>
+				<textarea id="fcma-out" rows="20" cols="60" readonly></textarea>
+				<a href="#" class="myButton" onClick="downloadFCMA()">Download</a>
+			</div>
+		</div>
+		<a name="reference"></a>
+		<h3>Reference</h3>
 		<div class="well">
-		<div id="fcma-reference"></div>
+			<div id="fcma-reference"></div>
 		</div>
 	</div>
-</div>
 </body>
 </html>

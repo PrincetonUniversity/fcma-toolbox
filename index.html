@@ -25,102 +25,121 @@
 <!--[if lt IE 9]><script src="js/html5.js"></script><![endif]-->
 </head>
 <body>
-<div class="navbar navbar-fixed-top">
-    <div class="navbar-inner">
-        <div class="container">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </a>
-            <a class="brand" href=".">FCMA Toolbox</a>
-            <div class="nav-collapse">
-                <ul class="nav">
-                    <li class="active"><a href="#using">Using</a></li>
-                    <li><a href="config">FCMA File</a>
-		    		<li><a href="cluster">Cluster</a></li>
-		    		<li><a href="demo">Demo</a></li>
-		    		<li><a href="source">Source</a></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="container">
-    <div class="page-header">
-        <h1>The Princeton FCMA Toolbox</h1>
-    </div>
-    <blockquote>
-        <p>The Princeton Full Correlation Matrix Analysis (FCMA) Toolbox is a suite of tools for correlating, analyzing, and classifying patterns of correlation in fMRI time-series data.</p><br>
-        <p>The key data structure in FCMA is the Full Correlation Matrix (FCM), which contains the correlations between all pairs of voxels and time-intervals. Computing the entire FCM is intractable: the FCM for two one-hour fMRI sessions requires approx. 1.5 x 10<sup>19</sup> correlations, nearly 20 years of compute time on a 4000-core computer cluster. The FCMA Toolbox correlates a given set of fixed time-intervals (blocks of TRs you specify) which together with some custom optimizations reduces the computational load to a matter of hours. A modest-sized cluster is still required to do the calculation. For that reason, a new toolbox was developed in the spirit of the Princeton <a href="http://code.google.com/p/princeton-mvpa-toolbox/">MVPA Toolbox</a> for Matlab, but is written in C++, OpenMP, and OpenMPI for greater performance and scalability.</p><br>
-        <p>Below are instructions for users that have access to an FCMA cluster backend such as <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI. Instructions for how to set up an FCMA cluster for system administrators are available on the <a href="cluster">cluster</a> page.</p><br>
-    <div class="well">
-	<a name="using"></a>
-	<h3>Using FCMA</h3>
-	<br>
-	<ul>
-	<li><h4>Generate an FCMA file for voxel selection</h4>
-	The FCMA program input parameters are provided via a configuration file with the ".fcma" extension (see <a href="config/#reference">description of the key parameters</a>.) You can create an .fcma file in one of three ways:
-		<ol>
-			<li><strong>Online</strong> [<em>recommended</em>]: Run the <a href="config">FCMA File Generator</a> to generate one online </li>
-			<strong><em>OR</em></strong>
-			<li><strong>Command line</strong>: Run
-<pre>pni_fcma_config </pre> 
-			when logged in to the FCMA server (e.g., <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI.)</li>
-			<strong><em>OR</em></strong>
-			<li><strong>Text editor</strong>: Power users can edit an <a href="template.fcma">FCMA File Template</a>. The template contains lines of instructions above each parameter setting. On rondo, the template is available via the path <code>/opt/pni/doc/template.fcma</code>. The process for editing is therefore:
-<pre>cp /opt/pni/doc/template.fcma myparams.fcma
-$EDITOR myparams.fcma </pre> 
-where <code>$EDITOR</code> is your favorite text editor (<code>vim, emacs, nano</code> etc)</li>
-		</ol>
-		<br><p><em>For PNI users, "FCMA server" means rondo. However, an .fcma file will work on any computational cluster <a href="cluster">properly set up</a> for FCMA.</em></p>
-	<br>
-	<li><h4>Copy (or Paste) your FCMA file onto the FCMA server</h4>
-	This can be done via
-<pre>scp myparams.fcma user@server:</pre> This will copy the file to your home directory. If you use the <a href="config">generator</a> you have the option of cutting & pasting the file it posts in the window directly into an editor.</li>
-	<br>
-	<li><h4>Run FCMA on the server</h4>
-		Once you have your .fcma file transferred to rondo and you are logged in, the command which will launch an FCMA as a parallel job is:
-<pre>pni_fcma_submit myparams.fcma </pre>
-	Since the log files will be written to your working directory, you may want to move the .fcma file to a dedicated directory and change your working directory to it, before running. (If you edit the .fcma file directly and you have used absolute rather than relative paths, you can run from any working directory.) 
-	<p><strong>For PNI Users: on rondo, please use a subdirectory of /gigatmp for all files related to your analysis</strong></p>
-	</li>
-	<br>
-	<li><h4>Monitor progress</h4>
-	You can then monitor progress by dynamically "tailing" the log file produced by the job:
-<pre>tail -f myparams.oJOBID</pre> where JOBID is the job number associated with your job (printed to console; you can also look for the file most recently updated in your current directory.) You can check the status of the job via the scheduler command:
-<pre>qstat -t</pre>If something is horribly wrong you can delete the job (which will also kill all the related subtasks) via:
-<pre>qdel JOBID</pre>
-	<li><h4>Make mask(s) for top k voxels</h4>
-	The output of the first FCMA run will give you voxels in order of their predictive performance (using SVM). You'll want to choose the top k voxels (where k <= 2000 is typically sufficient) and create NiFTI mask(s) for them. (This process will be incorporated in the next toolbox update.)
-	<li><h4>Create an FCMA file to test accuracy and repeat</h4>
-	This time, choose "2 - Testing predictive accuracy" (if using the <a href="config">FCMA File Generator</a>) and run a second time. The testing phase does not require more than one cluster computer, but for convenience the procedure for running is identical in both stages: run <code>pni_fcma_submit myparams.fcma</code> substituting your FCMA file for the one in the example.
-	</li>
-	</ul>
-    </div>
-    <br>
-    <div class="well">
-	<a name="notes"></a>
-        <h3>Notes</h3>
-        <ul>
-            <li>Code by <a href="http://www.cs.princeton.edu/~yidawang/">Yida Wang</a> and <a href="http://princeton.edu/~bdsinger/">Ben Singer</a>, as part of research being carried out at the <a href="http://www.pni.princeton.edu/">Princeton Neuroscience Institute</a> in the <a href="http://www.princeton.edu/ntblab/">Turk-Browne</a>, <a href="http://www.cs.princeton.edu/~li/">Li</a>, and <a href="http://www.pni.princeton.edu/ncc/">Cohen</a> labs.</li>
-        </ul>
-    </div>
-    <br>
-    <div class="well">
-	<a name="refs"></a>
-        <h3>References</h4>
-        <ul>
-            <li></li>
-        </ul>
-    </div>
-    <br>
-    <div class="well">
-        <a name="help"></a>
-        <h3>Getting Help</h3>
-        <ul>
-            <li>Please contact <a href="http://www.cs.princeton.edu/~yidawang/">Yida Wang</a> or <a href="http://princeton.edu/~bdsinger/">Ben Singer</a></li>
-        </ul>
-    </div>
+	<div class="navbar navbar-fixed-top">
+		<div class="navbar-inner">
+			<div class="container">
+				<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+				</a>
+				<a class="brand" href=".">FCMA Toolbox</a>
+				<div class="nav-collapse">
+					<ul class="nav">
+						<li class="active"><a href="#using">Using</a></li>
+						<li><a href="config">FCMA File</a>
+						<li><a href="cluster">Cluster</a></li>
+						<li><a href="demo">Demo</a></li>
+						<li><a href="source">Source</a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="container">
+		<div class="page-header">
+			<h1>The Princeton FCMA Toolbox</h1>
+		</div>
+		<blockquote>
+			<p>The Princeton Full Correlation Matrix Analysis (FCMA) Toolbox is a suite of tools for correlating, analyzing, and classifying patterns of correlation in fMRI time-series data.</p><br>
+			<p>The key data structure in FCMA is the Full Correlation Matrix (FCM), which contains the correlations between all pairs of voxels and time-intervals. Computing the entire FCM is intractable: the FCM for two one-hour fMRI sessions requires approx. 1.5 x 10<sup>19</sup> correlations, nearly 20 years of compute time on a 4000-core computer cluster. The FCMA Toolbox correlates a given set of fixed time-intervals (blocks of TRs you specify) which together with some custom optimizations reduces the computational load to a matter of hours. A modest-sized cluster is still required to do the calculation. For that reason, a new toolbox was developed in the spirit of the Princeton <a href="http://code.google.com/p/princeton-mvpa-toolbox/">MVPA Toolbox</a> for Matlab, but is written in C++, OpenMP, and OpenMPI for greater performance and scalability.</p><br>
+			<p>Below are instructions for users that have access to an FCMA cluster backend such as <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI. Instructions for how to set up an FCMA cluster for system administrators are available on the <a href="cluster">cluster</a> page.</p><br>
+		</blockquote>
+		<div class="well">
+			<a name="using"></a>
+			<h3>Using FCMA</h3>
+			<ul>
+				<li><h4>Generate an FCMA file for voxel selection</h4>
+				The FCMA program input parameters are provided via a configuration file with the ".fcma" extension (see <a href="config/#reference">description of the key parameters</a>.) You can create an .fcma file in one of three ways:
+				<ol>
+					<li><strong>Online</strong> [<em>recommended</em>]: Run the <a href="config">FCMA File Generator</a> to generate one online </li>
+					<br>
+					<strong><em>OR</em></strong>
+					<br><br>
+					<li><strong>Command line</strong>: Run
+						<pre>pni_fcma_config </pre> 
+					when logged in to the FCMA server (e.g., <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI.)</li>
+					<br>
+					<strong><em>OR</em></strong>
+					<br><br>
+					<li><strong>Text editor</strong>: Power users can edit the FCMA files themselves directly:
+						<ol>
+							<br>
+							<li><a href="template.fcma">FCMA Voxel Selection Template</a>, and</li>
+							<br>
+							<li><a href="template_testing.fcma">FCMA Prediction Testing Template</a></li>
+							<br>
+						</ol>
+						used in the first and second phase of the analysis, respectively. The template contains lines of instructions above each parameter setting. On rondo, the template is available via the path <code>/opt/pni/doc/template.fcma</code>. The process for editing is therefore:
+						<pre>cp /opt/pni/doc/template.fcma myparams.fcma</pre>
+						(copies template 1 into your workspace, where you can edit it with your favorite text <code>$EDITOR</code> (<code>vim, emacs, nano</code> etc):
+							<pre>$EDITOR myparams.fcma </pre> 						
+					</li>
+				</ol>
+				<em>PNI users: "FCMA server" means rondo. However, an .fcma file will work on any computational cluster <a href="cluster">properly set up</a> for FCMA.</em>
+				<br><br>
+				<li><h4>Copy (or Paste) your FCMA file to the FCMA server</h4>
+				This can be done via
+					<pre>scp myparams.fcma user@server:</pre>
+				This will copy the file to your home directory. If you use the <a href="config">generator</a> you have the option of cutting & pasting the file it posts in the window directly into an editor.
+				</li><br>
+				<li><h4>Run FCMA on the server</h4>
+				Once you have your .fcma file transferred to rondo and you are logged in, the command which will launch an FCMA as a parallel job is:
+						<pre>pni_fcma_submit myparams.fcma </pre>
+				Since the log files will be written to your working directory, you may want to move the .fcma file to a dedicated directory and change your working directory to it, before running. (If you edit the .fcma file directly and you have used absolute rather than relative paths, you can run from any working directory.)
+				<br><br>
+				<em>PNI Users: please use a subdirectory of /gigatmp for all files related to your analysis</em>
+				</li><br>
+				<li><h4>Monitor progress</h4>
+				You can then monitor progress by dynamically "tailing" the log file produced by the job:
+					<pre>tail -f myparams.oJOBID</pre> 
+				where JOBID is the job number associated with your job (printed to console; you can also look for the file most recently updated in your current directory.) You can check the status of the job via the scheduler command:
+					<pre>qstat -t</pre>
+				If something is horribly wrong you can delete the job (which will also kill all the related subtasks) via:
+					<pre>qdel JOBID</pre>
+				</li><br>
+				<li><h4>Make mask(s) for top k voxels</h4>
+				The output of the first FCMA run will give you voxels in order of their predictive performance (using SVM). You'll want to choose the top k voxels (where k below 2000 is typically sufficient) and create NiFTI mask(s) for them. (This process will be incorporated in the next toolbox update.)
+				</li><br>
+				<li><h4>Create an FCMA file to test accuracy and repeat</h4>
+				This time, choose "2 - Testing predictive accuracy" (if using the <a href="config">FCMA File Generator</a>) and run a second time. The testing phase does not require more than one cluster computer, but for convenience the procedure for running is identical in both stages: run <code>pni_fcma_submit myparams.fcma</code> substituting your FCMA file for the one in the example.
+				</li>
+			</ul>
+		</div>
+		<br>
+		<div class="well">
+			<a name="notes"></a>
+			<h3>Notes</h3>
+			<ul>
+				<li>Code by <a href="http://www.cs.princeton.edu/~yidawang/">Yida Wang</a> and <a href="http://princeton.edu/~bdsinger/">Ben Singer</a>, as part of research being carried out at the <a href="http://www.pni.princeton.edu/">Princeton Neuroscience Institute</a> in the <a href="http://www.princeton.edu/ntblab/">Turk-Browne</a>, <a href="http://www.cs.princeton.edu/~li/">Li</a>, and <a href="http://www.pni.princeton.edu/ncc/">Cohen</a> labs.</li>
+			</ul>
+		</div>
+		<br>
+		<div class="well">
+			<a name="refs"></a>
+			<h3>References</h3>
+			<ul>
+				<li></li>
+			</ul>
+		</div>
+		<br>
+		<div class="well">
+			<a name="help"></a>
+			<h3>Getting Help</h3>
+			<ul>
+				<li>Please contact <a href="http://www.cs.princeton.edu/~yidawang/">Yida Wang</a> or <a href="http://princeton.edu/~bdsinger/">Ben Singer</a></li>
+			</ul>
+		</div>
+	</div>
 </body> 
 </html>
