@@ -1,6 +1,7 @@
 #include <mpi.h>
 #include "common.h"
 #include "Preprocessing.h"
+#include "FileProcessing.h"
 #include "Scheduler.h"
 #include "SVMPredictor.h"
 #include "SVMPredictorWithMasks.h"
@@ -219,7 +220,13 @@ int main(int argc, char** argv)
   {
     int l = 0, result = 0, f = 0;
     cout<<"data directory: "<<fmri_directory<<endl;
-    cout<<"mask file(s): "<<mask_file1<<" "<<mask_file2<<endl;
+    if (mask_file1!=NULL)
+    {
+      cout<<"mask file(s): "<<mask_file1<<" ";
+      if (mask_file2!=NULL)
+        cout<<mask_file2;
+      cout<<endl;
+    }
     cout<<"task type: "<<taskType<<endl;
     switch (taskType)
     {

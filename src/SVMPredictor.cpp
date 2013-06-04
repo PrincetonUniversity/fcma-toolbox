@@ -3,6 +3,7 @@
 #include "MatComputation.h"
 #include "LibSVM.h"
 #include "Preprocessing.h"
+#include "FileProcessing.h"
 //#include "Searchlight.h"
 
 /***************************************
@@ -82,7 +83,6 @@ void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* tr
       }
       x[k+1].index = -1;
       double predict_label = svm_predict(model, x);
-      //cout<<predict_label<<" "<<trials[j].label; getchar();
       if ((double)trials[j].label == predict_label)
       {
         result++;

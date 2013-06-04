@@ -17,6 +17,7 @@
 #include <cmath>
 //#include <omp.h>
 #include <iomanip>
+#include <nifti1_io.h>
 
 using namespace std;
 
@@ -24,6 +25,8 @@ using namespace std;
 #define MAXTRIAL 10000
 #define MAXTASK 10000
 #define TINYNUM 1e-4
+#define MAXFILENAMELENGTH 300
+#define MAXSUBJS 100
 
 typedef unsigned long long uint64;
 typedef unsigned short uint16;
@@ -80,6 +83,7 @@ typedef struct trial_t  //data structure for the start and end point of a trial
   int sid;
   int label;
   int sc, ec;
+  int tid_withinsubj; // block id within each subject, to be used in averaged matrix of searchlight
 }Trial;
 
 typedef struct voxel_Score_t

@@ -3,9 +3,10 @@
 #include "Classification.h"   // for distance ratio
 #include "Scheduler.h"
 #include "Preprocessing.h"    // for z-score across blocks within subjects
+#include "FileProcessing.h"   // for generating masked matrices, writing nifti files
 #include "common.h"
 
-// don't forget shift 2!!
+// don't forget shift 2!! we can speficy the shifting in the block file, but we don't use shifting for face/scene dataset
 
 /***********************************
 main function of this file, do the traditional feature selection and classification
@@ -15,22 +16,42 @@ output: write the voxels in decreasing order of classification accuracy to the t
 void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, Point* pts, const char* topVoxelFile, const char* maskFile)
 {
   RawMatrix** masked_matrices=NULL;
+  Point* masked_pts=NULL;
   if (maskFile!=NULL)
+  {
     masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile);
+    masked_pts = GetMaskedPts(pts, masked_matrices[0]->row, maskFile);
+  }
   else
+  {
     masked_matrices = avg_matrices;
+    masked_pts = pts;
+  }
   int i;
   int row = masked_matrices[0]->row;  // assume all elements in r_matrices array have the same row
   cout<<"#voxels for mask: "<<row<<endl;
-  VoxelScore* scores = GetSearchlightSVMPerformance(masked_matrices, trials, nTrials, nTests, nFolds, pts);
+  VoxelScore* scores = GetSearchlightSVMPerformance(masked_matrices, trials, nTrials, nTests, nFolds, masked_pts);
   sort(scores, scores+row, cmp);
-  ofstream ofile(topVoxelFile);
+  char fullfilename[MAXFILENAMELENGTH];
+  sprintf(fullfilename, "%s", topVoxelFile);
+  strcat(fullfilename, "_list.txt");
+  ofstream ofile(fullfilename);
   for (i=0; i<row; i++)
   {
     ofile<<scores[i].vid<<" "<<scores[i].score<<endl;
   }
   ofile.close();
+  int* data_ids = (int*)GenerateNiiDataFromMask(maskFile, scores, row, DT_SIGNED_INT);
+  sprintf(fullfilename, "%s", topVoxelFile);
+  strcat(fullfilename, "_seq.nii.gz");
+  WriteNiiGzData(fullfilename, maskFile, (void*)data_ids, DT_SIGNED_INT);
+  float* data_scores = (float*)GenerateNiiDataFromMask(maskFile, scores, row, DT_FLOAT32);
+  sprintf(fullfilename, "%s", topVoxelFile);
+  strcat(fullfilename, "_score.nii.gz");
+  WriteNiiGzData(fullfilename, maskFile, (void*)data_scores, DT_FLOAT32);
   delete scores;
+  if (maskFile!=NULL)
+    delete masked_pts;
 }
 
 /****************************************
@@ -80,21 +101,22 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
   prob->l = nTrainings;
   prob->y = new double[nTrainings];
   prob->x = new SVMNode*[nTrainings];
-  int i, j;
   int nVoxels = avg_matrices[0]->row;
   int* voxels = GetSphere(curVoxel, nVoxels, pts);
   int nSphereVoxels = 33;
-  for (i=0; i<nTrainings; i++)
+  #pragma omp parallel for
+  for (int i=0; i<nTrainings; i++)
   {
     //cout<<trials[i].tid<<" "<<trials[i].sid<<" "<<trials[i].label<<" "<<trials[i].sc<<" "<<trials[i].ec<<endl;
     prob->y[i] = trials[i].label;
     prob->x[i] = new SVMNode[nSphereVoxels+1];
     int sid = trials[i].sid;
+    int j;
     for (j=0; j<nSphereVoxels; j++)
     {
       prob->x[i][j].index = j+1;
       int col = avg_matrices[sid]->col;
-      int offset = (trials[i].sc-5)/20; //ad hoc here, for this dataset only!!!!
+      int offset = trials[i].tid_withinsubj;
       if (voxels[j]!=-1)
       {
         prob->x[i][j].value = avg_matrices[sid]->matrix[voxels[j]*col+offset];
@@ -103,6 +125,7 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
       {
         prob->x[i][j].value = 0;
       }
+      //cout<<voxels[j]; getchar();
     }
     prob->x[i][j].index = -1;
   }

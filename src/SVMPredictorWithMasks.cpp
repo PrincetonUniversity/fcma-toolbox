@@ -3,6 +3,7 @@
 #include "MatComputation.h"
 #include "LibSVM.h"
 #include "Preprocessing.h"
+#include "FileProcessing.h"
 #include "SVMPredictor.h"
 #include <nifti1_io.h>
 
@@ -60,6 +61,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
     }
     x[j+1].index = -1;
     double predict_label = svm_predict(model, x);
+    cout<<predict_label<<" "<<trials[j].label; getchar();/////////
     if ((double)trials[i].label == predict_label)
     {
       result++;

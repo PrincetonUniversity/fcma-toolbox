@@ -5,8 +5,10 @@
 #include "CorrMatAnalysis.h"
 #include "Classification.h"
 #include "Preprocessing.h"
+#include "FileProcessing.h"
 #include "SVMClassification.h"
 
+// assuming that two mask files are the same, which is the full brain mask
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2)
 {
   RawMatrix** masked_matrices1=NULL;
@@ -25,7 +27,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskTyp
     int row2 = masked_matrices2[0]->row;
     cout<<"#voxels for mask 1: "<<row1<<endl;
     cout<<"#voxels for mask 2: "<<row2<<endl;
-    DoMaster(nprocs, step, row1, output_file);
+    DoMaster(nprocs, step, row1, output_file, mask_file1);
   }
   else
   {
@@ -41,8 +43,9 @@ bool cmp(VoxelScore w1, VoxelScore w2)
 
 /* the master node splits the tasks and assign them to slave nodes. 
 When a slave nodes return, the master node would send another tasks to it. 
-The master node finally collects all results and sort them to write to a file. */
-void DoMaster(int nprocs, int step, int row, const char* output_file)
+The master node finally collects all results and sort them to write to a file. 
+The mask file here is the sample nifti file for writing */
+void DoMaster(int nprocs, int step, int row, const char* output_file, const char* mask_file)
 {
   int curSr = 0;
   int i, j;
@@ -177,12 +180,24 @@ void DoMaster(int nprocs, int step, int row, const char* output_file)
   }
   sort(scores, scores+totalLength, cmp);
   cout<<"Total length: "<<totalLength<<endl;
-  ofstream ofile(output_file);
+  // deal with output_file here////////////////////////////////////////////
+  char fullfilename[MAXFILENAMELENGTH];
+  sprintf(fullfilename, "%s", output_file);
+  strcat(fullfilename, "_list.txt");
+  ofstream ofile(fullfilename);
   for (j=0; j<totalLength; j++)
   {
     ofile<<scores[j].vid<<" "<<scores[j].score<<endl;
   }
   ofile.close();
+  int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, totalLength, DT_SIGNED_INT);
+  sprintf(fullfilename, "%s", output_file);
+  strcat(fullfilename, "_seq.nii.gz");
+  WriteNiiGzData(fullfilename, mask_file, (void*)data_ids, DT_SIGNED_INT);
+  float* data_scores = (float*)GenerateNiiDataFromMask(mask_file, scores, totalLength, DT_FLOAT32);
+  sprintf(fullfilename, "%s", output_file);
+  strcat(fullfilename, "_score.nii.gz");
+  WriteNiiGzData(fullfilename, mask_file, (void*)data_scores, DT_FLOAT32);
 }
 
 /* the slave node listens to the master node and does the task that the master node assigns. 
