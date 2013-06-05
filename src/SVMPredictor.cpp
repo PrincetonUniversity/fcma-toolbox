@@ -14,29 +14,41 @@ output: the results are displayed on the screen
 void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file)
 {
   RawMatrix** masked_matrices=NULL;
-  if (mask_file!=NULL)
-    masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file);
-  else
-    masked_matrices = r_matrices;
-  int row = masked_matrices[0]->row;
-  int col = masked_matrices[0]->col;
+  int row = 0;
+  int col = 0;
   svm_set_print_string_function(&print_null);
-  VoxelScore* scores = ReadTopVoxelFile(topVoxelFile, row);
-  RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
+  VoxelScore* scores = NULL;
   int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 4000, 5000, 10000, 20000, 34470};
   switch (taskType)
   {
     case 0:
     case 1:
+      if (mask_file!=NULL)
+        masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file);
+      else
+        masked_matrices = r_matrices;
+      row = masked_matrices[0]->row;
+      col = masked_matrices[0]->col;
+      scores = ReadTopVoxelFile(topVoxelFile, row);
+      RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
       CorrelationBasedClassification(tops, nSubs, nTrials, trials, nTests, masked_matrices);
       break;
-    case 2: // not right now
-      ActivationBasedClassification(tops, nTrials, trials, nTests, avg_matrices);
+    case 2:
+      if (mask_file!=NULL)
+        masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
+      else
+        masked_matrices = avg_matrices;
+      row = masked_matrices[0]->row;
+      col = masked_matrices[0]->col;
+      scores = ReadTopVoxelFile(topVoxelFile, row);
+      RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
+      ActivationBasedClassification(tops, nTrials, trials, nTests, masked_matrices);
       break;
     default:
       cerr<<"Unknown task type"<<endl;
       exit(1);
   }
+  delete scores;
 }
 
 /**********************************************
@@ -72,6 +84,8 @@ void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* tr
     int nTrainings = nTrials-nTests;
     SVMNode* x = new SVMNode[nTrainings+2];
     int result = 0;
+    double predict_distances[nTrials-nTrainings];
+    bool predict_correctness[nTrials-nTrainings];
     for (j=nTrainings; j<nTrials; j++)
     {
       x[0].index = 0;
@@ -82,13 +96,33 @@ void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* tr
         x[k+1].value = simMatrix[j*nTrials+k];
       }
       x[k+1].index = -1;
-      double predict_label = svm_predict(model, x);
-      if ((double)trials[j].label == predict_label)
+      predict_distances[j-nTrainings] = svm_predict_distance(model, x);
+      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      if (trials[j].label == predict_label)
       {
         result++;
+        predict_correctness[j-nTrainings] = true;
+      }
+      else
+      {
+        predict_correctness[j-nTrainings] = false;
       }
     }
     cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
+    cout<<"blocking testing confidence:"<<endl;
+    for (j=nTrainings; j<nTrials; j++)
+    {
+      cout<<fabs(predict_distances[j-nTrainings])<<" (";
+      if (predict_correctness[j-nTrainings])
+      {
+        cout<<"Correct) ";
+      }
+      else
+      {
+        cout<<"Incorrect) ";
+      }
+    }
+    cout<<endl;
     svm_free_and_destroy_model(&model);
     delete x;
     delete prob->y;
@@ -128,7 +162,7 @@ void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nT
       {
         prob->x[j][k].index = k+1;
         int col = avg_matrices[sid]->col;
-        int offset = (trials[j].sc-5)/20; //ad hoc here, for this dataset only!!!!
+        int offset = trials[j].tid_withinsubj;
         prob->x[j][k].value = avg_matrices[sid]->matrix[k*col+offset];
       }
       prob->x[j][k].index = -1;
@@ -136,6 +170,8 @@ void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nT
     struct svm_model *model = svm_train(prob, param);
     SVMNode* x = new SVMNode[tops[i]+1];
     int result = 0;
+    double predict_distances[nTrials-nTrainings];
+    bool predict_correctness[nTrials-nTrainings];
     for (j=nTrainings; j<nTrials; j++)
     {
       int sid = trials[j].sid;
@@ -143,17 +179,37 @@ void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nT
       {
         x[k].index = k+1;
         int col = avg_matrices[sid]->col;
-        int offset = (trials[j].sc-5)/20; //ad hoc here, for this dataset only!!!!
+        int offset = trials[j].tid_withinsubj;
         x[k].value = avg_matrices[sid]->matrix[k*col+offset];
       }
       x[k].index = -1;
-      double predict_label = svm_predict(model, x);
-      if ((double)trials[j].label == predict_label)
+      predict_distances[j-nTrainings] = svm_predict_distance(model, x);
+      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      if (trials[j].label == predict_label)
       {
         result++;
+        predict_correctness[j-nTrainings] = true;
+      }
+      else
+      {
+        predict_correctness[j-nTrainings] = false;
       }
     }
     cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
+    cout<<"blocking testing confidence:"<<endl;
+    for (j=nTrainings; j<nTrials; j++)
+    {
+      cout<<fabs(predict_distances[j-nTrainings])<<" (";
+      if (predict_correctness[j-nTrainings])
+      {
+        cout<<"Correct) ";
+      }
+      else
+      {
+        cout<<"Incorrect) ";
+      }
+    }
+    cout<<endl;
     svm_free_and_destroy_model(&model);
     delete x;
   }

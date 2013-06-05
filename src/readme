@@ -24,7 +24,7 @@ fixed some minor bugs
 allowed mask file data type to be float
 
 1.2.2
-allowed data type of data/mask file to be float
+allow data type of data/mask file to be float
 add a new input argument -e to specify the block file directory
 
 1.2.3
@@ -34,3 +34,7 @@ fix a bug in SVMPredictorWithMasks.cpp. When computing the correlation matrices 
 separate the file related functions into a new file FileProcessing.cpp/h.
 write voxel selection results in nifti format, produce two files, one stores the voxel sequences, the other stores the voxel scores. a nifti file should be provided as the reference (will copy its nifti_image and only replace nbyter, datatype and data of the struct). the previous voxel list output in txt format is also kept for now. users provide a file prefix of output files, '_list.txt', '_seq.nii.gz', '_score.nii.gz' will be added for three output files.
 the previous change also applied to searchlight voxel selection. fixed a bug in searchlight, the voxel location array also needs to be masked when a mask file is applied.
+
+1.3.1
+output real values for each test item in test tasks
+fix minor bugs in SVMPredictor.cpp

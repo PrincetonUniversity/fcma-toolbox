@@ -50,6 +50,8 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   struct svm_model *model = svm_train(prob, param);
   int nTrainings = nTrials-nTests;
   SVMNode* x = new SVMNode[nTrainings+2];
+  double predict_distances[nTrials-nTrainings];
+  bool predict_correctness[nTrials-nTrainings];
   for (i=nTrainings; i<nTrials; i++)
   {
     x[0].index = 0;
@@ -60,13 +62,32 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
       x[j+1].value = simMatrix[i*nTrials+j];
     }
     x[j+1].index = -1;
-    double predict_label = svm_predict(model, x);
-    cout<<predict_label<<" "<<trials[j].label; getchar();/////////
-    if ((double)trials[i].label == predict_label)
+    predict_distances[i-nTrainings] = svm_predict_distance(model, x);
+    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    if (trials[i].label == predict_label)
     {
       result++;
+      predict_correctness[i-nTrainings] = true;
+    }
+    else
+    {
+      predict_correctness[i-nTrainings] = false;
     }
   }
+  cout<<"blocking testing confidence:"<<endl;
+  for (i=nTrainings; i<nTrials; i++)
+  {
+    cout<<fabs(predict_distances[i-nTrainings])<<" (";
+    if (predict_correctness[i-nTrainings])
+    {
+      cout<<"Correct) ";
+    }
+    else
+    {
+      cout<<"Incorrect) ";
+    }
+  }
+  cout<<endl;
   svm_free_and_destroy_model(&model);
   delete x;
   delete prob->y;
@@ -157,13 +178,15 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
     {
       prob->x[i][j].index = j+1;
       int col = masked_matrices[sid]->col;
-      int offset = (trials[i].sc-4)/20; //ad hoc here, for this dataset only!!!! from the block number (0 based) from starting TR
+      int offset = trials[i].tid_withinsubj;
       prob->x[i][j].value = masked_matrices[sid]->matrix[j*col+offset];
     }
     prob->x[i][j].index = -1;
   }
   struct svm_model *model = svm_train(prob, param);
   SVMNode* x = new SVMNode[nVoxels+1];
+  double predict_distances[nTrials-nTrainings];
+  bool predict_correctness[nTrials-nTrainings];
   int result = 0;
   for (i=nTrainings; i<nTrials; i++)
   {
@@ -172,15 +195,50 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
     {
       x[j].index = j+1;
       int col = masked_matrices[sid]->col;
-      int offset = (trials[i].sc-4)/20; //ad hoc here, for this dataset only!!!! from the block number (0 based) from starting TR
+      int offset = trials[i].tid_withinsubj;
       x[j].value = masked_matrices[sid]->matrix[j*col+offset];
     }
     x[j].index = -1;
-    double predict_label = svm_predict(model, x);
-    if ((double)trials[i].label == predict_label)
+    predict_distances[i-nTrainings] = svm_predict_distance(model, x);
+    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    if (trials[i].label == predict_label)
     {
       result++;
+      predict_correctness[i-nTrainings] = true;
+    }
+    else
+    {
+      predict_correctness[i-nTrainings] = false;
     }
   }
+  cout<<"blocking testing confidence:"<<endl;
+  for (i=nTrainings; i<nTrials; i++)
+  {
+    cout<<fabs(predict_distances[i-nTrainings])<<" (";
+    if (predict_correctness[i-nTrainings])
+    {
+      cout<<"Correct) ";
+    }
+    else
+    {
+      cout<<"Incorrect) ";
+    }
+  }
+  cout<<endl;
+  svm_free_and_destroy_model(&model);
+  delete x;
+  delete prob->y;
+  for (i=0; i<nTrainings; i++)
+  {
+    delete prob->x[i];
+  }
+  delete prob->x;
+  delete prob;
+  svm_destroy_param(param);
+  for (i=0; i<nSubs; i++)
+  {
+    delete masked_matrices[i]->matrix;
+  }
+  delete masked_matrices;
   return result;
 }

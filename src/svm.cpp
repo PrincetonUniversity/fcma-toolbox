@@ -2667,6 +2667,23 @@ double svm_predict(const svm_model *model, const svm_node *x)
 	return pred_result;
 }
 
+// output the distance to the hyperplane, now only deal with 2-class classification
+double svm_predict_distance(const struct svm_model *model, const struct svm_node *x)
+{
+	int nr_class = model->nr_class;
+	double *dec_values;
+	if(model->param.svm_type == ONE_CLASS ||
+	   model->param.svm_type == EPSILON_SVR ||
+	   model->param.svm_type == NU_SVR)
+		dec_values = Malloc(double, 1);
+	else 
+		dec_values = Malloc(double, nr_class*(nr_class-1)/2);
+  svm_predict_values(model, x, dec_values);
+  double pred_distance = dec_values[0];
+	free(dec_values);
+	return pred_distance;
+}
+
 double svm_predict_probability(
 	const svm_model *model, const svm_node *x, double *prob_estimates)
 {
