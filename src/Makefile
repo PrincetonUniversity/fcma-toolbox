@@ -5,7 +5,7 @@ CXXFLAGS = -I/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6/include -I/usr/lib/gcc/x86
 WARNINGFLAGS = -Wall -Werror -Wextra #-Wno-unused-but-set-parameter
 LDFLAGS=-L/opt/pkg/NIFTICLIB/nifticlib-2.0.0/lib -L/opt/pkg/GOTOBLAS2/gotoblas2-1.13-gcc44 -L/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6
 LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran #-lstdc++ -lgomp
-OBJ = svm.o Preprocessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
+OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
 
 pni_fcma: $(OBJ)
 	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
@@ -15,6 +15,9 @@ svm.o: svm.h
 
 Preprocessing.o: common.h Preprocessing.h
 	$(GXX) -c Preprocessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+FileProcessing.o: common.h Preprocessing.h
+	$(GXX) -c FileProcessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 MatComputation.o: common.h MatComputation.h
 	$(GXX) -c MatComputation.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
@@ -49,4 +52,5 @@ main.o: common.h
 PROGS=pni_fcma
 
 clean:
-		rm -f $(PROGS) $(OBJ) *~
+	rm -f $(PROGS) $(OBJ) *~
+
