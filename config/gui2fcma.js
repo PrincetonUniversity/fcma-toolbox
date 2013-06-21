@@ -3,6 +3,7 @@
  *
  * FCMA File Generator
  * Uses dat.gui.js as the gui for creating an .fcma file interactively
+ *   bdsinger@princeton.edu
  */
  
 var base = '/gigatmp/scratch/me/project/';
@@ -122,6 +123,7 @@ var params = {
   	blocksInput: blocksList[0],
   	task_type: kSelectionSVM_FCMA,
   	classifier: classifierList[0],
+        num_folds_in_feature_selection:5,
   	first_left_out_block_id:5,
   	num_items_held_for_test:0,
   	is_test_mode: 0,
@@ -147,7 +149,10 @@ var guiLoader = function() {
   var ctrlArray = new Array;
   ctrlArray.push( gui.add(params, 'analysisStage', analysisList).name('Analysis stage') );
 
-  var blf = gui.addFolder('Blocks to leave out for cross-validation (accuracy prediction stage only)');
+  var nff = gui.addFolder('Number of folds to use during voxel selection');
+  ctrlArray.push( nff.add(params, 'num_folds_in_feature_selection').min(0).max(20).step(1).name('Number of folds') );
+
+  var blf = gui.addFolder('Blocks to leave out for cross-validation (prediction stage)');
   ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(20).step(1).name('Beginning block ID') );
   ctrlArray.push( blf.add(params, 'num_items_held_for_test').min(0).max(20).step(1).name('Number of blocks (0 to disable)') );
   
@@ -172,6 +177,7 @@ var guiLoader = function() {
   blockF.open();
   maskF.open();
   blf.open();
+  nff.open();
   
   ctrlArray.forEach(changeNotifier);
   
