@@ -2,15 +2,23 @@
 set -u
 #set -e
 
+# estimate runtime based on total
+# number of blocks. this ignores #voxels
+# in mask!
+# todo: do empirical tests + get #voxels
+SECS_PER_BLOCK=2000
+
 #defaults 
 DRY_RUN=0
 VERBOSE=0
+SHOWTIME=1
 APP=pni_fcma
 
 (( $# == 0 )) && printf "usage: %s jobfile.fcma.\n\tsee http://princetonuniversity.github.io/fcma-toolbox for more info.\n" $(basename $0) && exit 1
 (( $# > 0 )) && JOBFILE=$1
 (( $# > 1 )) && [[ $@ =~ dry ]] && DRY_RUN=1
 ( [[ $* =~ verb ]] || (( DRY_RUN == 1 )) ) && VERBOSE=1
+(( VERBOSE > 0 )) && SHOWTIME=1
 
 # prefix commands that launch jobs with
 # dryecho -- on dryrun just prints command
@@ -60,13 +68,13 @@ jtemp=$(mktemp)
 grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
 for (( i=$app_arg_index; i<$numflags; i+=2 )); do
 	(( j = i + 1 ))
-        (( VERBOSE > 0 )) && echo "i=$i , j=$j"
 	# substitute the corresponding flag from above
 	key="${key_and_flags[$i]}"
 	flag="${key_and_flags[$j]}"
 	line="$(grep $key: $jtemp)"
 	[[ x$line == x ]] && echo "skipping $key" && continue
 	app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
+        (( VERBOSE > 0 )) && echo "($i,$j) ($key,$flag) args:$app_args"
 done
 
 N=$(hget $jtemp num_processors)
@@ -86,6 +94,51 @@ module load fcma >/dev/null 2>&1
 which mpiexec >/dev/null 2>&1
 (( $? )) && echo "error: mpiexec not in path; please ask sysadmin how to load MPI" && exit 1
 
+# need rough algorithm to estimate wait time based on jobfile
+# num input files
+datadir="$(hget $jtemp datafiles)"
+nfiles=$(ls -l $datadir | wc -l)
+if [[ $app_args =~ ' -b ' ]]; then
+  blockfile0="$(hget $jtemp blockfile)"
+else
+  blockdir="$(hget $jtemp blockdir)"
+  blockfile0="$(ls $blockdir | head -n 1)"
+fi
+nblocksperfile=$(head -n 1 $blockfile0)
+(( cores = N * M ))
+(( nblocks = nblocksperfile * nfiles ))
+(( serialsecs = nblocks * SECS_PER_BLOCK ))
+parasecs="$(echo "scale=2; $serialsecs / $cores + 0.5" | bc)"
+hours="$(echo "round($parasecs/3600.0)" | bc)"
+if (( SHOWTIME > 0 )); then
+  if (( VERBOSE > 0 )); then
+    printf "\nTIME ESTIMATE:\n$nfiles datafiles, $nblocksperfile blocks per file, $nblocks total blocks.\nAssuming $SECS_PER_BLOCK secs/block, serial runtime is $serialsecs secs.\nWith $N nodes each using $M cores, that work will be divided across $cores cores ($parasecs secs).\nSo, estimated HH:MM:SS walltime: $walltime \n(*note*: there's a 1 hour minimum, and ignoring #voxels in mask for now)\n\n"
+  else
+    printf "\nEstimated run time in hours: $hours\n\n"
+  fi
+fi
 
-OMP_NUM_THREADS=$M mpiexec -np $N $APP $app_args
+(( hours < 1 )) && hours=1
+walltime="$(printf "%02d:00:00" $hours)"
+
+tmpf=$(mktemp)
+cat<<EOF >$tmpf
+#PBS -l nodes=$N:ppn=$M,walltime=$walltime
+. /usr/share/Modules/init/bash
+module load fcma
+export OMP_NUM_THREADS=$M
+mpirun -bynode -np $N $APP $app_args
+EOF
+
+if (( DRY_RUN == 1 )); then
+  echo "would submit the following job script:"
+  echo
+  echo "----------------BEGIN---------"
+  cat $tmpf
+  echo "----------------END-----------"
+  echo
+else
+  jobname="$(basename $JOBFILE)"
+  exec qsub -N $jobname $tmpf
+fi
 
