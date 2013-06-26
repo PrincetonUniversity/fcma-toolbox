@@ -87,5 +87,5 @@ which mpiexec >/dev/null 2>&1
 (( $? )) && echo "error: mpiexec not in path; please ask sysadmin how to load MPI" && exit 1
 
 
-exec "OMP_NUM_THREADS=$M mpiexec -np $N $APP $app_args"
+OMP_NUM_THREADS=$M mpiexec -np $N $APP $app_args
 
