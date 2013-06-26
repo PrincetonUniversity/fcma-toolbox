@@ -1,53 +1,53 @@
-GXX=g++44
-MPICXX=mpic++ 
-MPIFLAGS=-I/usr/local/openmpi/1.4.5/gcc/x86_64/include
-CXXFLAGS = -I/usr/lib/gcc/x86_64-redhat-linux6E/4.4.7/include -I/usr/lib/gcc/x86_64-redhat-linux6E/4.4.7/finclude -I/tigress/PNI/include -O3 -fopenmp -fPIC -g
-WARNINGFLAGS = -Wall -Werror -Wextra #-Wno-unused-but-set-parameter
-LDFLAGS=-L/tigress/PNI/lib -L/usr/lib/gcc/x86_64-redhat-linux6E/4.4.7
-LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran #-lstdc++ -lgomp
+CXX = icc
+MPICXX = mpic++
+MPIFLAGS = $(LOCAL_CXXFLAGS)
+CXXFLAGS = -I/tigress/PNI/include -O3 -fopenmp -fPIC -g
+WARNINGFLAGS = -Wall -Werror -Wextra
+LDFLAGS = -L/tigress/PNI/lib $(LOCAL_LDFLAGS)
+LD_LIBS = -lgoto2 -lniftiio -lznz -lz -lgfortran
 OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
 
 pni_fcma: $(OBJ)
-	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
+	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
 
 svm.o: svm.h
-	$(GXX) -c svm.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c svm.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 Preprocessing.o: common.h Preprocessing.h
-	$(GXX) -c Preprocessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c Preprocessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 FileProcessing.o: common.h Preprocessing.h
-	$(GXX) -c FileProcessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c FileProcessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 MatComputation.o: common.h MatComputation.h
-	$(GXX) -c MatComputation.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c MatComputation.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 CorrMatAnalysis.o: common.h CorrMatAnalysis.h
-	$(GXX) -c CorrMatAnalysis.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c CorrMatAnalysis.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 Classification.o: common.h Classification.h
-	$(GXX) -c Classification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c Classification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 Scheduler.o: common.h Scheduler.h
-	$(MPICXX) -c Scheduler.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
+	$(MPICXX) -c Scheduler.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
 
 LibSVM.o: common.h LibSVM.h
-	$(GXX) -c LibSVM.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c LibSVM.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 SVMClassification.o: common.h SVMClassification.h
-	$(GXX) -c SVMClassification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c SVMClassification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 SVMPredictor.o: common.h SVMPredictor.h
-	$(GXX) -c SVMPredictor.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c SVMPredictor.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 SVMPredictorWithMasks.o: common.h SVMPredictorWithMasks.h
-	$(GXX) -c SVMPredictorWithMasks.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c SVMPredictorWithMasks.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 Searchlight.o: common.h Searchlight.h
-	$(GXX) -c Searchlight.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c Searchlight.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 main.o: common.h
-	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
+	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
 
 PROGS=pni_fcma
 
