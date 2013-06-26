@@ -1,0 +1,91 @@
+#!/bin/bash
+set -u
+#set -e
+
+#defaults 
+DRY_RUN=0
+VERBOSE=0
+APP=pni_fcma
+
+(( $# == 0 )) && printf "usage: %s jobfile.fcma.\n\tsee http://princetonuniversity.github.io/fcma-toolbox for more info.\n" $(basename $0) && exit 1
+(( $# > 0 )) && JOBFILE=$1
+(( $# > 1 )) && [[ $@ =~ dry ]] && DRY_RUN=1
+( [[ $* =~ verb ]] || (( DRY_RUN == 1 )) ) && VERBOSE=1
+
+# prefix commands that launch jobs with
+# dryecho -- on dryrun just prints command
+(( DRY_RUN )) && dryecho="echo" || dryecho=""
+# or cat script not run it
+(( DRY_RUN )) && drycat="cat" || drycat=""
+
+# ----------------
+#      list of possible settings
+#      and corresponding cmdline flags
+# ----------------
+declare -a key_and_flags
+key_and_flags=(
+	omp_num_threads			'OMP_NUM_THREADS='
+	num_processors			'-np '
+	hostfile			'-hostfile '
+	exefile				' '
+	datadir				'-d '
+	matrix_format			'-m '
+	outputfile			'-t '
+	task_type			'-k '
+	blockfile			'-b '
+	blockdir			'-e '
+	rows_per_round			'-s '
+	first_left_out_block_id		'-l '
+	num_items_held_for_test		'-h '
+	is_test_mode			'-c '
+	num_folds_in_feature_selection	'-n '
+	first_maskfile			'-x '
+	second_maskfile			'-y '
+)
+numflags=${#key_and_flags[@]}
+
+hget() {
+	hfile=$1
+	grep $2 $1 | cut -d: -f2
+}
+
+#----------------
+
+# first app arg in list above is datadir,
+# index 8 (if starting from 0) -- row * 2 cols
+app_arg_index=8
+app_args=""
+# get lines that set a value
+jtemp=$(mktemp)
+grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
+for (( i=$app_arg_index; i<$numflags; i+=2 )); do
+	(( j = i + 1 ))
+        (( VERBOSE > 0 )) && echo "i=$i , j=$j"
+	# substitute the corresponding flag from above
+	key="${key_and_flags[$i]}"
+	flag="${key_and_flags[$j]}"
+	line="$(grep $key: $jtemp)"
+	[[ x$line == x ]] && echo "skipping $key" && continue
+	app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
+done
+
+N=$(hget $jtemp num_processors)
+[[ -z $N ]] && echo "num_processors must be specified" && exit 1
+M=$(hget $jtemp omp_num_threads)
+[[ -z $M ]] && echo "omp_num_threads must be specified" && exit 1
+uAPP="$(hget $jtemp exefile)"
+[[ -x $uAPP ]] && APP=$uAPP
+
+# -u will prevent Modules init/bash from running to completion
+set +u
+
+which module >/dev/null 2>&1
+(( $? )) && source /usr/share/Modules/init/bash
+module load fcma >/dev/null 2>&1
+(( $? )) && echo "warning: could not load fcma module; check installation"
+which mpiexec >/dev/null 2>&1
+(( $? )) && echo "error: mpiexec not in path; please ask sysadmin how to load MPI" && exit 1
+
+
+exec "OMP_NUM_THREADS=$M mpiexec -np $N $APP $app_args"
+
