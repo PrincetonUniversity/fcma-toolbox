@@ -16,3 +16,4 @@ float fisherTransformation(float v);
 void z_score(double* v, int n);
 RawMatrix** rawMatPreprocessing(RawMatrix** r_matrices, int n, int nTrials, Trial* trials);
 float getAverage(RawMatrix* r_matrix, Trial trial, int vid);
+void MatrixPermutation(RawMatrix** r_matrices, int nSubs);

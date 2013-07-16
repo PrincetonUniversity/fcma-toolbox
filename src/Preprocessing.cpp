@@ -200,8 +200,8 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
         }
       }*/
       for (j=0; j<count; j++)
-        buf[j] = fisherTransformation(buf[j]);
-        //buf[j] = fabs(buf[j]);
+        //buf[j] = fisherTransformation(buf[j]);
+        buf[j] = fabs(buf[j]);
       z_score(buf, count);
       count = 0;
       for (j=0; j<n; j++)
@@ -312,4 +312,31 @@ float getAverage(RawMatrix* r_matrix, Trial trial, int vid)
   }
   result /= (trial.ec-trial.sc+1);
   return result;
+}
+
+void MatrixPermutation(RawMatrix** r_matrices, int nSubs)
+{
+  int row = r_matrices[0]->row;
+  int col = r_matrices[0]->col;
+  int i, j;
+  uint16 buf[row];
+  srand(time(NULL));
+  ifstream ifile("/state/partition3/yidawang/face_scene/permBook1.txt", ios::in);
+  if (!ifile)
+  {
+		cerr<<"file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt"<<endl;
+    exit(1);
+	}
+  int k;
+  for (i=0; i<nSubs; i++)
+  {
+    for (j=0; j<row; j++)
+    {
+      ifile>>k;
+      memcpy((void*)buf, (const void*)&(r_matrices[i]->matrix[j*col]), col*sizeof(uint16));
+      memcpy((void*)&(r_matrices[i]->matrix[j*col]), (const void*)&(r_matrices[i]->matrix[k*col]), col*sizeof(double));
+      memcpy((void*)&(r_matrices[i]->matrix[k*col]), (const void*)buf, col*sizeof(double));
+    }
+  }
+  ifile.close();
 }

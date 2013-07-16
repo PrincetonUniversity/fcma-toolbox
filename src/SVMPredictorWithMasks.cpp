@@ -9,7 +9,7 @@
 
 /***************************************
 Get two parts of the brain to compute the correlation and then use the correlation vectors to predict
-input: the raw activation matrix array, the number of voxels, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples
+input: the raw activation matrix array, the number of subjects, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
 int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests)
