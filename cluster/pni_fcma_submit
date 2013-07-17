@@ -1,10 +1,9 @@
 #!/bin/bash
 set -u
-set -e
 
 #defaults 
-USE_QSUB=0
-DRY_RUN=1
+USE_QSUB=1
+DRY_RUN=0
 APP=pni_fcma
 
 (( $# == 0 )) && printf "%s jobfile.fcma. see http://princetonuniversity.github.io/fcma-toolbox for .fcma file format\n" && exit 1
@@ -63,7 +62,7 @@ for (( i=$app_arg_index; i<$numflags; i+=2 )); do
 	key="${key_and_flags[$i]}"
 	flag="${key_and_flags[$j]}"
 	line="$(grep $key: $jtemp)"
-	[[ -n $line ]] && app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
+	[[ X != X${line} ]] && app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
 done
 
 N=$(hget $jtemp num_processors)
