@@ -26,7 +26,6 @@ declare -a key_and_flags
 key_and_flags=(
 	omp_num_threads			'OMP_NUM_THREADS='
 	num_processors			'-np '
-	hostfile			'-hostfile '
 	exefile				' '
 	datadir				'-d '
 	matrix_format			'-m '
@@ -53,7 +52,7 @@ hget() {
 
 # first app arg in list above is datadir,
 # index 8 (if starting from 0) -- row * 2 cols
-app_arg_index=8
+app_arg_index=6
 app_args=""
 # get lines that set a value
 jtemp=$(mktemp)
@@ -64,7 +63,7 @@ for (( i=$app_arg_index; i<$numflags; i+=2 )); do
 	key="${key_and_flags[$i]}"
 	flag="${key_and_flags[$j]}"
 	line="$(grep $key: $jtemp)"
-	app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
+	[[ -n $line ]] && app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
 done
 
 N=$(hget $jtemp num_processors)
