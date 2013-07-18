@@ -6,6 +6,7 @@
 #include "SVMPredictor.h"
 #include "SVMPredictorWithMasks.h"
 #include "Searchlight.h"
+#include "CorrelationVisualization.h"
 #include "svm.h"
 
 Param Parameters;
@@ -205,6 +206,8 @@ int main(int argc, char** argv)
   /* data reading done */
   /* ----------------------------------------------- */
   /* main program begins */
+  //VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2, trials[0], "visualization.nii.gz");
+  //exit(1);
   double tstart = MPI_Wtime();
   int row = r_matrices[0]->row;
   RawMatrix** avg_matrices = NULL;

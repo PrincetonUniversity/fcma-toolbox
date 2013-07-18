@@ -16,14 +16,14 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskTyp
   if (mask_file1!=NULL)
   {
     masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1);
-    MatrixPermutation(masked_matrices1, nSubs);
+    //MatrixPermutation(masked_matrices1, nSubs);
   }
   else
     masked_matrices1 = r_matrices;
   if (mask_file2!=NULL)
   {
     masked_matrices2 = GetMaskedMatrices(r_matrices, nSubs, mask_file2);
-    MatrixPermutation(masked_matrices2, nSubs);
+    //MatrixPermutation(masked_matrices2, nSubs);
   }
   else
     masked_matrices2 = r_matrices;

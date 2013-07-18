@@ -1,4 +1,6 @@
+#include "CorrelationVisualization.h"
 #include "FileProcessing.h"
+#include "MatComputation.h"
 #include <nifti1_io.h>
 
 /***************************************
@@ -10,99 +12,140 @@ the 3D space dimensions depict the correlation between the corresonding voxel an
 input: the raw matrix data, the number of subjects, the first mask file, the second mask file, the dedicated block, the output file name
 output: write the result to the nifti file
 ****************************************/
-int VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, Trial trial, const char* output_file)
+void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, Trial trial, const char* output_file)
 {
-  int i, j;
-  svm_set_print_string_function(&print_null);
-  RawMatrix** masked_matrices1=NULL;
-  RawMatrix** masked_matrices2=NULL;
+  RawMatrix* masked_matrix1=NULL;
+  RawMatrix* masked_matrix2=NULL;
   if (maskFile1!=NULL)
-    masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, maskFile1);
+    masked_matrix1 = GetMaskedMatrix(r_matrix, maskFile1);
   else
-    masked_matrices1 = r_matrices;
+    masked_matrix1 = r_matrix;
   if (maskFile2!=NULL)
-    masked_matrices2 = GetMaskedMatrices(r_matrices, nSubs, maskFile2);
+    masked_matrix2 = GetMaskedMatrix(r_matrix, maskFile2);
   else
-    masked_matrices2 = r_matrices;
-  cout<<"masked matrices generating done!"<<endl;
-  cout<<"#voxels for mask1: "<<masked_matrices1[0]->row<<" #voxels for mask2: "<<masked_matrices2[0]->row<<endl;
-  float* simMatrix = new float[nTrials*nTrials];
-  int corrRow = masked_matrices1[0]->row;
-  //int corrCol = masked_matrices2[0]->row; // no use here
-  memset((void*)simMatrix, 0, nTrials*nTrials*sizeof(float));
-  int sr = 0, rowLength = 100;
-  int result = 0;
-  while (sr<corrRow)
+    masked_matrix2 = r_matrix;
+  cout<<"masked matrix generating done!"<<endl;
+  cout<<"#voxels for mask1: "<<masked_matrix1->row<<" #voxels for mask2: "<<masked_matrix2->row<<endl;
+  double* mat1 = masked_matrix1->matrix;
+  double* mat2 = masked_matrix2->matrix;
+  int row1 = masked_matrix1->row;
+  int row2 = masked_matrix2->row;
+  int col = masked_matrix1->col;
+  float* buf1 = new float[row1*col]; // col is more than what really need, just in case
+  float* buf2 = new float[row2*col]; // col is more than what really need, just in case
+  int sc=trial.sc, ec=trial.ec;
+  int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
+  int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
+  float* corrMat = new float[row1*row2];
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row1, row2, ml1, 1.0, buf1, ml1, buf2, ml2, 0.0, corrMat, row2);
+  delete buf1;
+  delete buf2;
+  float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
+  Write4DNiiGzData(output_file, "/state/partition3/yidawang/face_scene/0309101_conatt_localizer_std_bet.nii.gz", (void*)wholeData, DT_FLOAT32, row1);
+  return;
+}
+
+/*******************************
+generate data to be written to a nifti file based on a mask file, the input data is specifically from VoxelScore struct
+input: the mask nifti file name, the data (assuming to be float), the row of the data array (corresponding to the 4th dimension), the column of the data array (corresponding to the mask)
+output: the data that is ready to be written to a nifti file
+********************************/
+float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
+{
+  nifti_image* nim = nifti_image_read(maskFile, 1); // 1 means reading the data as well
+  if (nim == NULL)
   {
-    if (rowLength >= corrRow - sr)
-    {
-      rowLength = corrRow - sr;
-    }
-    float* tempSimMatrix = GetPartialInnerSimMatrixWithMasks(nSubs, nTrials, sr, rowLength, trials, masked_matrices1, masked_matrices2);
-    for (i=0; i<nTrials*nTrials; i++) simMatrix[i] += tempSimMatrix[i];
-    delete tempSimMatrix;
-    sr += rowLength;
+    cerr<<"mask file not found: "<<maskFile<<" in PutMaskedDataBack"<<endl;
+    exit(1);
   }
-  SVMParameter* param = SetSVMParameter(4); // precomputed
-  SVMProblem* prob = GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials-nTests);
-  struct svm_model *model = svm_train(prob, param);
-  int nTrainings = nTrials-nTests;
-  SVMNode* x = new SVMNode[nTrainings+2];
-  double predict_distances[nTrials-nTrainings];
-  bool predict_correctness[nTrials-nTrainings];
-  for (i=nTrainings; i<nTrials; i++)
+  int* data_int = NULL;
+  short* data_short = NULL;
+  unsigned char* data_uchar = NULL;
+  float* data_float = NULL;
+  double* data_double = NULL;
+  switch (nim->datatype)
   {
-    x[0].index = 0;
-    x[0].value = i-nTrainings+1;
-    for (j=0; j<nTrainings; j++)
-    {
-      x[j+1].index = j+1;
-      x[j+1].value = simMatrix[i*nTrials+j];
-    }
-    x[j+1].index = -1;
-    predict_distances[i-nTrainings] = svm_predict_distance(model, x);
-    int predict_label = predict_distances[i-nTrainings]>0?0:1;
-    if (trials[i].label == predict_label)
-    {
-      result++;
-      predict_correctness[i-nTrainings] = true;
-    }
-    else
-    {
-      predict_correctness[i-nTrainings] = false;
-    }
+    case DT_SIGNED_INT:
+      data_int = (int*)nim->data;
+      break;
+    case DT_SIGNED_SHORT:
+      data_short = (short*)nim->data;
+      break;
+    case DT_UNSIGNED_CHAR:
+      data_uchar = (unsigned char*)nim->data;
+      break;
+    case DT_FLOAT:
+      data_float = (float*)nim->data;
+      break;
+    case DT_FLOAT64:
+      data_double = (double*)nim->data;
+      break;
+    default:
+      cerr<<"wrong data type of mask file!"<<" in PutMaskedDataBack"<<endl;
+      exit(1);
   }
-  cout<<"blocking testing confidence:"<<endl;
-  for (i=nTrainings; i<nTrials; i++)
+  int nVoxels = nim->nx*nim->ny*nim->nz;
+  float* returnData = new float[nVoxels*row];
+  memset(returnData, 0, nVoxels*row*sizeof(float));
+
+  int count=0;
+  // because of the count variable, no OMP here
+  for (int i=0; i<row; i++)
   {
-    cout<<fabs(predict_distances[i-nTrainings])<<" (";
-    if (predict_correctness[i-nTrainings])
+    for (int j=0; j<nVoxels; j++)
     {
-      cout<<"Correct) ";
+      if (data_int!=NULL && data_int[j])
+      {
+        if (count==col*row)
+        {
+          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
+          exit(1);
+        }
+        returnData[i*nVoxels+j] = data[count];
+        count++;
+      }
+      if (data_short!=NULL && data_short[j])
+      {
+        if (count==col*row)
+        {
+          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
+          exit(1);
+        }
+        returnData[i*nVoxels+j] = data[count];
+        count++;
+      }
+      if (data_uchar!=NULL && data_uchar[j])
+      {
+        if (count==col*row)
+        {
+          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
+          exit(1);
+        }
+        returnData[i*nVoxels+j] = data[count];
+        count++;
+      }
+      if (data_float!=NULL && data_float[j]>=1-TINYNUM)
+      {
+        if (count==col*row)
+        {
+          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
+          exit(1);
+        }
+        returnData[i*nVoxels+j] = data[count];
+        count++;
+      }
+      if (data_double!=NULL && data_double[j]>=1-TINYNUM)
+      {
+        if (count==col*row)
+        {
+          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
+          exit(1);
+        }
+        returnData[i*nVoxels+j] = data[count];
+        count++;
+      }
     }
-    else
-    {
-      cout<<"Incorrect) ";
-    }
   }
-  cout<<endl;
-  svm_free_and_destroy_model(&model);
-  delete x;
-  delete prob->y;
-  for (i=0; i<nTrainings; i++)
-  {
-    delete prob->x[i];
-  }
-  delete prob->x;
-  delete prob;
-  svm_destroy_param(param);
-  delete simMatrix;
-  for (i=0; i<nSubs; i++)
-  {
-    delete masked_matrices1[i]->matrix;
-    delete masked_matrices2[i]->matrix;
-  }
-  delete masked_matrices1;
-  delete masked_matrices2;
-  return result;
+  nifti_image_free(nim);
+  return returnData;
 }

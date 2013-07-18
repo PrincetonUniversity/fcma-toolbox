@@ -283,6 +283,93 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
 }
 
 /************************************************
+Generate a masked matrix using the mask file
+input: the raw data matrix, the mask file
+output: a masked matrix
+*************************************************/
+RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile)
+{
+  RawMatrix* masked_matrix = new RawMatrix;
+  nifti_image* nim = nifti_image_read(maskFile, 1);
+  int j;
+  if (nim == NULL)
+  {
+    cerr<<"file not found: "<<maskFile<<endl;
+    exit(1);
+  }
+  int* data_int = NULL;
+  short* data_short = NULL;
+  unsigned char* data_uchar = NULL;
+  float* data_float = NULL;
+  double* data_double = NULL;
+  //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; exit(1);
+  switch (nim->datatype)  // now only get one type
+  {
+    case DT_SIGNED_INT:
+      data_int = (int*)nim->data;
+      break;
+    case DT_SIGNED_SHORT:
+      data_short = (short*)nim->data;
+      break;
+    case DT_UNSIGNED_CHAR:
+      data_uchar = (unsigned char*)nim->data;
+      break;
+    case DT_FLOAT32:
+      data_float = (float*)nim->data;
+      break;
+    case DT_FLOAT64:
+      data_double = (double*)nim->data;
+      break;
+    default:
+      cerr<<"wrong data type of mask file!"<<endl;
+      exit(1);
+  }
+  masked_matrix->sid = r_matrix->sid;
+  masked_matrix->row = r_matrix->row;
+  masked_matrix->col = r_matrix->col;
+  masked_matrix->nx = r_matrix->nx;
+  masked_matrix->ny = r_matrix->ny;
+  masked_matrix->nz = r_matrix->nz;
+  int row = r_matrix->row;
+  int col = r_matrix->col;
+  masked_matrix->matrix = new double[row*col];
+  double* src_mat = r_matrix->matrix;
+  double* dest_mat = masked_matrix->matrix;
+  int count = 0;
+  for (j=0; j<row; j++)
+  {
+    if (data_int!=NULL && data_int[j])
+    {
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      count++;
+    }
+    if (data_short!=NULL && data_short[j])
+    {
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      count++;
+    }
+    if (data_uchar!=NULL && data_uchar[j])
+    {
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      count++;
+    }
+    if (data_float!=NULL && data_float[j]>=1-TINYNUM)
+    {
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      count++;
+    }
+    if (data_double!=NULL && data_double[j]>=1-TINYNUM)
+    {
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      count++;
+    }
+    masked_matrix->row = count; // update the row information
+  }
+  nifti_image_free(nim);
+  return masked_matrix;
+}
+
+/************************************************
 Generate masked point location using the mask file
 input: the raw point location, the number of voxels after masking, the mask file
 output: a masked point location array
@@ -579,7 +666,36 @@ void WriteNiiGzData(const char* outputFile, const char* refFile, void* data, int
 }
 
 /*******************************
-generate data to be written to a nifti file based on a mask file
+write 4D data to a compressed nifti file
+input: the nifti data file name (with or without extension), the sample nifti file to refer to, the data, the data type(defined in nifti1.h), the time (4th) dimension
+output: write the data to the file
+********************************/
+void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data, int dataType, int nt)
+{
+  nifti_image* nim = nifti_image_read(refFile, 1); // 1 means reading the data as well
+  if (nim == NULL)
+  {
+    cerr<<"sample file not found: "<<refFile<<endl;
+    exit(1);
+  }
+  nifti_image* nim2 = nifti_copy_nim_info(nim);
+  char* newFileName = nifti_makeimgname((char*)outputFile, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
+  delete nim2->fname; // delete the old filename to avoid memory leak
+  nim2->fname = newFileName;
+  nim2->datatype = dataType;
+  nim2->nbyper = getSizeByDataType(dataType);
+  nim2->nt = nt;
+  nim2->dim[4] = nt;
+  nim2->nvox = nim2->nx*nim2->ny*nim2->nz*nim2->nt;
+  nim2->data = data;
+  nifti_image_write(nim2);
+  nifti_image_free(nim);
+  nifti_image_free(nim2);
+  return;
+}
+
+/*******************************
+generate data to be written to a nifti file based on a mask file, the input data is specifically from VoxelScore struct
 input: the mask nifti file name, the data, the length of the data array, the data type(defined in nifti1.h, DT_SIGNED_INT indicates to generate voxel id file, DT_FLOAT indicates to generate voxel score file)
 output: the data that is ready to be written to a nifti file
 ********************************/

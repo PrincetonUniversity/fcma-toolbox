@@ -111,7 +111,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
 
 /***********************************************
 Get the inner product of vectors from start row(sr), last rowLength-length
-input: the number of subjects, the number of blocks, the start row, the number of voxels of masked matrix one that involved in the computing, the first masked data array, the second masked data array
+input: the number of subjects, the number of blocks, the start row, the number of voxels of masked matrix one that involved in the computing, the trials information, the first masked data array, the second masked data array
 output: the partial similarity matrix based on the selected rows of first matrices and the whole second matrices
 ************************************************/
 float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr, int rowLength, Trial* trials, RawMatrix** masked_matrices1, RawMatrix** masked_matrices2) // compute the correlation between masked matrices
