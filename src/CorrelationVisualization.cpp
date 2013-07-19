@@ -12,7 +12,7 @@ the 3D space dimensions depict the correlation between the corresonding voxel an
 input: the raw matrix data, the number of subjects, the first mask file, the second mask file, the dedicated block, the output file name
 output: write the result to the nifti file
 ****************************************/
-void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, Trial trial, const char* output_file)
+void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, const char* refFile, Trial trial, const char* output_file)
 {
   RawMatrix* masked_matrix1=NULL;
   RawMatrix* masked_matrix2=NULL;
@@ -41,7 +41,20 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
   delete buf1;
   delete buf2;
   float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
-  Write4DNiiGzData(output_file, "/state/partition3/yidawang/face_scene/0309101_conatt_localizer_std_bet.nii.gz", (void*)wholeData, DT_FLOAT32, row1);
+  /*nifti_image* ref_nim = nifti_image_read(maskFile1, 1);
+  int dims[8];
+  memcpy((void*)dims, (const void*)ref_nim->dim, 8*sizeof(int));
+  dims[0] = 4;
+  dims[4] = row1;
+  nifti_image* nim = nifti_make_new_nim(dims, DT_FLOAT32, 0);
+  char* fileName = nifti_makeimgname((char*)output_file, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
+  nim->fname = fileName;
+  nim->data = (void*)wholeData;
+  //nim->qform_code = 1;
+  //nim->sform_code = 1;
+  nifti_image_write(nim);
+  nifti_image_free(nim);*/
+  Write4DNiiGzData(output_file, refFile, (void*)wholeData, DT_FLOAT32, row1);
   return;
 }
 

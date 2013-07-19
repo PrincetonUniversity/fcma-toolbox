@@ -685,6 +685,7 @@ void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data, i
   nim2->datatype = dataType;
   nim2->nbyper = getSizeByDataType(dataType);
   nim2->nt = nt;
+  nim2->dim[0] = 4;
   nim2->dim[4] = nt;
   nim2->nvox = nim2->nx*nim2->ny*nim2->nz*nim2->nt;
   nim2->data = data;

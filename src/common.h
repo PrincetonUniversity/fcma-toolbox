@@ -67,12 +67,14 @@ typedef struct param_t
   const char* block_information_directory;
   const char* mask_file1;
   const char* mask_file2;
+  const char* ref_file;
   int step;
   const char* output_file;
   int leave_out_id;
   int taskType;
   int nHolds;
   int nFolds;
+  int visualized_block_id;
   bool isTestMode;
   bool isUsingMaskFile;
 }Param;

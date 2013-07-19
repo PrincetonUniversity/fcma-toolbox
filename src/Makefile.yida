@@ -5,7 +5,7 @@ CXXFLAGS = -I$(HOME)/tool/nifticlib-2.0.0/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra
 LDFLAGS=-L$(HOME)/tool/gcc-4.5.0-build/lib64 -L$(HOME)/tool/gcc-4.5.0-build/lib -L$(HOME)/tool/nifticlib-2.0.0/lib
 LD_LIBS = -lsvmp -lm -lz -lgoto2_penrynp-r1.13 -lniftiio -lznz -lth#-lgomp 
-OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
+OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o main.o
 
 corr-sum: $(OBJ)
 	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
@@ -45,6 +45,9 @@ SVMPredictorWithMasks.o: common.h SVMPredictorWithMasks.h
 
 Searchlight.o: common.h Searchlight.h
 	$(GXX) -c Searchlight.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+CorrelationVisualization.o: common.h CorrelationVisualization.h
+	$(GXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 main.o: common.h
 	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)

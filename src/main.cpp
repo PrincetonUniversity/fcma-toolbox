@@ -20,7 +20,7 @@ void exit_with_help()
   "required:\n"
   "-d matrix directory, contains files in binary gz format, beginning with numbers of row and column\n"
   "-m matrix file type, usually the extension name\n"
-  "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation\n"
+  "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation, 8 for voxel correlation visualizarion\n"
   "-t output file for task 0,1,2,3 in the voxel selection mode, input file for the same tasks in the test mode\n"
   "-b block information file, if no block information file, a block information directory is required\n"
   "-e block directory name, will check this if -b is not provided\n"
@@ -32,6 +32,8 @@ void exit_with_help()
   "-n number of folds in the feature selection, default 0\n"
   "-x the first mask file, default no mask\n"
   "-y the second mask file, default no mask\n"
+  "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
+  "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
   );
   exit(1);
 }
@@ -45,8 +47,10 @@ void set_default_parameters()
   Parameters.leave_out_id = -1;
   Parameters.nHolds = 0;
   Parameters.nFolds = -1;
+  Parameters.visualized_block_id = -1;
   Parameters.isTestMode = false;
   Parameters.mask_file1=Parameters.mask_file2=NULL;
+  Parameters.ref_file=NULL;
 }
 
 void check_parameters()
@@ -84,6 +88,16 @@ void check_parameters()
   if (!Parameters.isTestMode && Parameters.nFolds==-1)
   {
     cout<<"number of folds in the voxel selection must be specified"<<endl;
+    exit_with_help();
+  }
+  if (Parameters.taskType==8 && Parameters.visualized_block_id==-1)
+  {
+    cout<<"the block to be visualized must be specified"<<endl;
+    exit_with_help();
+  }
+  if (Parameters.taskType==8 && Parameters.ref_file==NULL)
+  {
+    cout<<"in the voxel correlation visualization task, a reference file must be provided"<<endl;
     exit_with_help();
   }
 }
@@ -143,6 +157,12 @@ void parse_command_line(int argc, char **argv)
       case 'y':
         Parameters.mask_file2 = argv[i];
         break;
+      case 'v':
+        Parameters.visualized_block_id = atoi(argv[i]);
+        break;
+      case 'r':
+        Parameters.ref_file = argv[i];
+        break;
       default:
         cout<<"unknown option: -"<<argv[i-1][1]<<endl;
         exit_with_help();
@@ -172,9 +192,11 @@ int main(int argc, char** argv)
   const char* output_file = Parameters.output_file;
   const char* mask_file1 = Parameters.mask_file1;
   const char* mask_file2 = Parameters.mask_file2;
+  const char* ref_file = Parameters.ref_file;
   int leave_out_id = Parameters.leave_out_id;
   int nHolds = Parameters.nHolds; // the number of trials that being held from the analysis
   int nFolds = Parameters.nFolds;
+  int visualized_block_id = Parameters.visualized_block_id;
   /* setting done */
   /* ---------------------------------------------- */
   /* data reading and initialization */
@@ -206,8 +228,6 @@ int main(int argc, char** argv)
   /* data reading done */
   /* ----------------------------------------------- */
   /* main program begins */
-  //VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2, trials[0], "visualization.nii.gz");
-  //exit(1);
   double tstart = MPI_Wtime();
   int row = r_matrices[0]->row;
   RawMatrix** avg_matrices = NULL;
@@ -272,6 +292,14 @@ int main(int argc, char** argv)
           l += nHolds;
         }
         cout<<"total accuracy: "<<result<<"/"<<nTrials<<"="<<result*1.0/nTrials<<endl;
+        break;
+      case 8:
+        if (visualized_block_id>=nTrials)
+        {
+          cerr<<"Wrong visualized block id, you only provide "<<nTrials<<" blocks!"<<endl;
+          exit(1);
+        }
+        VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2, ref_file, trials[visualized_block_id], output_file);
         break;
       default:
         cerr<<"Unknown task type"<<endl;
