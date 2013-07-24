@@ -85,7 +85,7 @@ RawMatrix* ReadGzData(string fileStr, int sid)
   r_matrix->sname = sname;
   r_matrix->row = row;
   r_matrix->col = col;
-  r_matrix->matrix = new double[row*col];
+  r_matrix->matrix = new float[row*col];
   uint16* data = new uint16[row*col];
   gzread(fp, data, row*col*sizeof(uint16));
   #pragma omp parallel for
@@ -132,7 +132,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
   r_matrix->nx = nim->nx;
   r_matrix->ny = nim->ny;
   r_matrix->nz = nim->nz;
-  r_matrix->matrix = new double[r_matrix->row * r_matrix->col];
+  r_matrix->matrix = new float[r_matrix->row * r_matrix->col];
   short* data_short=NULL;
   unsigned short* data_ushort=NULL;
   int* data_int=NULL;
@@ -167,23 +167,23 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
     int t2 = i % r_matrix->row;
     if (data_short!=NULL)
     {
-      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_short[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+      r_matrix->matrix[t2*r_matrix->col+t1] = (float)data_short[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
     if (data_ushort!=NULL)
     {
-      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_ushort[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+      r_matrix->matrix[t2*r_matrix->col+t1] = (float)data_ushort[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
     if (data_int!=NULL)
     {
-      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_int[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+      r_matrix->matrix[t2*r_matrix->col+t1] = (float)data_int[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
     if (data_float!=NULL)
     {
-      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_float[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+      r_matrix->matrix[t2*r_matrix->col+t1] = (float)data_float[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
     if (data_double!=NULL)
     {
-      r_matrix->matrix[t2*r_matrix->col+t1] = (double)data_double[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
+      r_matrix->matrix[t2*r_matrix->col+t1] = (float)data_double[i];  // transpose, because data is time (row) * voxel (column), r_matrix wants voxel (row) * time (column)
     }
   }
   nifti_image_free(nim);
@@ -243,35 +243,35 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
     masked_matrix->nz = r_matrices[i]->nz;
     int row = r_matrices[i]->row;
     int col = r_matrices[i]->col;
-    masked_matrix->matrix = new double[row*col];
-    double* src_mat = r_matrices[i]->matrix;
-    double* dest_mat = masked_matrix->matrix;
+    masked_matrix->matrix = new float[row*col];
+    float* src_mat = r_matrices[i]->matrix;
+    float* dest_mat = masked_matrix->matrix;
     int count = 0;
     for (j=0; j<row; j++)
     {
       if (data_int!=NULL && data_int[j])
       {
-        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
         count++;
       }
       if (data_short!=NULL && data_short[j])
       {
-        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
         count++;
       }
       if (data_uchar!=NULL && data_uchar[j])
       {
-        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
         count++;
       }
       if (data_float!=NULL && data_float[j]>=1-TINYNUM)
       {
-        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
         count++;
       }
       if (data_double!=NULL && data_double[j]>=1-TINYNUM)
       {
-        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+        memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
         count++;
       }
     }
@@ -332,35 +332,35 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile)
   masked_matrix->nz = r_matrix->nz;
   int row = r_matrix->row;
   int col = r_matrix->col;
-  masked_matrix->matrix = new double[row*col];
-  double* src_mat = r_matrix->matrix;
-  double* dest_mat = masked_matrix->matrix;
+  masked_matrix->matrix = new float[row*col];
+  float* src_mat = r_matrix->matrix;
+  float* dest_mat = masked_matrix->matrix;
   int count = 0;
   for (j=0; j<row; j++)
   {
     if (data_int!=NULL && data_int[j])
     {
-      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
       count++;
     }
     if (data_short!=NULL && data_short[j])
     {
-      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
       count++;
     }
     if (data_uchar!=NULL && data_uchar[j])
     {
-      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
       count++;
     }
     if (data_float!=NULL && data_float[j]>=1-TINYNUM)
     {
-      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
       count++;
     }
     if (data_double!=NULL && data_double[j]>=1-TINYNUM)
     {
-      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(double));
+      memcpy(&(dest_mat[count*col]), &(src_mat[j*col]), col*sizeof(float));
       count++;
     }
     masked_matrix->row = count; // update the row information

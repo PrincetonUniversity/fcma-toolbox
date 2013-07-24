@@ -26,8 +26,8 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
     masked_matrix2 = r_matrix;
   cout<<"masked matrix generating done!"<<endl;
   cout<<"#voxels for mask1: "<<masked_matrix1->row<<" #voxels for mask2: "<<masked_matrix2->row<<endl;
-  double* mat1 = masked_matrix1->matrix;
-  double* mat2 = masked_matrix2->matrix;
+  float* mat1 = masked_matrix1->matrix;
+  float* mat2 = masked_matrix2->matrix;
   int row1 = masked_matrix1->row;
   int row2 = masked_matrix2->row;
   int col = masked_matrix1->col;

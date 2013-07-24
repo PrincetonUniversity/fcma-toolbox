@@ -13,7 +13,7 @@ int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Poi
 void leaveSomeTrialsOut(Trial* trials, int nTrials, int tid, int nLeaveOut);
 void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs);
 float fisherTransformation(float v);
-void z_score(double* v, int n);
+void z_score(float* v, int n);
 RawMatrix** rawMatPreprocessing(RawMatrix** r_matrices, int n, int nTrials, Trial* trials);
 float getAverage(RawMatrix* r_matrix, Trial trial, int vid);
 void MatrixPermutation(RawMatrix** r_matrices, int nSubs);

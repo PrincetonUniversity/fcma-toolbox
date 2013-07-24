@@ -256,12 +256,12 @@ void RearrangeMatrix(RawMatrix** r_matrices, VoxelScore* scores, int row, int co
   int i, j;
   for (i=0; i<nSubs; i++)
   {
-    double* curMat = new double[row*col];
-    double* mat = r_matrices[i]->matrix;
+    float* curMat = new float[row*col];
+    float* mat = r_matrices[i]->matrix;
     for (j=0; j<row; j++)
     {
       int rid = scores[j].vid;
-      memcpy(curMat+j*col, mat+rid*col, sizeof(double)*col);
+      memcpy(curMat+j*col, mat+rid*col, sizeof(float)*col);
     }
     delete mat;
     r_matrices[i]->matrix = curMat;
@@ -280,7 +280,7 @@ float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
-    double* mat = r_matrices[sid]->matrix;
+    float* mat = r_matrices[sid]->matrix;
     float* buf = new float[row*col]; // col is more than what really need, just in case
     int ml = getBuf(sc, ec, row, col, mat, buf);  // get the normalized matrix, return the length of time points to be computed
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row, row, ml, 1.0, buf, ml, buf, ml, 0.0, values+i*row*row, row);
@@ -303,7 +303,7 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials, int sr
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
-    double* mat = r_matrices[sid]->matrix;
+    float* mat = r_matrices[sid]->matrix;
     //if (i==0 && sr==0) cout<<mat[1000*col]<<" "<<mat[1000*col+1]<<" "<<mat[1000*col+2]<<" "<<mat[1000*col+3]<<endl;
     //else if (i==0 && sr!=0) cout<<mat[0]<<" "<<mat[1]<<" "<<mat[2]<<" "<<mat[3]<<endl;
     float* buf = new float[row*col]; // col is more than what really need, just in case
@@ -336,7 +336,7 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
 {
   int length = nVoxels*lengthPerCorrVector;
   int trialsPerSub = nTrials / nSubs; // should be dividable
-  double buf[trialsPerSub];
+  float buf[trialsPerSub];
   int i, j, k;
   for (i=0; i<nSubs; i++) // do normalization subject by subject
   {
@@ -344,7 +344,7 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
     {
       for (k=0; k<trialsPerSub; k++)
       {
-        buf[k] = double(fisherTransformation(values[i*trialsPerSub*length+k*length+j]));
+        buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);
       }
       z_score(buf, trialsPerSub);
       for (k=0; k<trialsPerSub; k++)

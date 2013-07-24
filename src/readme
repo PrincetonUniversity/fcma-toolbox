@@ -41,3 +41,6 @@ fix minor bugs in SVMPredictor.cpp
 
 1.3.2
 add correlation visualization task (type 8) to generate a 4D nifti file for visualizing the correlation between some voxels in a certain block.
+
+1.3.3
+use float instead of double to store the raw data to save memory
