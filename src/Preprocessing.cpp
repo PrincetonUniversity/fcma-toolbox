@@ -27,7 +27,7 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
       bool flag = true;
       for (k=0; k<col; k++)
       {
-        flag &= (mat[j*col+k]<=2.0);  // 2 is a threshold for "almost" all-zero
+        flag &= (mat[j*col+k]<=10.0);  // 2 is a threshold for "almost" all-zero
       }
       if (flag) flags[j] = false;
     }
@@ -39,8 +39,8 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
     if (flags[i]) ofile<<"1 ";
     else ofile<<"0 ";
   }
-  ofile.close();
-  exit(1);*/
+  ofile.close();*/
+  //exit(1);
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
     int col = r_matrices[i]->col;
@@ -200,9 +200,12 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
         }
       }*/
       for (j=0; j<count; j++)
-        //buf[j] = fisherTransformation(buf[j]);
-        buf[j] = fabs(buf[j]);
-      z_score(buf, count);
+      {
+        buf[j] = fisherTransformation(buf[j]);
+        //buf[j] = fabs(buf[j]);
+      }
+      if (count>1)  // count==1 results in 0
+        z_score(buf, count);
       count = 0;
       for (j=0; j<n; j++)
       {
@@ -259,8 +262,11 @@ void z_score(float* v, int n)
   {
     if (sd != 0)
       v[i] = (v[i] - mean) / sd;
-    else
-      v[i] = 0;
+    else  // all values are the same
+    {
+      cerr<<"All values are the same when doing z-score"<<endl;
+      exit(1);
+    }
   }
 }
 
