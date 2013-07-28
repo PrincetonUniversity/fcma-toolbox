@@ -28,7 +28,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskTyp
   else
     masked_matrices2 = r_matrices;
   if (me == 0)
-  {
+  { 
     int row1 = masked_matrices1[0]->row;
     int row2 = masked_matrices2[0]->row;
     cout<<"#voxels for mask 1: "<<row1<<endl;

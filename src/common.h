@@ -38,7 +38,7 @@ typedef struct raw_matrix_t
   int row;
   int col;
   int nx, ny, nz;
-  double* matrix;
+  float* matrix;
 }RawMatrix;
 
 /*typedef struct avg_matrix_t

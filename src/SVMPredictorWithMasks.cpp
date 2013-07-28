@@ -128,8 +128,8 @@ float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr, int row
     int ec = trials[i].ec;
     int sid = trials[i].sid;
     int col = masked_matrices1[sid]->col; // the column of 1 and 2 should be the same, i.e. the number of TRs of a block; columns may be different, since different subjects have different TRs
-    double* mat1 = masked_matrices1[sid]->matrix;
-    double* mat2 = masked_matrices2[sid]->matrix;
+    float* mat1 = masked_matrices1[sid]->matrix;
+    float* mat2 = masked_matrices2[sid]->matrix;
     float* buf1 = new float[row1*col]; // col is more than what really need, just in case
     float* buf2 = new float[row2*col]; // col is more than what really need, just in case
     int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed

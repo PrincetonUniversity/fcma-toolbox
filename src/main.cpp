@@ -203,10 +203,13 @@ int main(int argc, char** argv)
   int nTrials = 0;
   int nSubs = 0;
   RawMatrix** r_matrices = ReadGzDirectory(fmri_directory, fmri_file_type, nSubs);  // set nSubs here
+  //Point* temp_pts=new Point[r_matrices[0]->row];
+  //int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
   MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
   if (me == 0)  
   {
     cout<<"data reading done!"<<endl;
+    //cout<<row_tmp<<endl;
   }
   Point* pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects have the same format, so we can randomly pick one
   Trial* trials=NULL;

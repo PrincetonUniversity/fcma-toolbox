@@ -21,13 +21,13 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
   for (i=0; i<nSubs; i++) // get the zll-zero conditions, store in flags, false means at least one subject contains all-zeros
   {
     int col = r_matrices[i]->col;
-    double* mat = r_matrices[i]->matrix;
+    float* mat = r_matrices[i]->matrix;
     for (j=0; j<row; j++)
     {
       bool flag = true;
       for (k=0; k<col; k++)
       {
-        flag &= (mat[j*col+k]<=2.0);  // 2 is a threshold for "almost" all-zero
+        flag &= (mat[j*col+k]<=10.0);  // 2 is a threshold for "almost" all-zero
       }
       if (flag) flags[j] = false;
     }
@@ -39,18 +39,18 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
     if (flags[i]) ofile<<"1 ";
     else ofile<<"0 ";
   }
-  ofile.close();
-  exit(1);*/
+  ofile.close();*/
+  //exit(1);
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
     int col = r_matrices[i]->col;
-    double* mat = r_matrices[i]->matrix;
+    float* mat = r_matrices[i]->matrix;
     count = 0;
     for (j=0; j<row; j++)
     {
       if (flags[j])
       {
-        memcpy(&(mat[count*col]), &(mat[j*col]), col*sizeof(double));
+        memcpy(&(mat[count*col]), &(mat[j*col]), col*sizeof(float));
         count++;
       }
     }
@@ -109,13 +109,13 @@ int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Poi
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
     int col = r_matrices[i]->col;
-    double* mat = r_matrices[i]->matrix;
+    float* mat = r_matrices[i]->matrix;
     count = 0;
     for (j=0; j<row; j++)
     {
       if (data[j])
       {
-        memcpy(&(mat[count*col]), &(mat[j*col]), col*sizeof(double));
+        memcpy(&(mat[count*col]), &(mat[j*col]), col*sizeof(float));
         count++;
       }
     }
@@ -177,7 +177,7 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
   #pragma omp parallel for private(i)
   for (i=0; i<row*col; i++)
   {
-    double buf[n];
+    float buf[n];
     int j, k;
     // need to do RT regression and get z-scored subject by subject
     for (k=0; k<nSubs; k++)
@@ -187,7 +187,7 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
       {
         if (c_matrices[j]->sid == k)
         {
-          buf[count] = double(c_matrices[j]->matrix[i]);
+          buf[count] = c_matrices[j]->matrix[i];
           count++;
         }
       }
@@ -200,15 +200,18 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
         }
       }*/
       for (j=0; j<count; j++)
-        //buf[j] = fisherTransformation(buf[j]);
-        buf[j] = fabs(buf[j]);
-      z_score(buf, count);
+      {
+        buf[j] = fisherTransformation(buf[j]);
+        //buf[j] = fabs(buf[j]);
+      }
+      if (count>1)  // count==1 results in 0
+        z_score(buf, count);
       count = 0;
       for (j=0; j<n; j++)
       {
         if (c_matrices[j]->sid == k)
         {
-          c_matrices[j]->matrix[i] = float(buf[count]);
+          c_matrices[j]->matrix[i] = buf[count];
           count++;
         }
       }
@@ -241,26 +244,29 @@ z-score the vectors
 input: the vector, the length of the vector
 output: write z-scored values to the vector
 ****************************************/
-void z_score(double* v, int n)
+void z_score(float* v, int n)
 {
   int i;
   double mean=0, sd=0;  // float here is not precise enough to handle
   for (i=0; i<n; i++)
   {
-    mean += v[i];
-    sd += v[i] * v[i]; // double other than float can avoid overflow
+    mean += (double)v[i];
+    sd += (double)v[i] * v[i]; // double other than float can avoid overflow
   }
   mean /= n;
   //if (sd == n * mean * mean) mean -= 0.1; // to deal with the no variance case
   sd = sd - n * mean * mean;
-  if (sd < 0) {cerr<<"sd<0! "<<sd; exit(1);}
+  if (sd < 0) {cerr<<"sd<0! "<<sd; exit(1);}  // if the type is double above, this won't happen
   sd = sqrt(sd);
   for (i=0; i<n; i++)
   {
     if (sd != 0)
       v[i] = (v[i] - mean) / sd;
-    else
-      v[i] = 0;
+    else  // all values are the same
+    {
+      cerr<<"All values are the same when doing z-score"<<endl;
+      exit(1);
+    }
   }
 }
 
@@ -283,7 +289,7 @@ RawMatrix** rawMatPreprocessing(RawMatrix** r_matrices, int n, int nTrialsPerSub
     avg_matrices[i]->nx = r_matrices[i]->nx;
     avg_matrices[i]->ny = r_matrices[i]->ny;
     avg_matrices[i]->nz = r_matrices[i]->nz;
-    avg_matrices[i]->matrix = new double[row*nTrialsPerSub];
+    avg_matrices[i]->matrix = new float[row*nTrialsPerSub];
     for (j=0; j<row; j++)
     {
       for (k=0; k<nTrialsPerSub; k++)
