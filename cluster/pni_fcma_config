@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo
-echo "$(basename $0) will be available soon."
+echo "$(basename $0) not available."
 echo "please use the FCMA File Generator in the meantime, at"
-echo "http://rondo.pni.princeton.edu/fcma/config"
+echo "http://princetonuniversity.github.io/fcma-toolbox"
 echo
 
