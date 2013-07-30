@@ -49,6 +49,8 @@ key_and_flags=(
 	num_folds_in_feature_selection	'-n '
 	first_maskfile			'-x '
 	second_maskfile			'-y '
+	visualize_blockid		'-v '
+	visualize_reference		'-r '
 )
 numflags=${#key_and_flags[@]}
 
