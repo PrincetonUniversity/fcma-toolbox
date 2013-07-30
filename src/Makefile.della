@@ -1,3 +1,5 @@
+# if you want to use this file then edit Makefile to include it
+# at the top
 CXX = icc
 MPICXX = mpic++
 MPIFLAGS = $(LOCAL_CXXFLAGS)
@@ -5,52 +7,3 @@ CXXFLAGS = -I/tigress/PNI/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra
 LDFLAGS = -L/tigress/PNI/lib $(LOCAL_LDFLAGS)
 LD_LIBS = -lgoto2 -lniftiio -lznz -lz -lgfortran
-OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o main.o
-
-pni_fcma: $(OBJ)
-	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
-
-svm.o: svm.h
-	$(CXX) -c svm.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-Preprocessing.o: common.h Preprocessing.h
-	$(CXX) -c Preprocessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-FileProcessing.o: common.h Preprocessing.h
-	$(CXX) -c FileProcessing.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-MatComputation.o: common.h MatComputation.h
-	$(CXX) -c MatComputation.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-CorrMatAnalysis.o: common.h CorrMatAnalysis.h
-	$(CXX) -c CorrMatAnalysis.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-Classification.o: common.h Classification.h
-	$(CXX) -c Classification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-Scheduler.o: common.h Scheduler.h
-	$(MPICXX) -c Scheduler.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
-
-LibSVM.o: common.h LibSVM.h
-	$(CXX) -c LibSVM.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-SVMClassification.o: common.h SVMClassification.h
-	$(CXX) -c SVMClassification.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-SVMPredictor.o: common.h SVMPredictor.h
-	$(CXX) -c SVMPredictor.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-SVMPredictorWithMasks.o: common.h SVMPredictorWithMasks.h
-	$(CXX) -c SVMPredictorWithMasks.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-Searchlight.o: common.h Searchlight.h
-	$(CXX) -c Searchlight.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
-
-main.o: common.h
-	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
-
-PROGS=pni_fcma
-
-clean:
-	rm -f $(PROGS) $(OBJ) *~
-

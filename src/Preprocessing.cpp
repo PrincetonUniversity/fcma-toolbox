@@ -263,10 +263,12 @@ void z_score(float* v, int n)
     if (sd != 0)
       v[i] = (v[i] - mean) / sd;
     else  // all values are the same
-    {
-      cerr<<"All values are the same when doing z-score"<<endl;
-      exit(1);
-    }
+      v[i] = 0.0f;
+// todo: compromise between above line and bottom 4
+//    {
+//      cerr<<"All values are the same when doing z-score"<<endl;
+//      exit(1);
+//    }
   }
 }
 
