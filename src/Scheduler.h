@@ -1,3 +1,9 @@
+/*
+ This file is part of the Princeton FCMA Toolbox
+ Copyright (c) 2013 the authors (see AUTHORS file)
+ For license terms, please see the LICENSE file.
+*/
+
 #include "common.h"
 
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2);

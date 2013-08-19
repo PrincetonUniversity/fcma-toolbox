@@ -1,3 +1,9 @@
+/*
+ This file is part of the Princeton FCMA Toolbox
+ Copyright (c) 2013 the authors (see AUTHORS file)
+ For license terms, please see the LICENSE file.
+*/
+
 #include "LibSVM.h"
 
 void print_null(const char* s) {s='\0';/*cheat the compiler*/} // for SVM print quietly

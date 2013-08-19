@@ -1,3 +1,9 @@
+/*
+ This file is part of the Princeton FCMA Toolbox
+ Copyright (c) 2013 the authors (see AUTHORS file)
+ For license terms, please see the LICENSE file.
+*/
+
 #include "MatComputation.h"
 #include "common.h"
 
