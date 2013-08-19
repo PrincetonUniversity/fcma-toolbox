@@ -59,9 +59,40 @@
 		<h2>FCMA Cluster Setup</h2>
 	</div>
     <blockquote>
-	<p>Coming soon!</p><br>
-	<p>The source code for the main executable as well as support scripts is available on github: <a href="http://github.com/PrincetonUniversity/fcma-toolbox">fcma-toolbox</a>.</p>
-	</blockquote>
+  <p> The audience for the following section is the system administrator who will set up the cluster for FCMA.</p>
+	<br><p>The FCMA Toolbox runs under MPI, and the main dependencies are an MPI implementation (we use that latest <a href="http://openmpi.org">OpenMPI</a> 1.6.x but only basic MPI calls are used), a C++ compiler (g++ 4.4 and icc 11 have been tested), gfortran (again, 4.4), <a href="https://www.tacc.utexas.edu/tacc-software/gotoblas2">GotoBLAS2</a>, and <a href="http://niftilib.sourceforge.net">nifticlib 2.0</a> open source libraries. The toolbox is currently running on three 64-bit Linux CentOS 5.x clusters at Princeton.</p>
+<br><p>
+You need to customize a Makefile.cluster file as well, for where you've installed the dependencies on your cluster as well as setting the appropriate compiler flags (the supplied ones should be self explanatory). You only need edit the Makefile.cluster file, since the main Makefile will include it as a first step. There are Makefile.cluster files for the three clusters currently being used: rondo, della, and a cs cluster.</p>
+<br><p>
+Launching jobs via MPI is the most straightforward-- since it avoids integration issues with a cluster scheduler. Having said that both the submission shell scripts written for rondo and della are examples for how to integrate with SGE and PBS cluster schedulers respectively. We advise starting out with a small number of set aside machines (or some portion of some machines) for mpirun/mpiexec. You can specify both the number of cores per node <b>M</b>, and the number of nodes <b>N</b>, in the command used to launch.</p>
+<br><p>
+From the help:
+<pre class="prettyprint"><code>
+OMP_NUM_THREADS=M mpirun -np N -hostfile file ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]
+
+required:
+-d matrix directory, contains files in binary gz format, beginning with numbers of row and column
+-m matrix file type, usually the extension name
+-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation, 8 for voxel correlation visualizarion
+-t output file for task 0,1,2,3 in the voxel selection mode, input file for the same tasks in the test mode
+-b block information file, if no block information file, a block information directory is required
+-e block directory name, will check this if -b is not provided
+optional:
+-s step, the number of rows to be assigned per round, default 100
+-l leave out id, the first block id that being left out, default -1, which means don't leave out anything
+-h number of items that held for test, default -1, only and must get values when -l is applied
+-c bool, test mode (1) or not (0), default 0
+-n number of folds in the feature selection, default 0
+-x the first mask file, default no mask
+-y the second mask file, default no mask
+-v the block id that you want to visualize the correlation, must be specified in task 8
+-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file
+</code></pre>
+</p>
+<br><p>
+The <a href="../config">FCMA File</a> page documents each of these input arguments and will generate an .fcma file that can be used with the pni_fcma_submit script, once MPI is working directly. Some effort will be required to adapt the particulars of the pni_fcma_submit script and the pni_mpirun script it depends upon, to your particular site, and advanced users may want to dispense with the layer of abstraction introduced by the .fcma file method, and use MPI directly.</p>
+</p>
+</blockquote>
 </div>
 </body>
 </html>
