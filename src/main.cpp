@@ -363,7 +363,7 @@ int main(int argc, char** argv)
 {
     //counter=0;
     parse_command_line(argc, argv);
-    run(&Parameters);
+    run_fcma(&Parameters);
     return 0;
 }
 

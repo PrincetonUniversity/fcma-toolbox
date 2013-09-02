@@ -31,7 +31,7 @@ typedef struct param_t
     bool isUsingMaskFile;
 }Param;
 
-void run(Param* param);
+void run_fcma(Param* param);
     
 #ifdef _cplusplus
 }
