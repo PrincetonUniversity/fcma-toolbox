@@ -15,6 +15,8 @@
 #include "CorrelationVisualization.h"
 #include "svm.h"
 
+#include "fcma.h"
+
 Param Parameters;
 //extern unsigned long long counter;
 
