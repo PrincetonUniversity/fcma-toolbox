@@ -334,7 +334,7 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs)
   int col = r_matrices[0]->col;
   int i, j;
   uint16 buf[row];
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
   ifstream ifile("/state/partition3/yidawang/face_scene/permBook1.txt", ios::in);
   if (!ifile)
   {
