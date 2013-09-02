@@ -112,4 +112,6 @@ extern unsigned long long counter;
 #define VOXELCLASSIFIERTAG 3
 #define ELAPSETAG 4
 
+void run(Param* param);
+
 #endif
