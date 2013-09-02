@@ -47,7 +47,7 @@ Searchlight.o: common.h Searchlight.h Searchlight.cpp
 CorrelationVisualization.o: common.h CorrelationVisualization.h CorrelationVisualization.cpp
 	$(CXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
-main.o: common.h main.h main.cpp
+main.o: common.h fcma.h main.cpp
 	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
 
 PROGS=pni_fcma

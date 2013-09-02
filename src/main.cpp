@@ -179,7 +179,7 @@ void parse_command_line(int argc, char **argv)
   check_parameters();
 }
 
-void run(Param* param)
+void run_fcma(Param* param)
 {
     int initialized;
     MPI_Initialized(&initialized);
