@@ -77,4 +77,12 @@ http://sourceforge.net/projects/niftilib/files/nifticlib/nifticlib_2_0_0/nifticl
    d. make
    e. sudo cp lib/* /usr/local/lib/
    f. sudo cp include/* /usr/local/include/
- 
+
+FCMA
+---
+   in the "fcma-toolbox/src" directory:
+6.  edit Makefile.mac if necessary; if dependencies built as above, use as-is
+7.  comment out the other "include" lines in Makefile, just include Makefile.mac
+8.  make (in src directory)
+9.  sudo cp pni_fcma /usr/local/bin/ 
+   (provided .profile contains /usr/local/bin in PATH simply run "pni_fcma")
