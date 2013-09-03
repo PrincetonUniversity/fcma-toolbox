@@ -6,11 +6,10 @@
 
 #ifndef FCMA_H
 #define FCMA_H
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
-    
 typedef struct param_t
 {
     const char* fmri_directory;
@@ -27,13 +26,13 @@ typedef struct param_t
     int nHolds;
     int nFolds;
     int visualized_block_id;
-    bool isTestMode;
-    bool isUsingMaskFile;
+    int isTestMode;
+    int isUsingMaskFile;
 }Param;
 
 void run_fcma(Param* param);
-    
-#ifdef _cplusplus
+
+#ifdef __cplusplus
 }
 #endif
 #endif
