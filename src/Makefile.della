@@ -7,3 +7,5 @@ CXXFLAGS = -I/tigress/PNI/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra
 LDFLAGS = -L/tigress/PNI/lib $(LOCAL_LDFLAGS)
 LD_LIBS = -lgoto2 -lniftiio -lznz -lz -lgfortran -lm
+SHLIB = libfcma.so
+

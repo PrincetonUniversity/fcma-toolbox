@@ -3,10 +3,13 @@
 #include Makefile.rondo
 include Makefile.mac
 
-OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o main.o
+OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o
 
-pni_fcma: $(OBJ)
+pni_fcma: $(OBJ) main.cpp
 	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
+
+shlib: $(OBJ) main.cpp
+	$(MPICXX) -shared -o $(SHLIB) $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) -DNOMAIN $^ $(LD_LIBS)
 
 svm.o: svm.h
 	$(CXX) -c svm.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
@@ -47,11 +50,8 @@ Searchlight.o: common.h Searchlight.h Searchlight.cpp
 CorrelationVisualization.o: common.h CorrelationVisualization.h CorrelationVisualization.cpp
 	$(CXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
-main.o: common.h fcma.h main.cpp
-	$(MPICXX) -c main.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS)
-
 PROGS=pni_fcma
 
 clean:
-	rm -f $(PROGS) $(OBJ) *~
+	rm -f $(PROGS) $(OBJ) $(SHLIB) *~
 

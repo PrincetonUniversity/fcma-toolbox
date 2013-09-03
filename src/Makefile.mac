@@ -7,3 +7,5 @@ CXXFLAGS = -I/usr/local/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra
 LDFLAGS=-L/usr/local/lib
 LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran
+SHLIB = libfcma.dylib
+
