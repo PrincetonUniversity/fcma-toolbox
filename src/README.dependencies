@@ -24,8 +24,11 @@ cannot be found.
 
 Mac OS X
 -------
-(At time of this README, Mac OS X 10.8.4 "Mountain Lion"
- was the latest version, and used for this example)
+Note that the FCMA toolbox needs a cluster to run the voxel
+selection phase, but as time passes a single-Mac multiple GPU
+solution may become viable even for this step, but it may be awhile.
+As of now, FCMA is MPI/BLAS based, not GCD/OpenCL based, so that
+the source code is the same on a Linux cluster as it is on a Mac.
 
 Warning! The below instructions install into /usr/local; this may
 interfere with package managers such as Homebrew. As long as you
@@ -45,6 +48,9 @@ to your ~/.profile
 optional but "man mpiexec" will work:
 export MANPATH=/usr/local/share/man:$MANPATH
 
+(At time of this README, Mac OS X 10.8.4 "Mountain Lion"
+ was the latest version, and used for this example)
+
 1. Install Xcode command line tools
    a. install Xcode from Mac App Store
    b. in Xcode prefs, download Command Line Tools
@@ -61,7 +67,7 @@ export MANPATH=/usr/local/share/man:$MANPATH
    d. ./configure && make all && sudo make install
        - this will take awhile and your sudo permission will time-out;
          be sure to respond to the "Password:" prompt to complete the install
-4. Compile GotoBLAS2
+4. Compile GotoBLAS2 (only if not using Accelerate framework)
    a. download in browser from http://www.tacc.utexas.edu/tacc-projects/gotoblas2/
       - (no curl command becuase URL looks to be
         obfuscated?/dynamic?/certainly long)
@@ -75,7 +81,7 @@ export MANPATH=/usr/local/share/man:$MANPATH
    f. sudo cp libgoto2.a /usr/local/lib/
    g. add the line "typedef long blasint;" to top of cblas.h
    h. sudo cp cblas.h /usr/local/include/
-   
+   ** simply adding "-framework Accelerate" to FCMA's Makefile is another option **
 5. Compile nifticlib (v.2.0.0 current as of this document)
    a. curl -O
 http://sourceforge.net/projects/niftilib/files/nifticlib/nifticlib_2_0_0/nifticlib-2.0.0.tar.gz

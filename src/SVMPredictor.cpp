@@ -54,7 +54,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       cerr<<"Unknown task type"<<endl;
       exit(1);
   }
-  delete scores;
+  delete[] scores;
 }
 
 /**********************************************
@@ -81,7 +81,7 @@ void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* tr
       float* tempSimMatrix = GetPartialInnerSimMatrix(tops[i], col, nSubs, nTrials, sr, rowLength, trials, r_matrices);
       for (j=0; j<nTrials*nTrials; j++) simMatrix[j] += tempSimMatrix[j];
       //cout<<i<<" "<<sr<<" "<<tempSimMatrix[0]<<" "<<tempSimMatrix[1]<<endl;
-      delete tempSimMatrix;
+      delete[] tempSimMatrix;
       sr += rowLength;
     }
     SVMParameter* param = SetSVMParameter(4); // precomputed
@@ -130,13 +130,13 @@ void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* tr
     }
     cout<<endl;
     svm_free_and_destroy_model(&model);
-    delete x;
-    delete prob->y;
+    delete[] x;
+    delete[] prob->y;
     for (j=0; j<nTrainings; j++)
     {
       delete prob->x[j];
     }
-    delete prob->x;
+    delete[] prob->x;
     delete prob;
     svm_destroy_param(param);
   }
@@ -217,7 +217,7 @@ void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nT
     }
     cout<<endl;
     svm_free_and_destroy_model(&model);
-    delete x;
+    delete[] x;
   }
   delete prob->y;
   for (j=0; j<nTrainings; j++)
@@ -290,10 +290,10 @@ float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix
     float* buf = new float[row*col]; // col is more than what really need, just in case
     int ml = getBuf(sc, ec, row, col, mat, buf);  // get the normalized matrix, return the length of time points to be computed
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row, row, ml, 1.0, buf, ml, buf, ml, 0.0, values+i*row*row, row);
-    delete buf;
+    delete[] buf;
   }
   GetDotProductUsingMatMul(simMatrix, values, nTrials, row, row);
-  delete values;
+  delete[] values;
   return simMatrix;
 }
 
@@ -316,11 +316,11 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials, int sr
     int ml = getBuf(sc, ec, row, col, mat, buf);  // get the normalized matrix, return the length of time points to be computed
     //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row, ml, 1.0, buf+sr*ml, ml, buf, ml, 0.0, corrs, row);
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row, ml, 1.0, buf+sr*ml, ml, buf, ml, 0.0, values+i*rowLength*row, row);
-    delete buf;
+    delete[] buf;
   }
   NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);
-  delete values;
+  delete[] values;
   return simMatrix;
 }
 

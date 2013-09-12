@@ -69,8 +69,8 @@ CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** mat
   float* corrs = new float[step*row2];
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml1, 1.0, buf1+sr*ml1, ml1, buf2, ml2, 0.0, corrs, row2);
   c_matrix->matrix = corrs;
-  delete buf1;
-  delete buf2;
+  delete[] buf1;
+  delete[] buf2;
   return c_matrix;
 }
 

@@ -48,7 +48,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
     }
     float* tempSimMatrix = GetPartialInnerSimMatrixWithMasks(nSubs, nTrials, sr, rowLength, trials, masked_matrices1, masked_matrices2);
     for (i=0; i<nTrials*nTrials; i++) simMatrix[i] += tempSimMatrix[i];
-    delete tempSimMatrix;
+    delete[] tempSimMatrix;
     sr += rowLength;
   }
   SVMParameter* param = SetSVMParameter(4); // precomputed
@@ -95,7 +95,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   }
   cout<<endl;
   svm_free_and_destroy_model(&model);
-  delete x;
+  delete[] x;
   delete prob->y;
   for (i=0; i<nTrainings; i++)
   {
@@ -104,14 +104,14 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   delete prob->x;
   delete prob;
   svm_destroy_param(param);
-  delete simMatrix;
+  delete[] simMatrix;
   for (i=0; i<nSubs; i++)
   {
     delete masked_matrices1[i]->matrix;
-    delete masked_matrices2[i]->matrix;
+    if (maskFile2!=NULL) delete masked_matrices2[i]->matrix;
   }
   delete masked_matrices1;
-  delete masked_matrices2;
+  if (maskFile2!=NULL) delete masked_matrices2;
   return result;
 }
 
@@ -141,12 +141,12 @@ float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr, int row
     int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
     int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row2, ml1, 1.0, buf1+sr*ml1, ml1, buf2, ml2, 0.0, values+i*rowLength*row2, row2);
-    delete buf1;
-    delete buf2;
+    delete[] buf1;
+    delete[] buf2;
   }
   NormalizeCorrValues(values, nTrials, rowLength, row2, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row2);
-  delete values;
+  delete[] values;
   return simMatrix;
 }
 
@@ -232,13 +232,13 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
   }
   cout<<endl;
   svm_free_and_destroy_model(&model);
-  delete x;
-  delete prob->y;
+  delete[] x;
+  delete[] prob->y;
   for (i=0; i<nTrainings; i++)
   {
     delete prob->x[i];
   }
-  delete prob->x;
+  delete[] prob->x;
   delete prob;
   svm_destroy_param(param);
   for (i=0; i<nSubs; i++)

@@ -55,7 +55,7 @@ void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials
   sprintf(fullfilename, "%s", topVoxelFile);
   strcat(fullfilename, "_score.nii.gz");
   WriteNiiGzData(fullfilename, maskFile, (void*)data_scores, DT_FLOAT32);
-  delete scores;
+  delete[] scores;
   if (maskFile!=NULL)
     delete masked_pts;
 }
@@ -135,7 +135,7 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
     }
     prob->x[i][j].index = -1;
   }
-  delete voxels;
+  delete[] voxels;
   return prob;
 }
 

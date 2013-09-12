@@ -41,12 +41,12 @@ VoxelScore* GetSVMPerformance(int me, CorrMatrix** c_matrices, int nTrainings, i
     //  cout<<count<<": "<<(scores+count)->score<<" "<<flush;
     //}
     delete param;
-    delete prob->y;
+    delete[] prob->y;
     for (int j=0; j<nTrainings; j++)
     {
       delete prob->x[j];
     }
-    delete prob->x;
+    delete[] prob->x;
     delete prob;
   }
   //if (me == 0)
@@ -117,8 +117,8 @@ SVMProblem* GetSVMProblemWithPreKernel(CorrMatrix** c_matrices, int row, int sta
     }
     prob->x[i][j+1].index = -1;
   }
-  delete simMatrix;
-  delete corrMatrix;
+  delete[] simMatrix;
+  delete[] corrMatrix;
   return prob;
 }
 
@@ -143,6 +143,6 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
     }
   }
   //cout<<total_correct<<" "<<prob->l; getchar();
-  delete target;
+  delete[] target;
   return 1.0*total_correct/prob->l;
 }

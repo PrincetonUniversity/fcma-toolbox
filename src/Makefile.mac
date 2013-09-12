@@ -5,7 +5,7 @@ MPICXX=/usr/local/bin/mpic++
 MPIFLAGS=-I/usr/local/include
 CXXFLAGS = -I/usr/local/include -O3 -fopenmp -fPIC -g
 WARNINGFLAGS = -Wall -Werror -Wextra
-LDFLAGS=-L/usr/local/lib
-LD_LIBS = -lm -lgoto2 -lz -lniftiio -lznz -lgfortran
+LDFLAGS=-L/usr/local/lib 
+LD_LIBS = -lm -lz -lniftiio -lznz -lgfortran -framework Accelerate
 SHLIB = libfcma.dylib
 

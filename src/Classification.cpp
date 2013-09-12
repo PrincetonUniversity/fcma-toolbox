@@ -93,13 +93,13 @@ float DoDistanceRatioSmarter(int nTrainings, int startIndex, CorrMatrix** c_matr
   float dOut = GetVectorSum(sum_c01, length);
   //cout<<((dIn0+dIn1)/((nIn0-1)*nIn0/2+(nIn1-1)*nIn1/2))<<" "<<(dOut/(nIn0*nIn1)); getchar();
   float ratio = ((dIn0+dIn1)/((nIn0-1)*nIn0/2+(nIn1-1)*nIn1/2)) / (dOut/(nIn0*nIn1));
-  delete c0;  // try to use array instead of new later
-  delete c0_2;
-  delete c1;
-  delete c1_2;
-  delete sum_c0;
-  delete sum_c1;
-  delete sum_c01;
+  delete[] c0;  // try to use array instead of new later
+  delete[] c0_2;
+  delete[] c1;
+  delete[] c1_2;
+  delete[] sum_c0;
+  delete[] sum_c1;
+  delete[] sum_c01;
   return ratio;
 }
 

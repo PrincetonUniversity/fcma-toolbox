@@ -44,8 +44,8 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
   int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
   float* corrMat = new float[row1*row2];
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row1, row2, ml1, 1.0, buf1, ml1, buf2, ml2, 0.0, corrMat, row2);
-  delete buf1;
-  delete buf2;
+  delete[] buf1;
+  delete[] buf2;
   float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
   /*nifti_image* ref_nim = nifti_image_read(maskFile1, 1);
   int dims[8];

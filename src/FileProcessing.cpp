@@ -100,7 +100,7 @@ RawMatrix* ReadGzData(string fileStr, int sid)
     r_matrix->matrix[i] = (double)data[i];
   }
   gzclose(fp);
-  delete data;
+  delete[] data;
   return r_matrix;
 }
 
