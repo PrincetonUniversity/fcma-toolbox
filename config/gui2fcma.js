@@ -132,7 +132,7 @@ var params = {
   	first_left_out_block_id:5,
   	num_items_held_for_test:0,
   	is_test_mode:0,
-	visblock:10,
+	visualize_blockid:10,
   	mvpa_control: false,
   	datadir: base + 'data/',
 	outputfile: base + 'top_correlation.txt',
@@ -140,7 +140,7 @@ var params = {
 	second_maskfile: base + 'masks/mask2.nii.gz',
   	blockdir: base + 'blockfiles/',
   	blockfile: base + 'blockfile.txt',
-	visfile: base + 'blockXresults.nii.gz'
+	visualize_reference: base + 'blockXresults.nii.gz'
 };
 	
 var changeNotifier = function (element, index, array) {
@@ -182,8 +182,8 @@ var guiLoader = function() {
   ctrlArray.push( gui.add(params, 'classifier', classifierList ).name('Classifier') );
   ctrlArray.push( gui.add(params, 'mvpa_control').name('MVPA control condition') );
   var visF = mf.addFolder('Visualization');
-  ctrlArray.push( visF.add(params, 'visblock').name('BlockID to visualize') );
-  ctrlArray.push( visF.add(params, 'visfile').name('Visualization results') );
+  ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID to visualize') );
+  ctrlArray.push( visF.add(params, 'visualize_reference').name('Visualization results') );
 
   mf.open();
   blockF.open();
