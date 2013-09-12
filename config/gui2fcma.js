@@ -190,7 +190,6 @@ var guiLoader = function() {
   maskF.open();
   blf.open();
   nff.open();
-  visF.open();
   
   ctrlArray.forEach(changeNotifier);
   
