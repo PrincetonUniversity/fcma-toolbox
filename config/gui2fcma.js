@@ -6,17 +6,20 @@
  *   bdsinger@princeton.edu
  */
  
-var base = '/gigatmp/scratch/me/project/';
+var base = '/scratch/me/project/';
 var analysisList = [ '1 - Voxel selection', '2 - Test prediction accuracy' ];
 var blocksList = [ 'Blocks directory', 'Blocks file' ];
 var maskList = [ 'ROI Mask 1', 'ROI Mask 2', 'No masks', 'Both masks' ];
 var classifierList = ['SVM performance', 'smart distance ratio', 'correlation sum'];
 var controlWidth = 500;
 var gui = new dat.GUI({ autoPlace: false, width: controlWidth});
+var kClassifierSVM = 0, kClassifierSDR = 2, kClassifierSUM = 3;
+var kBlocksDir = 0, kBlocksFile = 1;
 var kFirstMask = 0, kSecondMask = 1, kNoMasks = 2, kBothMasks = 3;
 var kSelectionIndex = 0, kTestingIndex = 1;
 var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7;
 var kNA = -1;
+var kTestingMaskFile = base + 'selected_voxels.nii.gz';
 
 var createFCMA = function() {
 	var blockIsDir = (params["blocksInput"] == 'Blocks directory');
@@ -46,6 +49,8 @@ var createFCMA = function() {
 		if (all_in == false) {
 			params['task_type'] += 1;
 		}
+		params['first_maskfile'] = kTestingMaskFile;
+		params['second_maskfile'] = kTestingMaskFile;
 	}
 
 	var res = '';
@@ -79,8 +84,8 @@ var createFCMA = function() {
 	res = res + '# check w/sysadmin before changing anything below!\n';
 	res = res + '# this is the only supported fMRI format\n';
 	res = res + 'matrix_format:.nii.gz\n';
-	res = res + '# these are rondo-specific\n';
-	res = res + 'omp_num_threads:7\n';
+	res = res + '# these are machine-specific\n';
+	res = res + 'omp_num_threads:8\n';
 	res = res + 'num_processors:'+num_processors+'\n';
 	
 	var ta = document.getElementById("fcma-out");
@@ -118,22 +123,24 @@ var downloadFCMA = function() {
 };
 
 var params = {
-  	analysisStage: analysisList[0],
-  	maskInput: maskList[0],
-  	blocksInput: blocksList[0],
+  	analysisStage: analysisList[kSelectionIndex],
+  	maskInput: maskList[kBothMasks],
+  	blocksInput: blocksList[kBlocksFile],
   	task_type: kSelectionSVM_FCMA,
-  	classifier: classifierList[0],
+  	classifier: classifierList[kClassifierSVM],
         num_folds_in_feature_selection:5,
   	first_left_out_block_id:5,
   	num_items_held_for_test:0,
-  	is_test_mode: 0,
+  	is_test_mode:0,
+	visblock:10,
   	mvpa_control: false,
   	datadir: base + 'data/',
 	outputfile: base + 'top_correlation.txt',
 	first_maskfile: base + 'masks/mask1.nii.gz',
 	second_maskfile: base + 'masks/mask2.nii.gz',
   	blockdir: base + 'blockfiles/',
-  	blockfile: base + 'blockfile.txt'
+  	blockfile: base + 'blockfile.txt',
+	visfile: base + 'blockXresults.nii.gz'
 };
 	
 var changeNotifier = function (element, index, array) {
@@ -165,19 +172,25 @@ var guiLoader = function() {
   ctrlArray.push( blockF.add(params,'blockdir').name('Blocks directory') );
   ctrlArray.push( blockF.add(params,'blockfile').name('Blocks file') );
 
+ // .listen() appended to items that change based on other items
+ // such as mask name in selection vs test mode
   var maskF = mf.addFolder('Voxel Mask(s)');
   ctrlArray.push( maskF.add(params,'maskInput', maskList).name('Mask input') );
-  ctrlArray.push( maskF.add(params,'first_maskfile').name('ROI Mask 1') );
-  ctrlArray.push( maskF.add(params,'second_maskfile').name('ROI Mask 2') );
+  ctrlArray.push( maskF.add(params,'first_maskfile').name('ROI Mask 1').listen() );
+  ctrlArray.push( maskF.add(params,'second_maskfile').name('ROI Mask 2').listen() );
 
   ctrlArray.push( gui.add(params, 'classifier', classifierList ).name('Classifier') );
   ctrlArray.push( gui.add(params, 'mvpa_control').name('MVPA control condition') );
-  
+  var visF = mf.addFolder('Visualization');
+  ctrlArray.push( visF.add(params, 'visblock').name('BlockID to visualize') );
+  ctrlArray.push( visF.add(params, 'visfile').name('Visualization results') );
+
   mf.open();
   blockF.open();
   maskF.open();
   blf.open();
   nff.open();
+  visF.open();
   
   ctrlArray.forEach(changeNotifier);
   

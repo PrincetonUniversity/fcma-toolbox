@@ -1,4 +1,4 @@
-# .fcma file version 0.9b
+# .fcma file version 1.0
 # 
 # template for voxel selection
 # example for 8 x 8-core cluster nodes
@@ -11,6 +11,7 @@
 # directory, relative to PWD, containing
 # the image data to correlate/analyze
 # - all files in the dir are used and counted!
+# - the ending slash (/) is required!
 datadir:data/
 
 # applies to voxel selection (tasks 0-3) only!
@@ -18,7 +19,7 @@ outputfile:top_correlation.txt
 
 # BLOCKFILE/DIR: choose one or the other
 # block information file (if not a directory)
-blockfile:blocks.txt
+blockfile:blockfile.txt
 
 # block information directory (if not a file)
 # each file in the directory has 1:1 correspondence
@@ -27,7 +28,8 @@ blockfile:blocks.txt
 #
 # all voxels in first_maskfile are compared with 
 # all voxels in the second_maskfile
-# (these can be the same file in case of autocorrelation)
+# (repeat the same file in case of autocorrelation)
+# when testing, should be the selected voxels
 first_maskfile: 
 second_maskfile:
 
@@ -41,9 +43,8 @@ second_maskfile:
 omp_num_threads:8
 
 # number of tasks (nodes)
-#  master (1) + # slaves here
 # consult your system administrator!
-num_processors:9
+num_processors:8
 
 # image file format extension(s)
 # Use NiFTI, compressed format (.nii.gz)
@@ -51,14 +52,15 @@ matrix_format:.nii.gz
 
 # file to write results to
 # task_type
-#  0 for voxel selection using svm
-#  1 for smart distance ratio
-#  2 for searchlight
-#  3 for correlation sum
-#  4 for two parts correlation and test
-#  5 for cross validation of two parts correlation
-#  6 for one part activation and test
-#  7 for cross validation of one part activation
+#  0 for voxel selection using svm <--- use this!
+#  1 for voxel selection using smart distance ratio
+#  2 for voxel selection using searchlight (mvpa)
+#  3 for voxel selection using the scorrelation sum
+#  USE VOXELS SELECTED ABOVE AS MASK FOR BELOW TASKS
+#  4 for testing new data (fcma correlation method)
+#  5 for cross validating new data (fcma correlation method)
+#  6 for testing new data  (mvpa activation method)
+#  7 for cross validating new data (mvpa activation method) 
 task_type:0
 
 # step, number of rows to be assigned per round
@@ -74,5 +76,13 @@ num_items_held_for_test:0
 
 # number of folds in feature selection
 # applies only to tasks 0-3
+# (range 0-20 typical)
 num_folds_in_feature_selection:0
 
+# visualization section
+# blockid correlations to save in file below
+visualize_blockid:10
+
+# 4D reference data for visualization
+# (as many TRs as voxels in mask) 
+visualize_reference:data/subject01.nii.gz
