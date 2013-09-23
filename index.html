@@ -54,26 +54,20 @@
 		<blockquote>
 			<p>The Princeton Full Correlation Matrix Analysis (FCMA) Toolbox is a suite of tools for correlating, analyzing, and classifying patterns of correlation in fMRI time-series data.</p><br>
 			<p>The key data structure in FCMA is the Full Correlation Matrix (FCM), which contains the correlations between all pairs of voxels and time-intervals. Computing the entire FCM is intractable: the FCM for two one-hour fMRI sessions requires approx. 1.5 x 10<sup>19</sup> correlations, nearly 20 years of compute time on a 4000-core computer cluster. The FCMA Toolbox correlates a given set of fixed time-intervals (blocks of TRs you specify) which together with some custom optimizations reduces the computational load to a matter of hours. A modest-sized cluster is still required to do the calculation. For that reason, a new toolbox was developed in the spirit of the Princeton <a href="http://code.google.com/p/princeton-mvpa-toolbox/">MVPA Toolbox</a> for Matlab, but is written in C++, OpenMP, and OpenMPI for greater performance and scalability.</p><br>
-			<p>Below are instructions for users that have access to an FCMA cluster backend such as <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI. Instructions for how to set up an FCMA cluster for system administrators are available on the <a href="cluster">cluster</a> page.</p><br>
+			<p>Here are the steps for running an FCMA analysis from a user perspective, including how to create an .fcma config file, without discussing the config settings in detail. Please follow the FCMA Tutorial (link TBA) for a discussion in the context of a real analysis. As far as how to install FCMA and set up a machine or cluster of machines, system administrators should consult the <a href="cluster">cluster</a> page.</p><br>
 		</blockquote>
 		<div class="well">
 			<a name="using"></a>
 			<h3>Using FCMA</h3>
 			<ul>
 				<li><h4>Generate an FCMA file for voxel selection</h4>
-				The FCMA program input parameters are provided via a configuration file with the ".fcma" extension (see <a href="config/#reference">description of the key parameters</a>.) You can create an .fcma file in one of three ways:
+				The FCMA program input parameters are provided via a configuration file with the ".fcma" extension (see <a href="config/#reference">description of the key parameters</a>.) You can create an .fcma file:
 				<ol>
-					<li><strong>Online</strong> [<em>recommended</em>]: Run the <a href="config">FCMA File Generator</a> to generate one online </li>
+					<li><strong>Online</strong>: Run the <a href="config">FCMA File Generator</a> to generate one online </li>
 					<br>
 					<strong><em>OR</em></strong>
 					<br><br>
-					<li><strong>Command line</strong>: Run
-						<pre>pni_fcma_config </pre> 
-					when logged in to the FCMA server (e.g., <a href="http://cluster-wiki.pni.princeton.edu">rondo</a> at the PNI.)</li>
-					<br>
-					<strong><em>OR</em></strong>
-					<br><br>
-					<li><strong>Text editor</strong>: Power users can edit the FCMA files themselves directly:
+					<li><strong>Text editor</strong>:Edit the FCMA file directly. Some templates:
 						<ol>
 							<br>
 							<li><a href="template.fcma">FCMA Voxel Selection Template</a>, and</li>
@@ -81,39 +75,37 @@
 							<li><a href="template_testing.fcma">FCMA Prediction Testing Template</a></li>
 							<br>
 						</ol>
-						used in the first and second phase of the analysis, respectively. The template contains lines of instructions above each parameter setting. On rondo, the template is available via the path <code>/opt/pni/doc/template.fcma</code>. The process for editing is therefore:
-						<pre>cp /opt/pni/doc/template.fcma myparams.fcma</pre>
-						(copies template 1 into your workspace, where you can edit it with your favorite text <code>$EDITOR</code> (<code>vim, emacs, nano</code> etc):
-							<pre>$EDITOR myparams.fcma </pre> 						
+						These are for the first and second phase of the analysis, respectively (described below.) The templates contains lines of instructions above each parameter setting, in the comments. The process for editing is therefore:
+						<pre>cp [Downloads folder]/template.fcma [Analysis folder]/myparams.fcma</pre>
+						<br>
+						which copies template 1 into your workspace, where you can edit it with your favorite text <code>$EDITOR</code>:
+						<pre>$EDITOR myparams.fcma </pre> 						
 					</li>
 				</ol>
-				<em>PNI users: "FCMA server" means rondo. However, an .fcma file will work on any computational cluster <a href="cluster">properly set up</a> for FCMA.</em>
 				<br><br>
-				<li><h4>Copy (or Paste) your FCMA file to the FCMA server</h4>
-				This can be done via
+				<li><h4>Copy your FCMA file to your FCMA analysis directory</h4>
+				Your analysis directory is usually where your data files and masks reside, on a machine (or set of machines) that are set up to run MPI programs. If you have an account on a compute cluster:
 					<pre>scp myparams.fcma user@server:</pre>
-				This will copy the file to your home directory. If you use the <a href="config">generator</a> you have the option of cutting & pasting the file it posts in the window directly into an editor.
+				This will copy the file to your home directory. Once you've logged in you can move it into your analysis directory (which might not be accessible from the login node. On the PNI cluster you must start up an interactive qrsh session first to get access to lab directories where data resides.) If you use the <a href="config">generator</a> you have the option of copying the generated file contents directly into your editor window.
 				</li><br>
-				<li><h4>Run FCMA on the server</h4>
-				Once you have your .fcma file transferred to rondo and you are logged in, the command which will launch an FCMA as a parallel job is:
+				<em>PNI Users: please use high-performance scratch space for your analysis (/fastscratch as of fall 2013.)</em>
+				<li><h4>Run FCMA voxel selection</h4>
+				Once you have your .fcma file transferred and you are in your analysis directory where data is easily accessible and loaded, the <em>pni_fcma_submit</em> bash script will parse your .fcma file into command-line arguments for the <em>pni_fcma</em> compiled MPI program:
 						<pre>pni_fcma_submit myparams.fcma </pre>
-				Since the log files will be written to your working directory, you may want to move the .fcma file to a dedicated directory and change your working directory to it, before running. (If you edit the .fcma file directly and you have used absolute rather than relative paths, you can run from any working directory.)
-				<br><br>
-				<em>PNI Users: please use a subdirectory of /gigatmp for all files related to your analysis</em>
 				</li><br>
-				<li><h4>Monitor progress</h4>
-				You can then monitor progress by dynamically "tailing" the log file produced by the job:
+				<li><h4>Monitor progress including estimated run time</h4>
+				Voxel selection is the most time-consuming step, and you'll want to get an estimate of the running time. The <em>pni_fcma</em> program will print out timing information so you can get a sense of how long the analysis will take. At the start it will write out the number of tasks required, and each task will report its run time in seconds upon completion. Multiply the run time reported (once it has settled) by the number of tasks to get an estimate of the run time. Note that this output may be to a file if the job was submitted to a cluster resource management system. In that case you can "tail -f" the output to get live updates:
 					<pre>tail -f myparams.oJOBID</pre> 
-				where JOBID is the job number associated with your job (printed to console; you can also look for the file most recently updated in your current directory.) You can check the status of the job via the scheduler command:
+				where JOBID is the job number associated with your job (printed to console; you can also look for the file most recently updated in your current directory.) This example is for an SGE-based cluster like the PNI's. You can check the status of the job via the scheduler command:
 					<pre>qstat -t</pre>
 				If something is horribly wrong you can delete the job (which will also kill all the related subtasks) via:
 					<pre>qdel JOBID</pre>
 				</li><br>
 				<li><h4>Make mask(s) for top k voxels</h4>
-				The output of the first FCMA run will give you voxels in order of their predictive performance (using SVM). You'll want to choose the top k voxels (where k below 2000 is typically sufficient) and create NiFTI mask(s) for them. (This process will be incorporated in the next toolbox update.)
+				The output of the first FCMA run will give you all voxels in order of their predictive performance (using SVM). Choose the top k voxels (where k below 2000 is typically sufficient) using the voxel ordering file ("_seq.nii.gz" suffix output) or via a threshold on the voxels scores ("_score.nii.gz" suffix output file).
 				</li><br>
 				<li><h4>Create an FCMA file to test accuracy and repeat</h4>
-				This time, choose "2 - Testing predictive accuracy" (if using the <a href="config">FCMA File Generator</a>) and run a second time. The testing phase does not require more than one cluster computer, but for convenience the procedure for running is identical in both stages: run <code>pni_fcma_submit myparams.fcma</code> substituting your FCMA file for the one in the example.
+				This time, choose "2 - Testing predictive accuracy" (if using the <a href="config">FCMA File Generator</a>), or edit the <a href="template_testing.fcma">testing template</a> file, and run a second time. The testing phase does not require multiple tasks, but uses the same MPI-based <em>pni_fcma</em> program and submission mechanism: <code>pni_fcma_submit mytestingparams.fcma</code> .
 				</li>
 			</ul>
 		</div>

@@ -7,7 +7,7 @@
  */
  
 var base = '/scratch/me/project/';
-var analysisList = [ '1 - Voxel selection', '2 - Test prediction accuracy' ];
+var analysisList = [ '1 - Voxel selection', '2 - Test prediction accuracy', '3 - Visualize correlations' ];
 var blocksList = [ 'Blocks directory', 'Blocks file' ];
 var maskList = [ 'ROI Mask 1', 'ROI Mask 2', 'No masks', 'Both masks' ];
 var classifierList = ['SVM performance', 'smart distance ratio', 'correlation sum'];
@@ -16,8 +16,8 @@ var gui = new dat.GUI({ autoPlace: false, width: controlWidth});
 var kClassifierSVM = 0, kClassifierSDR = 2, kClassifierSUM = 3;
 var kBlocksDir = 0, kBlocksFile = 1;
 var kFirstMask = 0, kSecondMask = 1, kNoMasks = 2, kBothMasks = 3;
-var kSelectionIndex = 0, kTestingIndex = 1;
-var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7;
+var kSelectionIndex = 0, kTestingIndex = 1, kVisualizingIndex = 2;
+var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingSingleMask_FCMA = 3, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7, kVisualizationTask_FCMA = 8;
 var kNA = -1;
 var kTestingMaskFile = base + 'selected_voxels.nii.gz';
 
@@ -38,19 +38,25 @@ var createFCMA = function() {
 		} else {
 			params['task_type'] = kSelectionSVM_FCMA + classifierChoice;
 		}
-	} else {
+	} else if (analysisChoice == kTestingIndex) {
 		params['is_test_mode'] = 1;
 		num_processors = 1;
 		if (is_mvpa_control) {
             params['task_type'] = kTestingTask_MVPA;
 		} else {
-			params['task_type'] = kTestingTask_FCMA;
+			if (maskChoice !== kBothMasks) {
+				params['task_type'] = kTestingSingleMask_FCMA;
+			} else { 
+				params['task_type'] = kTestingTask_FCMA;
+			}
 		}
 		if (all_in == false) {
 			params['task_type'] += 1;
 		}
 		params['first_maskfile'] = kTestingMaskFile;
 		params['second_maskfile'] = kTestingMaskFile;
+	} else if (analysisChoice == kVisualizingIndex) {
+		params['task_type'] = kVisualizationTask_FCMA;
 	}
 
 	var res = '';
@@ -128,8 +134,8 @@ var params = {
   	blocksInput: blocksList[kBlocksFile],
   	task_type: kSelectionSVM_FCMA,
   	classifier: classifierList[kClassifierSVM],
-        num_folds_in_feature_selection:5,
-  	first_left_out_block_id:5,
+    num_folds_in_feature_selection:8,
+  	first_left_out_block_id:58,
   	num_items_held_for_test:0,
   	is_test_mode:0,
 	visualize_blockid:10,
@@ -140,7 +146,7 @@ var params = {
 	second_maskfile: base + 'masks/mask2.nii.gz',
   	blockdir: base + 'blockfiles/',
   	blockfile: base + 'blockfile.txt',
-	visualize_reference: base + 'blockXresults.nii.gz'
+	visualize_reference: base + 'blockXcorrelations.nii.gz'
 };
 	
 var changeNotifier = function (element, index, array) {
@@ -160,8 +166,8 @@ var guiLoader = function() {
   ctrlArray.push( nff.add(params, 'num_folds_in_feature_selection').min(0).max(20).step(1).name('Number of folds') );
 
   var blf = gui.addFolder('Blocks to leave out for cross-validation (prediction stage)');
-  ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(20).step(1).name('Beginning block ID') );
-  ctrlArray.push( blf.add(params, 'num_items_held_for_test').min(0).max(20).step(1).name('Number of blocks (0 to disable)') );
+  ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(200).step(1).name('Beginning block ID') );
+  ctrlArray.push( blf.add(params, 'num_items_held_for_test').min(0).max(100).step(1).name('Number of blocks (0 to disable)') );
   
   var mf = gui.addFolder('Cluster Files & Directories');  
   ctrlArray.push( mf.add(params, 'datadir').name('Data directory') );
@@ -182,8 +188,8 @@ var guiLoader = function() {
   ctrlArray.push( gui.add(params, 'classifier', classifierList ).name('Classifier') );
   ctrlArray.push( gui.add(params, 'mvpa_control').name('MVPA control condition') );
   var visF = mf.addFolder('Visualization');
-  ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID to visualize') );
-  ctrlArray.push( visF.add(params, 'visualize_reference').name('Visualization results') );
+  ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID correlations to visualize') );
+  ctrlArray.push( visF.add(params, 'visualize_reference').name('Visualization file') );
 
   mf.open();
   blockF.open();
