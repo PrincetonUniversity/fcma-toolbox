@@ -89,7 +89,6 @@ extern unsigned long long counter;
 #define COMPUTATIONTAG 1
 #define LENGTHTAG 2
 #define VOXELCLASSIFIERTAG 3
-#define ELAPSETAG_COR 4
-#define ELAPSETAG_SVM 5
+#define ELAPSETAG 4
 
 #endif
