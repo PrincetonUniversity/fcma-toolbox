@@ -506,7 +506,7 @@ Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file)
       {
         if (j % 2 == 0)
         {
-          trials[index].tid = j + 1;
+          trials[index].tid = j + 1; // bds:nPerSubs must be even?
         }
         else
         {
@@ -541,7 +541,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
   }
   int i, j;
   nTrials = 0;
-  Trial* trials = new Trial[nSubs*12];  //maximal 12 trials per subject
+  Trial* trials = new Trial[nSubs*MAXTRIALPERSUBJ];
   int index=0;
   for (i=0; i<nSubs; i++)
   {

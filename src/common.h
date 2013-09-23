@@ -28,11 +28,10 @@
 using namespace std;
 
 // Matrix multiplication parameters
-#define MAXTRIAL 10000
-#define MAXTASK 10000
 #define TINYNUM 1e-4
 #define MAXFILENAMELENGTH 300
 #define MAXSUBJS 100
+#define MAXTRIALPERSUBJ 64
 
 typedef unsigned long long uint64;
 typedef unsigned short uint16;
@@ -90,6 +89,7 @@ extern unsigned long long counter;
 #define COMPUTATIONTAG 1
 #define LENGTHTAG 2
 #define VOXELCLASSIFIERTAG 3
-#define ELAPSETAG 4
+#define ELAPSETAG_COR 4
+#define ELAPSETAG_SVM 5
 
 #endif
