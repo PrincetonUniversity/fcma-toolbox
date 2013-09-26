@@ -67,18 +67,24 @@
 					<br>
 					<strong><em>OR</em></strong>
 					<br><br>
-					<li><strong>Text editor</strong>:Edit the FCMA file directly. Some templates:
+					<li><strong>Text editor</strong>:Edit the FCMA file directly. Some templates with lots of comments and minimal templates without:
 						<ol>
 							<br>
 							<li><a href="template.fcma">FCMA Voxel Selection Template</a>, and</li>
 							<br>
 							<li><a href="template_testing.fcma">FCMA Prediction Testing Template</a></li>
 							<br>
+							<li><a href="template_minimal.fcma">Leave-one-subject-out Minimal Template: Selection</a></li>
+							<br>
+							<li><a href="template_minimal_testing.fcma">Leave-on-subject-out Minimal Template: Testing</a></li>
+							<br>
+							<br>
+							<br>
 						</ol>
-						These are for the first and second phase of the analysis, respectively (described below.) The templates contains lines of instructions above each parameter setting, in the comments. The process for editing is therefore:
+						These are for the first and second phase of the analysis, respectively (described below.) The templates contains lines of instructions above each parameter setting, in the comments. The process starts with getting an fcma file:
 						<pre>cp [Downloads folder]/template.fcma [Analysis folder]/myparams.fcma</pre>
 						<br>
-						which copies template 1 into your workspace, where you can edit it with your favorite text <code>$EDITOR</code>:
+						(at the PNI, these templates are available in /opt/pni/doc/template*). You can edit the file with your favorite text <code>$EDITOR</code>:
 						<pre>$EDITOR myparams.fcma </pre> 						
 					</li>
 				</ol>
