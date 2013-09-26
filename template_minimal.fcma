@@ -1,0 +1,15 @@
+# minimal voxel selection fcma file for train on 9 subjects, test on 1
+# put all but left-out subject data in datadir, change num_folds... to subj-1
+# 
+# cd to a dir containing "subjects" dir, mask.nii.gz, and blockfile.txt
+datadir:subjects/
+outputfile:face_scene_9subj
+first_maskfile:brainmask.nii.gz
+second_maskfile:brainmask.nii.gz
+blockfile:blockfile.txt
+num_folds_in_feature_selection:9
+task_type:0
+is_test_mode:0
+omp_num_threads:8
+num_processors:8
+matrix_format:.nii.gz

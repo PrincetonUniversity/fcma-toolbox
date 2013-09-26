@@ -1,0 +1,16 @@
+# minimal testing fcma file for train on 9 subjects, test on 1
+# datadir should contain the 1 subject left out of selection
+# will cross validate leaving out each block for num_blocks tests, report results to stdout
+# 
+# cd to a dir containing "subjects" dir, mask.nii.gz, and blockfile.txt
+datadir:subjects/
+outputfile:face_scene
+first_maskfile:topvoxels.nii.gz
+second_maskfile:brainmask.nii.gz
+blockfile:blockfile.txt
+task_type:5
+is_test_mode:1
+num_items_held_for_test:1
+omp_num_threads:1
+num_processors:1
+matrix_format:.nii.gz
