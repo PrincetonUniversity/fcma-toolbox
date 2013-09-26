@@ -49,7 +49,7 @@ omp_num_threads:8
 
 # number of tasks (nodes)
 # consult your system administrator!
-# use 9 for rondo (1 super + 8 workers)
+# use 8 for rondo (8 nodes are set aside)
 num_processors:8
 
 # image file format extension(s)
