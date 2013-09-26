@@ -35,21 +35,21 @@ function generate_template() {
         "datadir:data/"                      'Every NIfTI dataset (usually == subject) in this dir will be used'
         "matrix_format:nii.gz"               'File extension for fmri data. Currently only NIfTI compressed (.nii.gz) is supported.'
         "outputfile:top_voxels.txt"          'Your name for the text file that will contain the list of top-scoring voxels (task 0)'
-        "task_type:0"                        'Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4)'
+        "task_type:0"                        'Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4,5)'
         "blockfile:blockfile.txt"            'Single blocks file to be applied to every fmri data file. See blocks_template.txt for format'
         "blockdir:"                          'Every file in this dir must correspond 1:1 with its dataset-- same name, but .txt not .nii.gz'
         "rows_per_round:100"                 'Empirical value, the rows of FC Matrix (rows*voxels*subjects*blocks) to process per iteration'
-        "first_left_out_block_id:-1"         'Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:-1)'
-        "num_items_held_for_test:0"          'Block_ids left out are contiguous, from first_left_out_block_id (flobi) to flobi + this number'
-        "is_test_mode:0"                     'Interacts with task_type: 1 (with task 4) when predicting using new data, 0 (with task 0) when selecting top voxels'
-        "num_folds_in_feature_selection:8"   'Divides the subjects*blocks samples evenly, does N-1 xvalidation to get each voxel score'
-        "first_maskfile:mask1.nii.gz"        'Voxels to score based on autocorrelation or correlation with those in second maskfile'
-        "second_maskfile:mask2.nii.gz"       'Besides selection, first & second maskfile can be used with new data in test mode '
+        "first_left_out_block_id:-1"         'Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:0)'
+        "num_items_held_for_test:0"          'Selection: w/first_left_out_block_id are blocks excluded; Test task 5: xvalidation folds=trials/items'
+        "is_test_mode:0"                     'If 1 use input list or mask voxels to report accuracy, if 0 rank voxels in mask by accuracy'
+        "num_folds_in_feature_selection:8"   'Divides the subjects*blocks trials into samples for N-1 xvalidation to get each voxel score'
+        "first_maskfile:mask1.nii.gz"        'Voxels to score during selection. If left blank all voxels used. If first == second autocorrelates.'
+        "second_maskfile:mask2.nii.gz"       'In testing (tasks 3-5) top voxels are taken from either both masks (4&5) or first mask only (task 3)'
         "visualize_blockid:10"               '(used with task_type 8) Which block_id (0..blocks*subjects) correlation matrix to save'
-        "visualize_reference:block10.nii.gz" '(used with task_type 8) Name of 4D file, each volume a mask1 voxel, correlated with all mask2 voxels'
+        "visualize_reference:block10.nii.gz" '(used with task_type 8) File header will be reused, but will make new file using outputfile prefix'
 )
 
-  outfile="template.fcma"
+  outfile="template_submit.fcma"
   echo "# Sample FCMA config file" > $outfile
   echo "" >> $outfile
   (( j = 0 ))
