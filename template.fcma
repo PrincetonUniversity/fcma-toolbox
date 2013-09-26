@@ -10,28 +10,32 @@
 #
 # directory, relative to PWD, containing
 # the image data to correlate/analyze
+#   * PNI USERS: copy data first to /fastscratch ! *
 # - all files in the dir are used and counted!
 # - the ending slash (/) is required!
-datadir:data/
+datadir:/fastscratch/bdsinger/fcma_test/face_scene/subjects/
 
 # applies to voxel selection (tasks 0-3) only!
-outputfile:top_correlation.txt
+outputfile:/fastscratch/bdsinger/fcma_test/face_scene/top_correlation
 
 # BLOCKFILE/DIR: choose one or the other
 # block information file (if not a directory)
-blockfile:blockfile.txt
+blockfile:/fastscratch/bdsinger/fcma_test/face_scene/blockfile.txt
 
 # block information directory (if not a file)
 # each file in the directory has 1:1 correspondence
 # with data file in the data directory above
 #blockdir:
 #
-# all voxels in first_maskfile are compared with 
-# all voxels in the second_maskfile
+# voxels in first_maskfile are correlated with 
+# voxels in the second_maskfile
 # (repeat the same file in case of autocorrelation)
-# when testing, should be the selected voxels
-first_maskfile: 
-second_maskfile:
+# A blank maskfile uses all voxels in the file!
+# Probably not what you want (at least supply a brainmask)
+# when testing (task 4), masks should be the selected voxels
+# (ends in _seq.nii.gz) output from selection phase (task 0)
+first_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
+second_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
 
 #    *****************************************
 #    **** do not change values below here ****
@@ -40,10 +44,12 @@ second_maskfile:
 
 # number of cores per node for slave
 # consult your system administrator!
+# use 8 for rondo
 omp_num_threads:8
 
 # number of tasks (nodes)
 # consult your system administrator!
+# use 9 for rondo (1 super + 8 workers)
 num_processors:8
 
 # image file format extension(s)
@@ -52,18 +58,22 @@ matrix_format:.nii.gz
 
 # file to write results to
 # task_type
-#  0 for voxel selection using svm <--- use this!
+#  0 for voxel selection using svm <--- use this for selection!
 #  1 for voxel selection using smart distance ratio
 #  2 for voxel selection using searchlight (mvpa)
 #  3 for voxel selection using the scorrelation sum
 #  USE VOXELS SELECTED ABOVE AS MASK FOR BELOW TASKS
-#  4 for testing new data (fcma correlation method)
+#  4 for testing new data (fcma correlation method) <-- use for testing!
 #  5 for cross validating new data (fcma correlation method)
 #  6 for testing new data  (mvpa activation method)
-#  7 for cross validating new data (mvpa activation method) 
+#  7 for cross validating new data (mvpa activation method)
+#  8 correlation visualization
 task_type:0
+# set is_test_mode:0 for task_type 0-3
+# set is_test_mode:1 for task_type 4-8
+is_test_mode:0
 
-# step, number of rows to be assigned per round
+# step, number of rows to be assigned to each task
 rows_per_round:100
 
 # the first block id that is being left out
@@ -77,12 +87,16 @@ num_items_held_for_test:0
 # number of folds in feature selection
 # applies only to tasks 0-3
 # (range 0-20 typical)
-num_folds_in_feature_selection:0
+# Set to the number of subjects (?)
+num_folds_in_feature_selection:10
 
 # visualization section
 # blockid correlations to save in file below
+# (only used if task_type is set to 8)
 visualize_blockid:10
 
 # 4D reference data for visualization
 # (as many TRs as voxels in mask) 
+# for task_type 8
 visualize_reference:data/subject01.nii.gz
+
