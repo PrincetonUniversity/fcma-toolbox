@@ -1,8 +1,11 @@
 #!/bin/bash
 set -u
 
+# This file is part of the Princeton FCMA Toolbox, (c) 2013 
+# written by bdsinger@princeton.edu
+
 #defaults 
-USE_QSUB=1
+USE_QSUB=0
 DRY_RUN=0
 GEN_TEMPLATE=0
 APP=pni_fcma
@@ -10,7 +13,7 @@ ME=$(basename $0)
 
 (( $# == 0 )) && printf "%s jobfile.fcma. Type \"$ME template\" to generate a template.fcma file and follow the comments within\n" && exit 1
 (( $# > 0 )) && [[ $1 =~ template ]] && GEN_TEMPLATE=1
-[[ -z $GEN_TEMPLATE ]] && JOBFILE=$1
+(( GEN_TEMPLATE == 0 )) && JOBFILE=$1
 (( $# > 1 )) && [[ $@ =~ noqsub ]] && USE_QSUB=0
 (( $# > 1 )) && [[ $@ =~ dry ]] && DRY_RUN=1
 
@@ -33,23 +36,23 @@ function generate_template() {
         'num_processors:3'                   'Number of slaves + 1 (master). Balanced across nodes.'
         "exefile:$APP"                       'Path to the pni_fcma binary, only needed if it is not in PATH'
         "datadir:data/"                      'Every NIfTI dataset (usually == subject) in this dir will be used'
-        "matrix_format:nii.gz"               'File extension for fmri data. Currently only NIfTI compressed (.nii.gz) is supported.'
+        "matrix_format:.nii.gz"               'File extension for fmri data. Currently only NIfTI compressed (.nii.gz) is supported.'
         "outputfile:top_voxels.txt"          'Your name for the text file that will contain the list of top-scoring voxels (task 0)'
-        "task_type:0"                        'Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4,5)'
+        "task_type:0"                        'Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4)'
         "blockfile:blockfile.txt"            'Single blocks file to be applied to every fmri data file. See blocks_template.txt for format'
         "blockdir:"                          'Every file in this dir must correspond 1:1 with its dataset-- same name, but .txt not .nii.gz'
         "rows_per_round:100"                 'Empirical value, the rows of FC Matrix (rows*voxels*subjects*blocks) to process per iteration'
-        "first_left_out_block_id:-1"         'Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:0)'
-        "num_items_held_for_test:0"          'Selection: w/first_left_out_block_id are blocks excluded; Test task 5: xvalidation folds=trials/items'
-        "is_test_mode:0"                     'If 1 use input list or mask voxels to report accuracy, if 0 rank voxels in mask by accuracy'
-        "num_folds_in_feature_selection:8"   'Divides the subjects*blocks trials into samples for N-1 xvalidation to get each voxel score'
-        "first_maskfile:mask1.nii.gz"        'Voxels to score during selection. If left blank all voxels used. If first == second autocorrelates.'
-        "second_maskfile:mask2.nii.gz"       'In testing (tasks 3-5) top voxels are taken from either both masks (4&5) or first mask only (task 3)'
+        "first_left_out_block_id:-1"         'Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:-1)'
+        "num_items_held_for_test:0"          'Block_ids left out are contiguous, from first_left_out_block_id (flobi) to flobi + this number'
+        "is_test_mode:0"                     'Interacts with task_type: 1 (with task 4) when predicting using new data, 0 (with task 0) when selecting top voxels'
+        "num_folds_in_feature_selection:8"   'Divides the subjects*blocks samples evenly, does N-1 xvalidation to get each voxel score'
+        "first_maskfile:mask1.nii.gz"        'Voxels to score based on autocorrelation or correlation with those in second maskfile'
+        "second_maskfile:mask2.nii.gz"       'Besides selection, first & second maskfile can be used with new data in test mode '
         "visualize_blockid:10"               '(used with task_type 8) Which block_id (0..blocks*subjects) correlation matrix to save'
-        "visualize_reference:block10.nii.gz" '(used with task_type 8) File header will be reused, but will make new file using outputfile prefix'
+        "visualize_reference:block10.nii.gz" '(used with task_type 8) Name of 4D file, each volume a mask1 voxel, correlated with all mask2 voxels'
 )
 
-  outfile="template_submit.fcma"
+  outfile="template.fcma"
   echo "# Sample FCMA config file" > $outfile
   echo "" >> $outfile
   (( j = 0 ))
@@ -112,8 +115,10 @@ hget() {
 app_arg_index=6
 app_args=""
 # get lines that set a value
-jtemp=$(mktemp)
-grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
+jtemp=$(mktemp tmp.XXXXX)
+#grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
+grep -v '\#' $JOBFILE > $jtemp
+[[ -n $drycat ]] && $drycat $jtemp
 for (( i=$app_arg_index; i<$numflags; i+=2 )); do
 	(( j = i + 1 ))
 	# substitute the corresponding flag from above
@@ -130,13 +135,18 @@ M=$(hget $jtemp omp_num_threads)
 uAPP="$(hget $jtemp exefile)"
 [[ -x $uAPP ]] && APP=$uAPP
 
+[[ -n $drycat ]] && $drycat $jtemp
+
 if (( USE_QSUB )); then
 	# gridengine config knows about hosts eligible 
 	# for $PROJECT, so hostfile not used here
+	rm $jtemp
 	$dryecho pni_mpirun -P fullcorr $N $M $APP $app_args
 else
+        hostfile=$(hget $jtemp hostfile)
+	rm $jtemp
 	# Note that this is not used on rondo but could be
 	# if gridengine qsub method has issues
-	exec "OMP_NUM_THREADS=$M mpirun -np $N $APP $app_args"
+	OMP_NUM_THREADS=$M mpirun -np $N -hostfile $hostfile $APP $app_args
 fi
 
