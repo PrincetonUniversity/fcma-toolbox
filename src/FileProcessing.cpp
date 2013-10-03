@@ -10,6 +10,7 @@
 #undef __USE_BSD
 #include <dirent.h>
 #include <sstream>
+#include "ErrorHandling.h"
 
 /*************************
 read a bunch of raw matrix files
@@ -24,8 +25,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   string strFilenames[MAXSUBJS];  // at most 100 subjects
   if ((pDir=opendir(filepath)) == NULL)
   {
-    cerr<<"invalid directory"<<endl;
-    exit(1);
+    FATAL("invalid directory");
   }
   nSubs = 0;
   while ((dp=readdir(pDir)) != NULL)
@@ -38,8 +38,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   closedir(pDir);
   if ((pDir=opendir(filepath)) == NULL)
   {
-    cerr<<"invalid directory: "<<filepath<<endl;
-    exit(1);
+    FATAL("invalid directory: "<<filepath);
   }
   RawMatrix** r_matrices = new RawMatrix*[nSubs];
   int count = 0;
@@ -77,8 +76,7 @@ RawMatrix* ReadGzData(string fileStr, int sid)
   //cout<<sid+1<<": "<<file<<endl;
   if (fp == NULL)
   {
-    cout<<"file not found: "<<file<<endl;
-    exit(1);
+    FATAL("file not found: "<<file);
   }
   RawMatrix* r_matrix = new RawMatrix();
   r_matrix->sid = sid;
@@ -116,8 +114,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
   nim = nifti_image_read(file, 1);
   if (nim == NULL)
   {
-    cerr<<"file not found: "<<file<<endl;
-    exit(1);
+    FATAL("file not found: ");
   }
   /*cout<<"fname: "<<nim->fname<<endl;
   cout<<"iname: "<<nim->iname<<endl;
@@ -126,7 +123,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
   cout<<"dy: "<<nim->dy<<endl;
   cout<<"dz: "<<nim->dz<<endl;
   cout<<"byteorder: "<<nim->byteorder<<endl;
-  exit(1);*/
+  FATAL("just debugging");*/
   RawMatrix* r_matrix = new RawMatrix();
   size_t startPos = fileStr.find_last_of('/');
   size_t endPos = fileStr.find_first_of('.', startPos);
@@ -162,8 +159,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of data file! "<<nim->datatype<<endl;
-      exit(1);
+      FATAL("wrong data type of data file! "<<nim->datatype);
   }
   #pragma omp parallel for
   // the follow if statements don't harm the performance, it's no significant benifit to put the follow ifs to the previous switch
@@ -208,15 +204,14 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
   int i, j;
   if (nim == NULL)
   {
-    cerr<<"file not found: "<<maskFile<<endl;
-    exit(1);
+    FATAL("file not found: ");
   }
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
   float* data_float = NULL;
   double* data_double = NULL;
-  //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; exit(1);
+  //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; FATAL("debug");
   switch (nim->datatype)  // now only get one type
   {
     case DT_SIGNED_INT:
@@ -235,8 +230,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!");
   }
   for (i=0; i<nSubs; i++) // get only the masked voxels
   {
@@ -300,15 +294,14 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile)
   int j;
   if (nim == NULL)
   {
-    cerr<<"file not found: "<<maskFile<<endl;
-    exit(1);
+    FATAL("file not found: "<<maskFile);
   }
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
   float* data_float = NULL;
   double* data_double = NULL;
-  //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; exit(1);
+  //cout<<nim->nx<<" "<<nim->ny<<" "<<nim->nz<<endl; FATAL("debug");
   switch (nim->datatype)  // now only get one type
   {
     case DT_SIGNED_INT:
@@ -327,8 +320,7 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile)
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!");
   }
   masked_matrix->sid = r_matrix->sid;
   masked_matrix->row = r_matrix->row;
@@ -387,8 +379,7 @@ Point* GetMaskedPts(Point* pts, int nMaskedVoxels, const char* maskFile)
   int i;
   if (nim == NULL)
   {
-    cerr<<"file not found: "<<maskFile<<endl;
-    exit(1);
+    FATAL("file not found: "<<maskFile);
   }
   int* data_int = NULL;
   short* data_short = NULL;
@@ -413,8 +404,7 @@ Point* GetMaskedPts(Point* pts, int nMaskedVoxels, const char* maskFile)
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!");
   }
   int nTotalVoxels = nim->nx*nim->ny*nim->nz;
   int count=0;
@@ -470,8 +460,7 @@ Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file)
   ifstream ifile(file);
   if (!ifile)
   {
-    cerr<<"no block file found!"<<endl;
-    exit(1);
+    FATAL("no block file found!");
   }
   int nPerSubs = -1;
   ifile>>nPerSubs;
@@ -530,8 +519,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
   DIR *pDir;
   if ((pDir=opendir(dir)) == NULL)
   {
-    cerr<<"invalid block information directory"<<endl;
-    exit(1);
+    FATAL("invalid block information directory");
   }
   closedir(pDir);
   string dirStr = string(dir);
@@ -550,8 +538,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
     ifstream ifile(blockFileStr.c_str());
     if (!ifile)
     {
-      cerr<<"no block file found!"<<endl;
-      exit(1);
+      FATAL("no block file found!");
     }
     int nPerSubs = -1;
     ifile>>nPerSubs;
@@ -655,8 +642,7 @@ void WriteNiiGzData(const char* outputFile, const char* refFile, void* data, int
   nifti_image* nim = nifti_image_read(refFile, 1); // 1 means reading the data as well
   if (nim == NULL)
   {
-    cerr<<"sample file not found: "<<refFile<<endl;
-    exit(1);
+    FATAL("sample file not found: "<<refFile);
   }
   nifti_image* nim2 = nifti_copy_nim_info(nim);
   char* newFileName = nifti_makeimgname((char*)outputFile, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
@@ -681,8 +667,7 @@ void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data, i
   nifti_image* nim = nifti_image_read(refFile, 1); // 1 means reading the data as well
   if (nim == NULL)
   {
-    cerr<<"sample file not found: "<<refFile<<endl;
-    exit(1);
+    FATAL("sample file not found: "<<refFile);
   }
   nifti_image* nim2 = nifti_copy_nim_info(nim);
   char* newFileName = nifti_makeimgname((char*)outputFile, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
@@ -711,8 +696,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
   nifti_image* nim = nifti_image_read(maskFile, 1); // 1 means reading the data as well
   if (nim == NULL)
   {
-    cerr<<"mask file not found: "<<maskFile<<" in GenerateNiiDataFromMask"<<endl;
-    exit(1);
+    FATAL("mask file not found: "<<maskFile<<" in GenerateNiiDataFromMask");
   }
   int* data_int = NULL;
   short* data_short = NULL;
@@ -737,8 +721,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<" in GenerateNiiDataFromMask"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!"<<" in GenerateNiiDataFromMask");
   }
   int nVoxels = nim->nx*nim->ny*nim->nz;
   void* returnData = NULL;
@@ -758,8 +741,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
   }
   else
   {
-    cerr<<"wrong data type of return data!"<<" in GenerateNiiDataFromMask"<<endl;
-    exit(1);
+    FATAL("wrong data type of return data!"<<" in GenerateNiiDataFromMask");
   }
   // generate data from scores
   void* maskedData=new int[length];  // int and float have the same data size
@@ -789,8 +771,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
     {
       if (count==length)
       {
-        cerr<<"number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask"<<endl;
-        exit(1);
+        FATAL("number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask");
       }
       if (dataType == DT_SIGNED_INT)
       {
@@ -806,8 +787,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
     {
       if (count==length)
       {
-        cerr<<"number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask"<<endl;
-        exit(1);
+        FATAL("number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask");
       }
       if (dataType == DT_SIGNED_INT)
       {
@@ -823,8 +803,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
     {
       if (count==length)
       {
-        cerr<<"number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask"<<endl;
-        exit(1);
+        FATAL("number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask");
       }
       if (dataType == DT_SIGNED_INT)
       {
@@ -840,8 +819,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
     {
       if (count==length)
       {
-        cerr<<"number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask"<<endl;
-        exit(1);
+        FATAL("number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask");
       }
       if (dataType == DT_SIGNED_INT)
       {
@@ -857,8 +835,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
     {
       if (count==length)
       {
-        cerr<<"number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask"<<endl;
-        exit(1);
+        FATAL("number of scores is larger than number of masked voxels "<<length<<"!"<<" in GenerateNiiDataFromMask");
       }
       if (dataType == DT_SIGNED_INT)
       {
@@ -901,8 +878,7 @@ inline int getSizeByDataType(int datatype)
       nbyter = 8;
       break;
     default:
-      cerr<<"wrong data type of nifti file in getSizeByDataType!"<<endl;
-      exit(1);
+      FATAL("wrong data type of nifti file in getSizeByDataType!");
   }
   return nbyter;
 }

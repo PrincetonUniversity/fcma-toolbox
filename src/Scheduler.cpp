@@ -13,6 +13,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "SVMClassification.h"
+#include "ErrorHandling.h"
 
 // assuming that two mask files are the same, which is the full brain mask
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2)
@@ -254,8 +255,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 				scores = GetCorrVecSum(me, c_matrices, nTrials);
 				break;
       default:
-        cerr<<"unknown task type"<<endl;
-        exit(1);
+        FATAL("unknown task type");
     }
     double tstop = MPI_Wtime();
     float elapse = float(tstop-tstart);

@@ -7,6 +7,7 @@
 #include "Classification.h"
 #include "Scheduler.h"
 #include "CorrMatAnalysis.h"
+#include "ErrorHandling.h"
 #include "common.h"
 
 /****************************************
@@ -19,8 +20,7 @@ VoxelScore* GetDistanceRatio(int me, CorrMatrix** c_matrices, int nTrials)  //ge
 {
   if (me==0)  //sanity check
   {
-    cerr<<"the master node isn't supposed to do classification jobs"<<endl;
-    exit(1);
+      FATAL("the master node isn't supposed to do classification jobs");
   }
   int rowBase = c_matrices[0]->sr;  // assume all elements in c_matrices array have the same starting row
   int row = c_matrices[0]->nVoxels; // assume all elements in c_matrices array have the same #voxels

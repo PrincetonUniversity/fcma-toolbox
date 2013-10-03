@@ -6,6 +6,7 @@
 
 #include "Preprocessing.h"
 #include "common.h"
+#include "ErrorHandling.h"
 #include <sstream>
 #include <nifti1_io.h>
 
@@ -109,8 +110,7 @@ int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Poi
       data = (short*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!");
   }
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
@@ -262,7 +262,7 @@ void z_score(float* v, int n)
   mean /= n;
   //if (sd == n * mean * mean) mean -= 0.1; // to deal with the no variance case
   sd = sd - n * mean * mean;
-  if (sd < 0) {cerr<<"sd<0! "<<sd; exit(1);}  // if the type is double above, this won't happen
+  if (sd < 0) {cerr<<"sd<0! "<<sd; FATAL("zscore error");}  // if the type is double above, this won't happen
   sd = sqrt(sd);
   for (i=0; i<n; i++)
   {
@@ -338,8 +338,7 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs)
   ifstream ifile("/state/partition3/yidawang/face_scene/permBook1.txt", ios::in);
   if (!ifile)
   {
-		cerr<<"file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt"<<endl;
-    exit(1);
+		FATAL("file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt");
 	}
   int k;
   for (i=0; i<nSubs; i++)

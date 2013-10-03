@@ -3,7 +3,7 @@
 #include Makefile.rondo
 include Makefile.mac
 
-OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o
+OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o ErrorHandling.o
 
 pni_fcma: $(OBJ) main.cpp
 	$(MPICXX) -o $@ $(CXXFLAGS) $(MPIFLAGS) $(LDFLAGS) $^ $(LD_LIBS)
@@ -49,6 +49,9 @@ Searchlight.o: common.h Searchlight.h Searchlight.cpp
 
 CorrelationVisualization.o: common.h CorrelationVisualization.h CorrelationVisualization.cpp
 	$(CXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+
+ErrorHandling.o: common.h ErrorHandling.h ErrorHandling.cpp
+	$(CXX) -c ErrorHandling.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 PROGS=pni_fcma
 

@@ -7,6 +7,7 @@
 #include "SVMClassification.h"
 #include "LibSVM.h"
 #include "common.h"
+#include "ErrorHandling.h"
 
 /****************************************
 get the SVM results of classifying correlation vectors of two categories for every voxel
@@ -18,8 +19,7 @@ VoxelScore* GetSVMPerformance(int me, CorrMatrix** c_matrices, int nTrainings, i
 {
   if (me==0)  //sanity check
   {
-    cerr<<"the master node isn't supposed to do classification jobs"<<endl;
-    exit(1);
+    FATAL("the master node isn't supposed to do classification jobs");
   }
   svm_set_print_string_function(&print_null);
   int rowBase = c_matrices[0]->sr;  // assume all elements in c_matrices array have the same starting row

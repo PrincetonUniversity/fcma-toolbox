@@ -10,7 +10,21 @@
 #include "LibSVM.h"
 #include "Preprocessing.h"
 #include "FileProcessing.h"
+#include "ErrorHandling.h"
 //#include "Searchlight.h"
+
+int getNumTopIndices(int* tops, int maxtops, int nvoxels)
+{
+    int ntops = 0;
+    
+    if ( (maxtops < 1) || (nvoxels < tops[0]) )
+        return 0;
+    
+    while ( (ntops < maxtops) && (nvoxels >= tops[ntops]) )
+        ntops++;
+    
+    return ntops;
+}
 
 /***************************************
 predict a new sample based on a trained SVM model and a variation of the numbers of top voxels. if correlation, assume that it's a self correlation, so only one mask file is enough
@@ -24,7 +38,9 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 4000, 5000, 10000, 20000, 34470};
+  int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 4000, 5000};//, 10000, 20000, 40000};
+  int maxtops = sizeof(tops)/sizeof((tops)[0]);
+  int ntops;
   switch (taskType)
   {
     case 0:
@@ -37,7 +53,11 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       col = masked_matrices[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);
       RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
-      CorrelationBasedClassification(tops, nSubs, nTrials, trials, nTests, masked_matrices);
+      ntops = getNumTopIndices(tops, maxtops, row);
+      if (ntops > 0)
+          CorrelationBasedClassification(tops, ntops, nSubs, nTrials, trials, nTests, masked_matrices);
+      else
+          cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
     case 2:
       if (mask_file!=NULL)
@@ -48,11 +68,14 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       col = masked_matrices[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);
       RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
-      ActivationBasedClassification(tops, nTrials, trials, nTests, masked_matrices);
+      ntops = getNumTopIndices(tops, maxtops, row);
+      if (ntops > 0)
+          ActivationBasedClassification(tops, ntops, nTrials, trials, nTests, masked_matrices);
+      else
+          cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
     default:
-      cerr<<"Unknown task type"<<endl;
-      exit(1);
+      FATAL("Unknown task type");
   }
   delete[] scores;
 }
@@ -62,12 +85,12 @@ do the prediction based on correlation and a variation of the numbers of top vox
 input: the array of the numbers of top voxels, the number of subjects, the number of blocks, the blocks, the number of test samples, the raw activation matrix array
 output: the results are displayed on the screen
 ***********************************************/
-void CorrelationBasedClassification(int* tops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices)
+void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices)
 {
   int i, j, k;
   int col = r_matrices[0]->col;
   float* simMatrix = new float[nTrials*nTrials];
-  for (i=0; i<9; i++) // to 34470, change 8 to 12
+  for (i=0; i<ntops; i++)
   {
     //float* simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials, r_matrices);
     for (j=0; j<nTrials*nTrials; j++) simMatrix[j] = 0.0;
@@ -148,7 +171,7 @@ do the prediction based on activation and a variation of the numbers of top voxe
 input: the array of the numbers of top voxels, the number of blocks, the blocks, the number of test samples, and the raw activation matrix array
 output: the results are displayed on the screen
 ***********************************************/
-void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nTests, RawMatrix** avg_matrices)
+void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* trials, int nTests, RawMatrix** avg_matrices)
 {
   int i, j, k;
   int nTrainings = nTrials-nTests;
@@ -157,7 +180,7 @@ void ActivationBasedClassification(int* tops, int nTrials, Trial* trials, int nT
   prob->l = nTrainings;
   prob->y = new double[nTrainings];
   prob->x = new SVMNode*[nTrainings];
-  for (i=0; i<9; i++)  // to 34470, change 8 to 12
+  for (i=0; i<ntops; i++)
   {
     for (j=0; j<nTrainings; j++)
     {
@@ -240,8 +263,7 @@ VoxelScore* ReadTopVoxelFile(const char* file, int n)
   ifstream ifile(file);
   if (!ifile)
   {
-    cerr<<"file not found: "<<file<<endl;
-    exit(1);
+    FATAL("file not found: "<<file);
   }
   VoxelScore* scores = new VoxelScore[n];
   for (i=0; i<n; i++)

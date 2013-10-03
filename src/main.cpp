@@ -4,6 +4,7 @@
  For license terms, please see the LICENSE file.
 */
 
+#include <signal.h>
 #include <mpi.h>
 #include "common.h"
 #include "Preprocessing.h"
@@ -14,8 +15,8 @@
 #include "Searchlight.h"
 #include "CorrelationVisualization.h"
 #include "svm.h"
-
 #include "fcma.h"
+#include "ErrorHandling.h"
 
 Param Parameters;
 //extern unsigned long long counter;
@@ -24,7 +25,7 @@ void exit_with_help()
 {
   printf(
   "**********************************************************\n"
-  "Usage: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./corr-sum -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]\n"
+  "Usage: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]\n"
   "required:\n"
   "-d matrix directory, contains files in binary gz format, beginning with numbers of row and column\n"
   "-m matrix file type, usually the extension name\n"
@@ -43,15 +44,17 @@ void exit_with_help()
   "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
   "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
   );
-  exit(1);
+  FATAL("usage");
 }
 
 void set_default_parameters()
 {
-  Parameters.fmri_directory = Parameters.fmri_file_type = Parameters.output_file = NULL;
+  Parameters.fmri_directory = ".";
+  Parameters.fmri_file_type = ".nii.gz";
+  Parameters.output_file = "topvoxels";
   Parameters.block_information_file = Parameters.block_information_directory = NULL;
   Parameters.step = 100;
-  Parameters.taskType = -1;
+  Parameters.taskType = 0;
   Parameters.leave_out_id = -1;
   Parameters.nHolds = 0;
   Parameters.nFolds = -1;
@@ -233,6 +236,8 @@ void run_fcma(Param* param)
     {
         cout<<"blocks generation done! "<<nTrials<<" in total."<<endl;
         cout<<"blocks in the training set: "<<nTrials-nHolds<<endl;
+        if (nHolds > nTrials)
+            FATAL("More holds ("<<nHolds<<") than trials ("<<nTrials<<")!");
     }
     MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
     /* data reading done */
@@ -306,8 +311,7 @@ void run_fcma(Param* param)
             case 8:
                 if (visualized_block_id>=nTrials)
                 {
-                    cerr<<"Wrong visualized block id, you only provide "<<nTrials<<" blocks!"<<endl;
-                    exit(1);
+                    FATAL("Wrong visualized block id, you only provide "<<nTrials<<" blocks!");
                 }
                 VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2, ref_file, trials[visualized_block_id], output_file);
                 break;
@@ -362,6 +366,8 @@ void run_fcma(Param* param)
 int main(int argc, char** argv)
 {
     //counter=0;
+    // raise(SIGSTOP); //xcode attach to process
+    
     parse_command_line(argc, argv);
     run_fcma(&Parameters);
     return 0;
