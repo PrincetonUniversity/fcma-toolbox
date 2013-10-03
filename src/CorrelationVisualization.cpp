@@ -7,6 +7,7 @@
 #include "CorrelationVisualization.h"
 #include "FileProcessing.h"
 #include "MatComputation.h"
+#include "ErrorHandling.h"
 #include <nifti1_io.h>
 
 /***************************************
@@ -74,8 +75,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
   nifti_image* nim = nifti_image_read(maskFile, 1); // 1 means reading the data as well
   if (nim == NULL)
   {
-    cerr<<"mask file not found: "<<maskFile<<" in PutMaskedDataBack"<<endl;
-    exit(1);
+    FATAL("mask file not found: "<<maskFile<<" in PutMaskedDataBack");
   }
   int* data_int = NULL;
   short* data_short = NULL;
@@ -100,8 +100,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       data_double = (double*)nim->data;
       break;
     default:
-      cerr<<"wrong data type of mask file!"<<" in PutMaskedDataBack"<<endl;
-      exit(1);
+      FATAL("wrong data type of mask file!"<<" in PutMaskedDataBack");
   }
   int nVoxels = nim->nx*nim->ny*nim->nz;
   float* returnData = new float[nVoxels*row];
@@ -117,8 +116,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       {
         if (count==col*row)
         {
-          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
-          exit(1);
+          FATAL("number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack");
         }
         returnData[i*nVoxels+j] = data[count];
         count++;
@@ -127,8 +125,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       {
         if (count==col*row)
         {
-          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
-          exit(1);
+            FATAL("number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack");
         }
         returnData[i*nVoxels+j] = data[count];
         count++;
@@ -137,8 +134,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       {
         if (count==col*row)
         {
-          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
-          exit(1);
+          FATAL("number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack");
         }
         returnData[i*nVoxels+j] = data[count];
         count++;
@@ -147,8 +143,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       {
         if (count==col*row)
         {
-          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
-          exit(1);
+            FATAL("number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack");
         }
         returnData[i*nVoxels+j] = data[count];
         count++;
@@ -157,8 +152,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
       {
         if (count==col*row)
         {
-          cerr<<"number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack"<<endl;
-          exit(1);
+            FATAL("number of scores is larger than number of masked voxels "<<col*row<<"!"<<" in PutMaskedDataBack");
         }
         returnData[i*nVoxels+j] = data[count];
         count++;
