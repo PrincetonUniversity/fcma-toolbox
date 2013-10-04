@@ -6,10 +6,9 @@
  *   bdsinger@princeton.edu
  */
  
-var base = '/scratch/me/project/';
+var base = '/fastscratch/me/project/';
 var analysisList = [ '1 - Voxel selection', '2 - Test prediction accuracy', '3 - Visualize correlations' ];
 var blocksList = [ 'Blocks directory', 'Blocks file' ];
-var maskList = [ 'ROI Mask 1', 'ROI Mask 2', 'No masks', 'Both masks' ];
 var classifierList = ['SVM performance', 'smart distance ratio', 'correlation sum'];
 var controlWidth = 500;
 var gui = new dat.GUI({ autoPlace: false, width: controlWidth});
@@ -17,18 +16,25 @@ var kClassifierSVM = 0, kClassifierSDR = 2, kClassifierSUM = 3;
 var kBlocksDir = 0, kBlocksFile = 1;
 var kFirstMask = 0, kSecondMask = 1, kNoMasks = 2, kBothMasks = 3;
 var kSelectionIndex = 0, kTestingIndex = 1, kVisualizingIndex = 2;
-var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingSingleMask_FCMA = 3, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7, kVisualizationTask_FCMA = 8;
+var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingTopVoxels_FCMA = 1, kTestingTopVoxels_MVPA=2, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7, kVisualizationTask_FCMA = 8;
 var kNA = -1;
-var kTestingMaskFile = base + 'selected_voxels.nii.gz';
+var kTopVoxelsPrefix = base + "topvoxels";
+var kTopVoxelsList = kTopVoxelsPrefix + "_list.txt";
+var kTopVoxelOutputMask = kTopVoxelsPrefix + "_seq.nii.gz";
+var kROIMask = base + "roi.nii.gz";
+var kWholeBrainMask = base + "wholebrain.nii.gz";
 
 var createFCMA = function() {
-	var blockIsDir = (params["blocksInput"] == 'Blocks directory');
-	var maskChoice = maskList.indexOf(params["maskInput"]);
-	var is_mvpa_control = params['mvpa_control'];
-	var analysisChoice = analysisList.indexOf(params["analysisStage"]);
-	var classifierChoice = classifierList.indexOf(params["classifier"]);
+	var blockIsDir = (gui_params['blocksInput'] == 'Blocks directory');
+	var is_mvpa_control = gui_params['mvpa_control'];
+	var analysisChoice = analysisList.indexOf(gui_params["analysisStage"]);
+	var classifierChoice = classifierList.indexOf(gui_params["classifier"]);
 	var all_in = (params['num_items_held_for_test'] == 0);
 	var num_processors = 8;
+	var test_add_1 = 0;
+	if (is_mvpa_control) {
+		test_add_1 = 1;
+	}
 	if (analysisChoice == kSelectionIndex) {
 		params['is_test_mode'] = 0;
 		if (is_mvpa_control) {
@@ -38,52 +44,40 @@ var createFCMA = function() {
 		} else {
 			params['task_type'] = kSelectionSVM_FCMA + classifierChoice;
 		}
+		params['first_maskfile'] = kROIMask;
+		params['second_maskfile'] = kWholeBrainMask;
+		params['outputfile'] = kTopVoxelsPrefix;
 	} else if (analysisChoice == kTestingIndex) {
 		params['is_test_mode'] = 1;
 		num_processors = 1;
-		if (is_mvpa_control) {
-            params['task_type'] = kTestingTask_MVPA;
+		if (gui_params['vary_topvoxels']) {
+			params['task_type'] = kTestingTopVoxels_FCMA + test_add_1;
+			params['first_maskfile'] = kWholeBrainMask;
+			params['second_maskfile'] = "";
+			params['outputfile'] = kTopVoxelsList;
 		} else {
-			if (maskChoice !== kBothMasks) {
-				params['task_type'] = kTestingSingleMask_FCMA;
-			} else { 
-				params['task_type'] = kTestingTask_FCMA;
+			if (gui_params['cross_validate']) {
+				params['task_type'] = kXValidateTask_FCMA + test_add_1;
+			} else {
+				params['task_type'] = kTestingTask_FCMA + test_add_1;
 			}
+			params['first_maskfile'] = kTopVoxelOutputMask;
+			params['second_maskfile'] = kWholeBrainMask;
 		}
-		if (all_in == false) {
-			params['task_type'] += 1;
-		}
-		params['first_maskfile'] = kTestingMaskFile;
-		params['second_maskfile'] = kTestingMaskFile;
 	} else if (analysisChoice == kVisualizingIndex) {
+		params['first_maskfile'] = kTopVoxelOutputMask;
 		params['task_type'] = kVisualizationTask_FCMA;
 	}
 
 	var res = '';
-	for (var k in params) {
-		if ( (k == 'analysisStage') || (k == 'blocksInput') || (k == 'maskInput') || (k == 'classifier') || (k == 'mvpa_control') ) {
-			continue;
-		}
-		if ( (k == 'blockdir') && (blockIsDir !== true) ) {
-			continue;			
-		}
-		if ( (k == 'blockfile' ) && (blockIsDir == true) ) {
-			continue;
-		}
-		if ( (k == 'first_maskfile') && ((maskChoice == kSecondMask) || (maskChoice == kNoMasks)) ) {
-			continue;
-		}
-		if ( (k == 'second_maskfile' ) && ((maskChoice == kFirstMask) || (maskChoice == kNoMasks)) ) {
-			continue;
-		}
+	for (k in params) {
 		if ( (k == 'first_left_out_block_id') && (all_in) ) {
 			res = res + k + ':-1\n';
 			continue;
 		}
-		
-		if (typeof params[k] !== 'function') {
-         	res = res + k + ':' + params[k] + '\n';
-        }
+		if (params.hasOwnProperty(k)) {
+			res = res + k + ':' + params[k] + '\n';
+        	}
 	}
 	
 	res = res + '\n';
@@ -129,26 +123,30 @@ var downloadFCMA = function() {
 };
 
 var params = {
-  	analysisStage: analysisList[kSelectionIndex],
-  	maskInput: maskList[kBothMasks],
-  	blocksInput: blocksList[kBlocksFile],
   	task_type: kSelectionSVM_FCMA,
-  	classifier: classifierList[kClassifierSVM],
-    num_folds_in_feature_selection:8,
-  	first_left_out_block_id:58,
+	num_folds_in_feature_selection:8,
+  	first_left_out_block_id:50,
   	num_items_held_for_test:0,
   	is_test_mode:0,
-	visualize_blockid:10,
-  	mvpa_control: false,
+	visualize_blockid:1,
   	datadir: base + 'data/',
-	outputfile: base + 'top_correlation.txt',
-	first_maskfile: base + 'masks/mask1.nii.gz',
-	second_maskfile: base + 'masks/mask2.nii.gz',
+	outputfile: kTopVoxelsPrefix,
+	first_maskfile: kROIMask,
+	second_maskfile: kWholeBrainMask,
   	blockdir: base + 'blockfiles/',
-  	blockfile: base + 'blockfile.txt',
-	visualize_reference: base + 'blockXcorrelations.nii.gz'
+  	blockfile: base + 'selection.txt',
+	visualize_reference: kROIMask
 };
-	
+
+var gui_params = {
+  	analysisStage: analysisList[kSelectionIndex],
+  	blocksInput: blocksList[kBlocksFile],
+  	classifier: classifierList[kClassifierSVM],
+  	mvpa_control: false,
+	vary_topvoxels: false,
+	cross_validate: false
+};
+
 var changeNotifier = function (element, index, array) {
     element.onFinishChange(function(value) {
   		// Fires when a controller loses focus.
@@ -158,42 +156,61 @@ var changeNotifier = function (element, index, array) {
 	});
 }
 
+var topVoxelTestChanged = function(newValue) {
+	gui_params['analysisStage'] = analysisList[kTestingIndex];
+	gui_params['cross_validate'] = false;
+}
+
+var crossValidateTestChanged = function(newValue) {
+	gui_params['analysisStage'] = analysisList[kTestingIndex];
+	gui_params['vary_topvoxels'] = false;
+}
+
+var analysisStageChangesTestTypes = function(newValue) {
+	analysisChoice = analysisList.indexOf(newValue);
+	if (analysisChoice !== kTestingIndex) {
+		gui_params['vary_topvoxels'] = false;
+		gui_params['cross_validate'] = false;
+	}
+}
+
 var guiLoader = function() {
   var ctrlArray = new Array;
-  ctrlArray.push( gui.add(params, 'analysisStage', analysisList).name('Analysis stage') );
+  ctrlArray.push( gui.add(gui_params, 'analysisStage', analysisList).name('Analysis stage').onChange(analysisStageChangesTestTypes).listen() );
+  ctrlArray.push( gui.add(gui_params, 'vary_topvoxels').name('Test increasing top voxels').onChange(topVoxelTestChanged).listen());
+  ctrlArray.push( gui.add(gui_params, 'cross_validate').name('Test via cross validation').onChange(crossValidateTestChanged).listen() );
 
-  var nff = gui.addFolder('Number of folds to use during voxel selection');
+  var nff = gui.addFolder('Folds during selection (subjects, if comparing)');
   ctrlArray.push( nff.add(params, 'num_folds_in_feature_selection').min(0).max(20).step(1).name('Number of folds') );
 
-  var blf = gui.addFolder('Blocks to leave out for cross-validation (prediction stage)');
-  ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(200).step(1).name('Beginning block ID') );
-  ctrlArray.push( blf.add(params, 'num_items_held_for_test').min(0).max(100).step(1).name('Number of blocks (0 to disable)') );
+  var blf = gui.addFolder('Holds for selection or cross validation (0 to disable)');
+  ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(200).step(1).name('First block held from selection (0..subjects x blocks)') );
+  ctrlArray.push( blf.add(params, 'num_items_held_for_test').min(0).max(100).step(1).name('Total (select) or per fold (test)') )
   
   var mf = gui.addFolder('Cluster Files & Directories');  
   ctrlArray.push( mf.add(params, 'datadir').name('Data directory') );
-  ctrlArray.push( mf.add(params, 'outputfile').name('Output file') );
+  ctrlArray.push( mf.add(params, 'outputfile').name('Out prefix (select), input topvoxels (test)').listen() );
 
-  var blockF = mf.addFolder('Time-series Blocks');
-  ctrlArray.push( blockF.add(params,'blocksInput', blocksList).name('Blocks input') );
+  var blockF = mf.addFolder('Blocks regressors');
+  ctrlArray.push( blockF.add(gui_params,'blocksInput', blocksList).name('Blocks input') );
   ctrlArray.push( blockF.add(params,'blockdir').name('Blocks directory') );
   ctrlArray.push( blockF.add(params,'blockfile').name('Blocks file') );
 
  // .listen() appended to items that change based on other items
  // such as mask name in selection vs test mode
   var maskF = mf.addFolder('Voxel Mask(s)');
-  ctrlArray.push( maskF.add(params,'maskInput', maskList).name('Mask input') );
-  ctrlArray.push( maskF.add(params,'first_maskfile').name('ROI Mask 1').listen() );
-  ctrlArray.push( maskF.add(params,'second_maskfile').name('ROI Mask 2').listen() );
+  ctrlArray.push( maskF.add(params,'first_maskfile').name('Mask 1').listen() );
+  ctrlArray.push( maskF.add(params,'second_maskfile').name('Mask 2').listen() );
 
-  ctrlArray.push( gui.add(params, 'classifier', classifierList ).name('Classifier') );
-  ctrlArray.push( gui.add(params, 'mvpa_control').name('MVPA control condition') );
+  ctrlArray.push( gui.add(gui_params, 'classifier', classifierList ).name('Classifier') );
+  ctrlArray.push( gui.add(gui_params, 'mvpa_control').name('MVPA control') );
   var visF = mf.addFolder('Visualization');
-  ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID correlations to visualize') );
-  ctrlArray.push( visF.add(params, 'visualize_reference').name('Visualization file') );
+  ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID of correlations to save') );
+  ctrlArray.push( visF.add(params, 'visualize_reference').name('File for reference (only for header info)') );
 
-  mf.open();
-  blockF.open();
+  mf.open()
   maskF.open();
+  //blockF.open();
   blf.open();
   nff.open();
   
