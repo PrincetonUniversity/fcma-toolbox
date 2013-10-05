@@ -180,8 +180,7 @@ var guiLoader = function() {
   ctrlArray.push( gui.add(gui_params, 'vary_topvoxels').name('Test increasing top voxels').onChange(topVoxelTestChanged).listen());
   ctrlArray.push( gui.add(gui_params, 'cross_validate').name('Test via cross validation').onChange(crossValidateTestChanged).listen() );
 
-  var nff = gui.addFolder('Folds during selection (subjects, if comparing)');
-  ctrlArray.push( nff.add(params, 'num_folds_in_feature_selection').min(0).max(20).step(1).name('Number of folds') );
+  ctrlArray.push( gui.add(params, 'num_folds_in_feature_selection').min(0).max(20).step(1).name('Number of folds') );
 
   var blf = gui.addFolder('Holds for selection or cross validation (0 to disable)');
   ctrlArray.push( blf.add(params, 'first_left_out_block_id').min(0).max(200).step(1).name('First block held from selection (0..subjects x blocks)') );
@@ -209,10 +208,9 @@ var guiLoader = function() {
   ctrlArray.push( visF.add(params, 'visualize_reference').name('File for reference (only for header info)') );
 
   mf.open()
-  maskF.open();
-  //blockF.open();
-  blf.open();
-  nff.open();
+  //maskF.open();
+  blockF.open();
+  //blf.open();
   
   ctrlArray.forEach(changeNotifier);
   
