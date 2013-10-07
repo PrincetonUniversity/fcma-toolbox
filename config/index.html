@@ -67,7 +67,8 @@ else if (window.attachEvent) // Microsoft
 						<li><a href="../#using">Using</a></li>
 						<li class="active"><a href="../config">FCMA File</a>
 						<li><a href="../cluster">Cluster</a></li>
-						<li><a href="../demo">Demo</a></li>
+						<li><a href="../tutorial">Tutorial</a></li>
+<!--						<li><a href="http://rondo.pni.princeton.edu/fcma/demo">Demo</a></li> -->
 						<li><a href="http://github.com/princetonuniversity/fcma-toolbox">Source</a></li>
 						<li><a href="../thanks">Thanks</a></li>
 					</ul>
@@ -80,8 +81,8 @@ else if (window.attachEvent) // Microsoft
 		<h2>FCMA File Generator</h2>
 		</div>
 		<blockquote>
-			<p>Here you can generate an FCMA file, which can be used on the cluster to run the FCMA Toolbox (see main page on <a href="../#using">Using FCMA</a> for details)</p><br>
-			<p>Set your desired FCMA parameters on the left, and the corresponding FCMA file will be automatically generated on the right in response to your changes. You can then  use either copy & paste or download to create an FCMA file (and rename it to something like <code>myparams.fcma</code>.) You will need to create two .fcma files, one for the voxel selection phase and, after you have selected the top-k voxels and produced NiFTI masks for them, one for the accuracy prediction phase. Consult the <a href="#reference">reference</a> below for more information.</p>
+			<p>Here you can generate an FCMA config file, which is used by the <code>pni_fcma_submit</code> script to run an FCMA analysis. It does this by constructing the exact command-line invocation syntax required to run the <code>pni_fcma</code> executable under MPI via <a href="http://www.open-mpi.org/doc/v1.6/man1/mpirun.1.php">mpirun</a>. A generic version of the <code>pni_fcma_submit</code> script can be found in the source distribution <a href="https://github.com/PrincetonUniversity/fcma-toolbox/raw/master/cluster/pni_fcma_submit">here</a>.<br>
+			<p><strong>How it works:</strong> Set your desired FCMA parameters on the left, and the corresponding FCMA file will be automatically generated on the right in response to your changes. Interdependent parameters should also update in response to your choices. You can then either copy & paste the contents of the window, or download it as a file. Consult the <a href="#reference">reference</a> below for detailed information about each configuration parameter, and the <a href="../#using">Using FCMA</a> section to learn more about the larger context.</p>
 		</blockquote>
 		<div id="fcma-setup" class="fcma-setup">
 			<div id="fcma-gui" class="fcma-gui"></div>

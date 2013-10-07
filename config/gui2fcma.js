@@ -16,57 +16,62 @@ var kClassifierSVM = 0, kClassifierSDR = 2, kClassifierSUM = 3;
 var kBlocksDir = 0, kBlocksFile = 1;
 var kFirstMask = 0, kSecondMask = 1, kNoMasks = 2, kBothMasks = 3;
 var kSelectionIndex = 0, kTestingIndex = 1, kVisualizingIndex = 2;
-var kSelectionSVM_FCMA = 0, kSelectionSDR_FCMA = 1, kSelectionSearch_MVPA = 2, kSelectionCORRSUM_FCMA = 3, kTestingTopVoxels_FCMA = 1, kTestingTopVoxels_MVPA=2, kTestingTask_FCMA = 4, kXValidateTask_FCMA = 5, kTestingTask_MVPA = 6, kXValidateTask_MVPA = 7, kVisualizationTask_FCMA = 8;
+var kSelectionSVM_CORR = 0, kSelectionSDR_CORR = 1, kSelectionSearch_ACTIV = 2, kSelectionCORRSUM_CORR = 3, kTestingTopVoxels_CORR = 1, kTestingTopVoxels_ACTIV=2, kTestingTask_CORR = 4, kXValidateTask_CORR = 5, kTestingTask_ACTIV = 6, kXValidateTask_ACTIV = 7, kVisualizationTask_CORR = 8;
 var kNA = -1;
 var kTopVoxelsPrefix = base + "topvoxels";
 var kTopVoxelsList = kTopVoxelsPrefix + "_list.txt";
 var kTopVoxelOutputMask = kTopVoxelsPrefix + "_seq.nii.gz";
 var kROIMask = base + "roi.nii.gz";
 var kWholeBrainMask = base + "wholebrain.nii.gz";
+var kSelectionBlocks = base + "selectionblocks.txt";
+var kTestingBlocks = base + "testblocks.txt";
 
 var createFCMA = function() {
 	var blockIsDir = (gui_params['blocksInput'] == 'Blocks directory');
-	var is_mvpa_control = gui_params['mvpa_control'];
+	var is_activity = gui_params['use_activity'];
 	var analysisChoice = analysisList.indexOf(gui_params["analysisStage"]);
 	var classifierChoice = classifierList.indexOf(gui_params["classifier"]);
 	var all_in = (params['num_items_held_for_test'] == 0);
 	var num_processors = 8;
 	var test_add_1 = 0;
-	if (is_mvpa_control) {
+	if (is_activity) {
 		test_add_1 = 1;
 	}
 	if (analysisChoice == kSelectionIndex) {
 		params['is_test_mode'] = 0;
-		if (is_mvpa_control) {
-			params['task_type'] = kSelectionSearch_MVPA;
+		if (is_activity) {
+			params['task_type'] = kSelectionSearch_ACTIV;
 		} else if (classifierChoice > 1) {
-			params['task_type'] = kSelectionCORRSUM_FCMA;
+			params['task_type'] = kSelectionCORRSUM_CORR;
 		} else {
-			params['task_type'] = kSelectionSVM_FCMA + classifierChoice;
+			params['task_type'] = kSelectionSVM_CORR + classifierChoice;
 		}
 		params['first_maskfile'] = kROIMask;
 		params['second_maskfile'] = kWholeBrainMask;
 		params['outputfile'] = kTopVoxelsPrefix;
+		params['blockfile'] = kSelectionBlocks;
 	} else if (analysisChoice == kTestingIndex) {
 		params['is_test_mode'] = 1;
 		num_processors = 1;
 		if (gui_params['vary_topvoxels']) {
-			params['task_type'] = kTestingTopVoxels_FCMA + test_add_1;
+			params['task_type'] = kTestingTopVoxels_CORR + test_add_1;
 			params['first_maskfile'] = kWholeBrainMask;
 			params['second_maskfile'] = "";
 			params['outputfile'] = kTopVoxelsList;
 		} else {
 			if (gui_params['cross_validate']) {
-				params['task_type'] = kXValidateTask_FCMA + test_add_1;
+				params['task_type'] = kXValidateTask_CORR + test_add_1;
 			} else {
-				params['task_type'] = kTestingTask_FCMA + test_add_1;
+				params['task_type'] = kTestingTask_CORR + test_add_1;
 			}
 			params['first_maskfile'] = kTopVoxelOutputMask;
 			params['second_maskfile'] = kWholeBrainMask;
+			params['outputfile'] = kTopVoxelsPrefix;
 		}
+		params['blockfile'] = kTestingBlocks;
 	} else if (analysisChoice == kVisualizingIndex) {
 		params['first_maskfile'] = kTopVoxelOutputMask;
-		params['task_type'] = kVisualizationTask_FCMA;
+		params['task_type'] = kVisualizationTask_CORR;
 	}
 
 	var res = '';
@@ -123,7 +128,7 @@ var downloadFCMA = function() {
 };
 
 var params = {
-  	task_type: kSelectionSVM_FCMA,
+  	task_type: kSelectionSVM_CORR,
 	num_folds_in_feature_selection:8,
   	first_left_out_block_id:50,
   	num_items_held_for_test:0,
@@ -134,7 +139,7 @@ var params = {
 	first_maskfile: kROIMask,
 	second_maskfile: kWholeBrainMask,
   	blockdir: base + 'blockfiles/',
-  	blockfile: base + 'selection.txt',
+  	blockfile: kSelectionBlocks,
 	visualize_reference: kROIMask
 };
 
@@ -142,7 +147,7 @@ var gui_params = {
   	analysisStage: analysisList[kSelectionIndex],
   	blocksInput: blocksList[kBlocksFile],
   	classifier: classifierList[kClassifierSVM],
-  	mvpa_control: false,
+  	use_activity: false,
 	vary_topvoxels: false,
 	cross_validate: false
 };
@@ -193,7 +198,7 @@ var guiLoader = function() {
   var blockF = mf.addFolder('Blocks regressors');
   ctrlArray.push( blockF.add(gui_params,'blocksInput', blocksList).name('Blocks input') );
   ctrlArray.push( blockF.add(params,'blockdir').name('Blocks directory') );
-  ctrlArray.push( blockF.add(params,'blockfile').name('Blocks file') );
+  ctrlArray.push( blockF.add(params,'blockfile').name('Blocks file').listen() );
 
  // .listen() appended to items that change based on other items
  // such as mask name in selection vs test mode
@@ -202,7 +207,7 @@ var guiLoader = function() {
   ctrlArray.push( maskF.add(params,'second_maskfile').name('Mask 2').listen() );
 
   ctrlArray.push( gui.add(gui_params, 'classifier', classifierList ).name('Classifier') );
-  ctrlArray.push( gui.add(gui_params, 'mvpa_control').name('MVPA control') );
+  ctrlArray.push( gui.add(gui_params, 'use_activity').name('Use activity not correlations') );
   var visF = mf.addFolder('Visualization');
   ctrlArray.push( visF.add(params, 'visualize_blockid').name('BlockID of correlations to save') );
   ctrlArray.push( visF.add(params, 'visualize_reference').name('File for reference (only for header info)') );

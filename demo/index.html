@@ -49,12 +49,13 @@
             <a class="brand" href="..">FCMA Toolbox</a>
             <div class="nav-collapse">
                 <ul class="nav">
-                    <li><a href="../#using">Using</a></li>
-                    <li><a href="../config">FCMA File</a>
-                  	<li><a href="../cluster">Cluster</a></li>
-                   	<li class="active"><a href="../demo">Demo</a></li>
+                    <li><a href="http://princetonuniversity.github.io/fcma-toolbox/#using">Using</a></li>
+                    <li><a href="http://princetonuniversity.github.io/fcma-toolbox/config">FCMA File</a>
+                  	<li><a href="http://princetonuniversity.github.io/fcma-toolbox/cluster">Cluster</a></li>
+			<li><a href="http://princetonuniversity.github.io/fcma-toolbox/tutorial">Tutorial</a></li>
+                   	<li class="active"><a href="http://rondo.pni.princeton.edu/fcma/demo">Demo</a></li>
 										<li><a href="http://github.com/princetonuniversity/fcma-toolbox">Source</a></li>
-										<li><a href="../thanks">Thanks</a></li>
+										<li><a href="http://princetonuniversity.github.io/fcma-toolbox/thanks">Thanks</a></li>
                 </ul>
             </div>
         </div>
@@ -65,14 +66,14 @@
 		<h2>Demonstration</h2>
 	</div>
     <blockquote>
-		<br>Please upload four (4) files:
+		<br>Please upload an analysis directory compressed into a <strong>single .zip or .tar.gz file</strong>. Within the directory should be four (4) different kinds of files:
 		<ul>
-			<li><b>Data</b>: an <i>anonymized</i> 3D + time FMRI volume in NiFTI <b>.nii.gz</b> format</li>
-			<li><b>Mask</b>: a 3D binary spatial mask, same space dimensions as data (<b>.nii.gz</b> format)</li>
-			<li><b>FCMA File</b>: an .fcma file generated via the command line or via the <a href="../config">FCMA File Generator</a>.</li>
-			<li><b>Blockfile</b>: a .txt file containing a description of experiment trials; see the <a href="../config#reference">FCMA paramater reference</a> for the format.</li>
+			<li><b>Data</b>: a subdirectory of <i>anonymized</i> 3D + time FMRI volumes, of identical resolution, formatted as NIfTI compressed (<b>.nii.gz</b>)</li>
+			<li><b>Mask</b>: a 3D binary spatial mask, same space dimensions as data, also <b>.nii.gz</b> format, with nonzero values for voxels to be included in the analysis.</li>
+			<li><b>FCMA File</b>: See <a href="../config">FCMA file</a> for how to generate or create one. The <a href="../config#reference">reference</a> section describes each parameter. The .fcma file should only reference files within your archive using relative paths.</li>
+			<li><b>Blockfile</b>: Regressors/labels together with corresponding TR ranges within your data files, for each block to be included in the analysis. See the <a href="../config#reference">FCMA paramater reference</a> for the format.</li>
 		</ul>
-		<p>Your files will be uploaded and analyzed on a small cluster of computers (currently 8 max). The files are automatically deleted after the analysis ends, but they can be deleted manually from the list below at any time.<br>
+		<p>Your zip file will be uploaded and analyzed on a small cluster of computers (currently 8 max). The files may be deleted at any time after your analysis completes, but will likely last through the end of the day; they can be deleted manually from the list below at any time.<br>
     </blockquote>
     <br>
         <p>The demonstration is currently off-line.</p><br>
@@ -120,9 +121,8 @@
     <div class="well">
         <h3>Demo Notes</h3>
         <ul>
-            <li>The maximum file size is <strong>100 MB</strong>.</li>
-            <li>File extensions recognized: (<strong>.nii.gz</strong> for data & masks, <strong>.txt</strong> for blockfile and <strong>.fcma</strong> for the .fcma file).</li>
-            <li>You can <strong>drag &amp; drop</strong> files from your desktop on this webpage with Google Chrome, Mozilla Firefox and Apple Safari.</li>
+            <li>The archive you upload cannot exceed <strong>100 MB</strong> in size.</li>
+            <li>You can <strong>drag &amp; drop</strong> your archive from your desktop to this webpage using Google Chrome, Mozilla Firefox and Apple Safari.</li>
         </ul>
     </div>
 </div>
