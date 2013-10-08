@@ -17,11 +17,16 @@ void ExitWithError(const std::ostringstream& os, ErrorType error /*= ERROR_FATAL
 {
     std::cerr<<"Fatal errorcode "<<error<<": "<<os.str()<<std::endl;
     std::cerr<<"exiting..."<<endl;
-    int initialized,finalized;
-    MPI_Initialized(&initialized);
+    int finalized;
     MPI_Finalized(&finalized);
-    if (initialized && !finalized)
-        MPI_Abort(MPI_COMM_WORLD, error);
-    else
-        exit(error);
+    if (!finalized)
+    {
+        int initialized;
+        MPI_Initialized(&initialized);
+        if (initialized)
+        {
+            MPI_Abort(MPI_COMM_WORLD, error);
+        }
+    }
+    exit(error);
 }
