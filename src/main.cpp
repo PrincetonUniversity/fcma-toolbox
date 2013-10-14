@@ -21,11 +21,14 @@
 Param Parameters;
 //extern unsigned long long counter;
 
+static void params_from_keyvalues(char** keys_and_values,const int& num_elements);
+
 void exit_with_help()
 {
   printf(
   "**********************************************************\n"
-  "Usage: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]\n"
+  "Usage 1: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]\n"
+  "Usage 2: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma config.fcma\n"
   "required:\n"
   "-d matrix directory, contains files in binary gz format, beginning with numbers of row and column\n"
   "-m matrix file type, usually the extension name\n"
@@ -49,7 +52,7 @@ void exit_with_help()
 
 void set_default_parameters()
 {
-  Parameters.fmri_directory = ".";
+  Parameters.fmri_directory = "data/";
   Parameters.fmri_file_type = ".nii.gz";
   Parameters.output_file = "topvoxels";
   Parameters.block_information_file = Parameters.block_information_directory = NULL;
@@ -121,6 +124,15 @@ void parse_command_line(int argc, char **argv)
   {
     if (argv[i][0] != '-')
     {
+      const char* ext = GetFilenameExtension(argv[i]);
+      if (!strncasecmp(ext,"fcma",4))
+      {
+          //std::cout << "reading fcma config file" << std::endl;
+          int max_elements = 256;
+          char** keys_and_values = new char*[max_elements];
+          int num_elements = ReadConfigFile(argv[i], max_elements, keys_and_values);
+          params_from_keyvalues(keys_and_values,num_elements);
+      }
       break;
     }
     if (++i >= argc)
@@ -182,6 +194,106 @@ void parse_command_line(int argc, char **argv)
   check_parameters();
 }
 
+#define KEYS_DEF \
+KEY_DEF( FCMA_DATADIR, "datadir" ),  \
+KEY_DEF( FCMA_MATRIX_FORMAT,  "matrix_format" ),   \
+KEY_DEF( FCMA_OUTPUTFILE, "outputfile" ), \
+KEY_DEF( FCMA_TASK_TYPE, "task_type" ), \
+KEY_DEF( FCMA_BLOCKFILE, "blockfile") , \
+KEY_DEF( FCMA_BLOCKDIR, "blockdir" ), \
+KEY_DEF( FCMA_ROWS_PER_ROUND, "rows_per_round" ), \
+KEY_DEF( FCMA_FIRST_LEFT_OUT_BLOCK_ID, "first_left_out_block_id" ), \
+KEY_DEF( FCMA_NUM_ITEMS_HELD_FOR_TEST, "num_items_held_for_test" ), \
+KEY_DEF( FCMA_IS_TEST_MODE, "is_test_mode" ), \
+KEY_DEF( FCMA_NUM_FOLDS_IN_FEATURE_SELECTION, "num_folds_in_feature_selection" ), \
+KEY_DEF( FCMA_FIRST_MASKFILE, "first_maskfile" ), \
+KEY_DEF( FCMA_SECOND_MASKFILE, "second_maskfile" ), \
+KEY_DEF( FCMA_VISUALIZE_BLOCKID, "visualize_blockid" ), \
+KEY_DEF( FCMA_VISUALIZE_REFERENCE, "visualize_reference" )
+
+#define KEY_DEF( identifier, name )  identifier
+enum keys { KEYS_DEF };
+
+enum
+{
+    FCMA_FIRSTKEY = FCMA_DATADIR,
+    FCMA_LASTKEY = FCMA_VISUALIZE_REFERENCE,
+    FCMA_NUM_KEYS = FCMA_LASTKEY + 1
+};
+
+#undef KEY_DEF
+#define KEY_DEF( identifier, name )  name
+const char* values[] = { KEYS_DEF };
+
+static void params_from_keyvalues(char** keys_and_values,const int& num_elements)
+{
+    bool found[FCMA_NUM_KEYS];
+    for (int i=0; i<FCMA_NUM_KEYS; i++) found[i] = false;
+    
+    for ( int i=0; i<num_elements; i+=2 )
+    {
+        int v = i+1;
+        for ( int k = FCMA_FIRSTKEY; k < FCMA_NUM_KEYS; k++ )
+        {
+            if ( found[k] ) continue;
+            if ( !strcmp(keys_and_values[i],values[k]) )
+            {
+                switch( k )
+                {
+                    case FCMA_DATADIR:
+                        Parameters.fmri_directory = keys_and_values[v];
+                        break;
+                    case FCMA_MATRIX_FORMAT:
+                        Parameters.fmri_file_type = keys_and_values[v];
+                        break;
+                    case FCMA_OUTPUTFILE:
+                        Parameters.output_file = keys_and_values[v];
+                        break;
+                    case FCMA_TASK_TYPE:
+                        Parameters.taskType = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_BLOCKFILE:
+                        Parameters.block_information_file = keys_and_values[v];
+                        break;
+                    case FCMA_BLOCKDIR:
+                        Parameters.block_information_directory = keys_and_values[v];
+                        break;
+                    case FCMA_ROWS_PER_ROUND:
+                        Parameters.step = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_FIRST_LEFT_OUT_BLOCK_ID:
+                        Parameters.leave_out_id = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_NUM_ITEMS_HELD_FOR_TEST:
+                        Parameters.nHolds = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_IS_TEST_MODE:
+                        Parameters.isTestMode = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_NUM_FOLDS_IN_FEATURE_SELECTION:
+                        Parameters.nFolds = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_FIRST_MASKFILE:
+                        Parameters.mask_file1 = keys_and_values[v];
+                        break;
+                    case FCMA_SECOND_MASKFILE:
+                        Parameters.mask_file2 = keys_and_values[v];
+                        break;
+                    case FCMA_VISUALIZE_BLOCKID:
+                        Parameters.visualized_block_id = atoi(keys_and_values[v]);
+                        break;
+                    case FCMA_VISUALIZE_REFERENCE:
+                        Parameters.ref_file = keys_and_values[v];
+                        break;
+                    default:
+                        break;
+                }
+                found[k] = true;
+            }
+        }
+    }
+}
+
 void run_fcma(Param* param)
 {
     int initialized;
@@ -212,6 +324,7 @@ void run_fcma(Param* param)
     /* data reading and initialization */
     int nTrials = 0;
     int nSubs = 0;
+
     RawMatrix** r_matrices = ReadGzDirectory(fmri_directory, fmri_file_type, nSubs);  // set nSubs here
     //Point* temp_pts=new Point[r_matrices[0]->row];
     //int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
@@ -221,7 +334,7 @@ void run_fcma(Param* param)
         cout<<"data reading done!"<<endl;
         //cout<<row_tmp<<endl;
     }
-    Point* pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects have the same format, so we can randomly pick one
+    Point* pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects are aligned; use first subject's voxel coordinates
     Trial* trials=NULL;
     if (block_information_file!=NULL)
     {
@@ -231,7 +344,6 @@ void run_fcma(Param* param)
     {
         trials = GenBlocksFromDir(nSubs, 0, nTrials, r_matrices, block_information_directory);  // 0 for no shift, nTrials is assigned a value here
     }
-    int nBlocksPerSub = nTrials / nSubs;  // assume each subject has the same number of blocks
     if (me == 0)
     {
         cout<<"blocks generation done! "<<nTrials<<" in total."<<endl;
@@ -248,6 +360,7 @@ void run_fcma(Param* param)
     RawMatrix** avg_matrices = NULL;
     if (taskType == 2 || taskType == 6 || taskType == 7)
     {
+        int nBlocksPerSub = nTrials / nSubs;  // assume each subject has the same number of blocks
         avg_matrices = rawMatPreprocessing(r_matrices, nSubs, nBlocksPerSub, trials); // 18 subjects, 12 blocks per subject
     }
     if (taskType != 5 && taskType != 7 && leave_out_id>=0)  // k==5 or 7 implies a cross validation
@@ -366,7 +479,7 @@ void run_fcma(Param* param)
 int main(int argc, char** argv)
 {
     //counter=0;
-    // raise(SIGSTOP); //xcode attach to process
+    raise(SIGSTOP); //xcode attach to process
     
     parse_command_line(argc, argv);
     run_fcma(&Parameters);

@@ -1,7 +1,7 @@
 #include Makefile.della
 #include Makefile.yida
-#include Makefile.rondo
-include Makefile.mac
+include Makefile.rondo
+#include Makefile.mac
 
 OBJ = svm.o Preprocessing.o FileProcessing.o MatComputation.o CorrMatAnalysis.o Classification.o LibSVM.o SVMClassification.o SVMPredictor.o Scheduler.o SVMPredictorWithMasks.o Searchlight.o CorrelationVisualization.o ErrorHandling.o
 
@@ -51,7 +51,7 @@ CorrelationVisualization.o: common.h CorrelationVisualization.h CorrelationVisua
 	$(CXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 ErrorHandling.o: common.h ErrorHandling.h ErrorHandling.cpp
-	$(CXX) -c ErrorHandling.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
+	$(CXX) -c ErrorHandling.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
 
 PROGS=pni_fcma
 

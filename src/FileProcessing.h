@@ -29,3 +29,5 @@ void WriteNiiGzData(const char* outputFile, const char* refFile, void* data, int
 void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data, int dataType, int nt);
 void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int length, int dataType);
 inline int getSizeByDataType(int datatype);
+const char* GetFilenameExtension(const char *filename);
+int ReadConfigFile(const char* fcma_file, const int& length, char** keys_and_values);

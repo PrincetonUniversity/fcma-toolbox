@@ -9,6 +9,7 @@
 #include <zlib.h>
 #undef __USE_BSD
 #include <dirent.h>
+#include <cassert>
 #include <sstream>
 #include "ErrorHandling.h"
 
@@ -22,7 +23,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   DIR *pDir;
   struct dirent *dp;
   char fullfilename[MAXFILENAMELENGTH];
-  string strFilenames[MAXSUBJS];  // at most 100 subjects
+  string strFilenames[MAXSUBJS];
   if ((pDir=opendir(filepath)) == NULL)
   {
     FATAL("invalid directory");
@@ -55,7 +56,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   sort(strFilenames, strFilenames+count);
   for (int i=0; i<count; i++)
   {
-    //cout<<strFilenames[i]<<endl; // output the file name to know the file sequance
+    //cout<<"file "<<i<<": "<<strFilenames[i]<<endl; // output the file name to know the file sequance
     //r_matrices[i] = ReadGzData(strFilenames[i], i);
     r_matrices[i] = ReadNiiGzData(strFilenames[i], i);
   }
@@ -517,6 +518,7 @@ output: the trial data structure array, the number of trials
 Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matrices, const char* dir)
 {
   DIR *pDir;
+  //cout << dir << endl;
   if ((pDir=opendir(dir)) == NULL)
   {
     FATAL("invalid block information directory");
@@ -881,4 +883,71 @@ inline int getSizeByDataType(int datatype)
       FATAL("wrong data type of nifti file in getSizeByDataType!");
   }
   return nbyter;
+}
+
+/* get filename extension starting at first '.' */
+const char* GetFilenameExtension(const char *filename)
+{
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
+
+/* read all bytes from a text file into a buffer, which it allocates 
+    caller should delete buffer when done
+ */
+ char* getTextBytes(const char* fcma_file, long* num_bytes)
+{
+    FILE *f=fopen(fcma_file,"rb");
+    fseek(f,0,SEEK_END);
+    
+    long len=ftell(f);
+    fseek(f,0,SEEK_SET);
+    
+    *num_bytes = len + 1;
+    char *data=new char[*num_bytes];
+    fread(data,1,len,f);
+    fclose(f);
+    
+    return data;
+}
+
+/*******************************
+ Read key:value or key=value" pairs from a file, skipping '#' comments.
+   - (Caller should allocate "char* keys_and_values[length]"  or "new char*[length]")
+ input: the filename and array of pointers to hold the values (preceded by max array length).
+        Keys will be the even indices (0,2,4..) Values the odd indices (1,3,5...)
+ output: the number of elements (pairs*2-- the keys plus the values)
+ ********************************/
+int ReadConfigFile(const char* fcma_file, const int& length, char** keys_and_values)
+{
+    
+    const char *lsep = "\n\r";
+    const char *sep = ":=";
+    char *line, *word, *brkt, *brkw;
+    long num_bytes;
+    
+    char *text = getTextBytes(fcma_file,&num_bytes);
+    
+    int count = 0;
+    for (line = strtok_r(text, lsep, &brkt);
+         line;
+         line = strtok_r(NULL, lsep, &brkt)) {
+        
+        if ( line[0] == '#' ) continue;
+
+        for (word = strtok_r(line, sep, &brkw);
+             word;
+             word = strtok_r(NULL, sep, &brkw)) {
+            
+            size_t wlen = strlen(word);
+            keys_and_values[count] = new char[wlen+1];
+            //printf("%d: got label %s (len %lu)\n",count,word,strlen(word));
+            assert(count < length);
+            memmove(keys_and_values[count],word, wlen+1);
+            count++;
+        }
+    }
+    delete [] text;
+    return count;
 }

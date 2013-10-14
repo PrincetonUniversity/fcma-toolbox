@@ -7,7 +7,7 @@
 CXX=/usr/local/bin/g++
 MPICXX=/usr/local/bin/g++
 MPIFLAGS=-lmpi
-CXXFLAGS = -I/usr/local/include -O3 -fopenmp -fPIC -g -DOMPI_SKIP_MPICXX
+CXXFLAGS = -I/usr/local/include -fopenmp -O3 -fPIC -g -DOMPI_SKIP_MPICXX
 WARNINGFLAGS = -Wall -Werror -Wextra
 LDFLAGS=-L/usr/local/lib 
 LD_LIBS = -lm -lz -lniftiio -lznz -lgfortran -framework Accelerate
