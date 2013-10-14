@@ -479,7 +479,7 @@ void run_fcma(Param* param)
 int main(int argc, char** argv)
 {
     //counter=0;
-    raise(SIGSTOP); //xcode attach to process
+    //raise(SIGSTOP); //xcode attach to process
     
     parse_command_line(argc, argv);
     run_fcma(&Parameters);
