@@ -261,7 +261,7 @@ void z_score(float* v, int n)
   }
   mean /= n;
   //if (sd == n * mean * mean) mean -= 0.1; // to deal with the no variance case
-  sd = sd - n * mean * mean;
+  sd = sd/n - mean * mean;
   if (sd < 0) {cerr<<"sd<0! "<<sd; FATAL("zscore error");}  // if the type is double above, this won't happen
   sd = sqrt(sd);
   for (i=0; i<n; i++)
@@ -338,8 +338,8 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs)
   ifstream ifile("/state/partition3/yidawang/face_scene/permBook1.txt", ios::in);
   if (!ifile)
   {
-		FATAL("file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt");
-	}
+    FATAL("file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt");
+  }
   int k;
   for (i=0; i<nSubs; i++)
   {
