@@ -63,6 +63,82 @@
 
 The tutorial will be posted here shortly.
 
+A quickstart:
+<ul>
+<li><a href="http://www.pni.princeton.edu/fcma_tutorial.zip">fcma_tutorial.zip</a> [~300MB] contains the materials that will be used in the tutorial.</li>
+<li><a href="http://www.pni.princeton.edu/fcmac.zip">fcmac.zip</a> are the binaries compiled for Mac OS X 10.8/10.9. Although step1, selection, may take too long for running on a Mac, the other steps are tractable. The libraries were adapted so that everything that is needed exist in the single "fcmac" folder. Put that in your PATH via <pre>"export PATH=/path/to/fcmac:$PATH"</pre> in Terminal.app</li>
+</ul>
+
+The way the tutorial works is in steps as described in the documentation:
+<ol>
+<li>Selection</li>
+<li>Top voxel cutoff determination</li>
+<li>Top voxel mask creation</li>
+<li>Testing on left-out subject</li>
+</ol>
+
+There are 4 scripts in the tutorial zip file, that start with step1 .. step4. These correspond to the steps above. Each takes as input a generic <pre>.fcma file</pre> and outputs specialized versions to be run with <pre>pni_fcma</pre> or <pre>pni_fcma_submit</pre>. Running each script without arguments provides a brief bit of help text.
+
+Step 1:
+<pre>
+
+usage: step1_selection config.fcma [savedir]
+
+creates updated copies of the provided
+fcma file -- one for each leave-one-out
+voxel selection run-- and saves them
+all in the "step1" directory, unless
+an optional alternative <savedir> is supplied.
+
+uses files in the provided .fcma config
+"datadir" directory; each file's blocks
+are left out in one of the resultant fcma files.
+
+voxel selection runs can then proceed, each
+run using one of the generated fcma files in
+"step1"
+</pre>
+
+Step 2:
+<pre>
+usage: step2_calcranks configfile topvoxlist [savedir]
+
+reads <configfile> .fcma template and specializes
+it for running pni_fcma on increasing number of
+topvoxels.
+
+loads the <topvoxlist> output from selection
+and reports percent correct for an increasing
+number of top voxels (10,20,50,100,200,500,1000 ...)
+so that a minimal viable cutoff can be chosen for
+the next step.
+
+saves results to the "step2" directory, unless
+an optional alternative <savedir> is supplied.
+
+</pre>
+
+Step3:
+<pre>
+
+	step3_topmask prefix N
+	- will use AFNI to search <prefix>_seq.nii.gz and
+	  create a mask of top <N> voxels
+	- saves result as <prefix>_top<N>_mask.nii.gz
+	- <prefix> can contain directory names
+</pre>
+
+Step 4:
+<pre>
+	usage: step4_test_leftout sconfig mask outfile
+	 <sconfig> is a config file created during step1
+	 <mask> is topvoxel mask created during step3
+	 <outconfig> is the config file name to save
+	Note: the <sconfig> and <mask> should be for the same
+	 left-out subject
+
+</pre>
+
 
 </div>
 </body>
