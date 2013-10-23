@@ -1,5 +1,4 @@
 #!/bin/bash
-set -u
 
 # This file is part of the Princeton FCMA Toolbox, (c) 2013 
 # written by bdsinger@princeton.edu
@@ -49,6 +48,8 @@ fi
 
 if (( USE_QSUB )); then
 
+  rm $jtemp
+
   # - right now USE_QSUB requires an if-clause for your hostname
   # - could source another script called "qsub.$host" but 
   #   given its "write once, run all the time" nature, better
@@ -62,7 +63,6 @@ if (( USE_QSUB )); then
 
     # gridengine config knows about hosts eligible 
     # for fullcorr project, so hostfile not used here
-    rm $jtemp
     $dryecho pni_mpirun -P fullcorr $N $M $APP $JOBFILE
 
   elif [[ $shost =~ della ]]; then
@@ -84,7 +84,7 @@ cat<<EOF >$tmpf
 . /usr/share/Modules/init/bash
 module load fcma
 export OMP_NUM_THREADS=$M
-mpirun -bynode -np $N $APP $app_args
+mpirun -bynode -np $N $APP $JOBFILE
 
 EOF
 
