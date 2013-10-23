@@ -59,29 +59,60 @@
 <div class="page-header">
     <h2>FCMA Toolbox Tutorial</h2>
 </div>
-
-
-The tutorial will be posted here shortly.
-
-A quickstart:
+This tutorial goes through a leave-one-subject-out analysis using FCMA. In the interest of reduced time and data, the example is simplified, but the steps would be the same in a full scale analysis.
+<br><br>
+<h4>Downloads</h4>
 <ul>
-<li><a href="http://www.pni.princeton.edu/fcma_tutorial.zip">fcma_tutorial.zip</a> [~300MB] contains the materials that will be used in the tutorial.</li>
-<li><a href="http://www.pni.princeton.edu/fcmac.zip">fcmac.zip</a> are the binaries compiled for Mac OS X 10.8/10.9. Although step1, selection, may take too long for running on a Mac, the other steps are tractable. The libraries were adapted so that everything that is needed exist in the single "fcmac" folder. Put that in your PATH via <pre>"export PATH=/path/to/fcmac:$PATH"</pre> in Terminal.app</li>
+<li><strong>Sample data and scripts</strong>: <a href="http://www.pni.princeton.edu/fcma_tutorial.zip">fcma_tutorial.zip</a> [~330MB] contains the materials that will be used in the tutorial (other than the <code>pni_fcma</code> binary.) PNI users, get a copy  on rondo from <code>/opt/pkg/FCMA/fcma_tutorial.zip</code>
+<br>
+The sample data is a preprocessed form of the original <a href="http://dx.doi.org/10.1126/science.1063736">Haxby et al (2001)</a> 8-category study <a href="http://data.pymvpa.org/datasets/haxby2001/">data</a>-- down-sampled to 4mm cubed voxels, motion-corrected and detrended, and aligned to the MNI standard brain.</li>
+<li><strong>Binaries</strong>: <a href="http://www.pni.princeton.edu/fcmac.zip">fcmac.zip</a> is the <code>pni_fcma</code> binaries compiled for Mac OS X. Although voxel selection (step1) would take an extremely long time to run on the typical Mac, it may be instructive to do so using ROIs containing hundreds of voxels as both first and second maskfiles (perhaps generated on a cluster first). Analysis steps beyond feature selection are tractable however. The executable and the libraries it requires have been adapted so that they do not depend on anything outside the "fcmac" folder. Put that folder in your PATH via <code>export PATH=/path/to/fcmac:$PATH</code> in Terminal.app (or run from within that directory). On Linux, you'll want to set up your server as described on the <a href="../cluster">cluster</a> page. PNI users can add <code>pni_fcma</code> and its dependencies to the shell environment via the command <code>module load fcma</code>. A Windows PC version will be available soon. If you want to try building, the key dependencies to install are <a href="http://www.open-mpi.org/software/ompi/v1.6/ms-windows.php">OpenMPI</a> and <a href="http://prs.ism.ac.jp/~nakama/SurviveGotoBLAS2/binary/">GotoBLAS2</a> for Windows. </li>
+<br>
+Again, desktop versions are mostly for trying out scaled down versions of an analysis or for exploration using top1000 (say) voxel masks generated on a cluster.
+<br>
 </ul>
+<h4>Preparation</h4>
+The <code>fcma_tutorial</code> directory you unzipped, or any directory you set up, should have two directories set aside for a) data and b) blockfiles. If each subject uses its own blockfile (as in the tutorial) each blockfile should have the same name as its corresponding data file, with a <code>.txt</code> rather than <code>.nii.gz</code> extension. In the tutorial dir you should see:
+<br><br>
+<pre>
+data                             step1_selection      step3_topmask
+face_house_blocks                step1_template.fcma  step4_template.fcma
+MNI152_T1_4mm_brain_mask.nii.gz  step2_calcranks      step4_test_leftout
+pni_fcma_submit                  step2_template.fcma  steps_include
+</pre>
+<br>
+and the <code>data</code> and <code>face_house_blocks</code> directories contain the fMRI data and corresponding block files for each subject:
+<br><br>
+<pre>
+> ls data/
+subj1.nii.gz  subj3.nii.gz  subj5.nii.gz
+subj2.nii.gz  subj4.nii.gz  subj6.nii.gz
 
-The way the tutorial works is in steps as described in the documentation:
+> ls face_house_blocks/
+subj1.txt  subj3.txt  subj5_orig.txt  subj6.txt
+subj2.txt  subj4.txt  subj5.txt
+</pre>
+<br>
+The extra <code>subj5_orig.txt</code> blockfile is there because subject 5's data has 22 unique blocks vs 24 for the other subjects; the last two blocks have been repeated in the <code>subj5.txt</code> file, which is the one we'll use since <code>pni_fcma</code> assumes the same number of blocks per subject.
+<br><br>
+The 4 scripts (prefixed by <code>step1</code> through <code>step4</code>) correspond to the four main steps of the analysis detailed below. Running each script without arguments provides a brief bit of help text. All but the step3 script take as one of their inputs a template fcma file, and output specialized versions of it, holding out a different subject for each iteration of the outer analysis loop (the <code>first_left_out_block_id</code> and <code>num_items_held_for_test</code> settings required to hold out the iteration's subject are computed automatically).
+<br><br>
+The resulting fcma file can be run with either <code>pni_fcma</code> or <code>pni_fcma_submit</code>. The latter will launch multiple multi-threaded processes (possibly on multiple machines), as is normally done during selection. Running <code>pni_fcma myconfig.fcma</code> directly will run a single copy of the program as one process, but it can contain multiple threads for partial parallelization using OpenMP. In order to run multi-threaded during direct execution of <code>pni_fcma</code>, you need to set the environment variable <code>OMP_NUM_THREADS</code> to the number of cores you want to use. One or two less than the total number of physical cores available is a good choice as it will allow the machine to remain responsive while running. Note that setting  <code>omp_num_threads</code> in the fcma file will do the same, but only if <code>pni_fcma_submit</code> is used to launch the process(es).
+<br><br>
+Each selection job runs a nested, inner loop: a leave-one-out cross validation run for a subset of voxels, for all subjects, for all blocks (except those held out). The voxel subsets are combined by a master process and each voxel's average score (across included subjects & blocks) is recorded. 
+<br><br>
+Now, onto the meat of the tutorial:
+<br><br>
 <ol>
 <li>Selection</li>
 <li>Top voxel cutoff determination</li>
 <li>Top voxel mask creation</li>
 <li>Testing on left-out subject</li>
 </ol>
-
-There are 4 scripts in the tutorial zip file, that start with step1 .. step4. These correspond to the steps above. Each takes as input a generic <pre>.fcma file</pre> and outputs specialized versions to be run with <pre>pni_fcma</pre> or <pre>pni_fcma_submit</pre>. Running each script without arguments provides a brief bit of help text.
-
-Step 1:
+<br>
+<h4>Step 1: Selection</h4>
+Coming soon
 <pre>
-
 usage: step1_selection config.fcma [savedir]
 
 creates updated copies of the provided
@@ -98,8 +129,10 @@ voxel selection runs can then proceed, each
 run using one of the generated fcma files in
 "step1"
 </pre>
+<br>
 
-Step 2:
+<h4>Step 2: Top voxel determination</h4>
+Coming soon
 <pre>
 usage: step2_calcranks configfile topvoxlist [savedir]
 
@@ -115,20 +148,22 @@ the next step.
 
 saves results to the "step2" directory, unless
 an optional alternative <savedir> is supplied.
-
 </pre>
+<br>
 
-Step3:
+<h4>Step3: Top voxel mask creation</h4>
+Coming soon
 <pre>
-
 	step3_topmask prefix N
 	- will use AFNI to search <prefix>_seq.nii.gz and
 	  create a mask of top <N> voxels
 	- saves result as <prefix>_top<N>_mask.nii.gz
 	- <prefix> can contain directory names
 </pre>
+<br>
 
-Step 4:
+<h4>Step 4: Testing left-out subject</h4>
+Coming soon
 <pre>
 	usage: step4_test_leftout sconfig mask outfile
 	 <sconfig> is a config file created during step1
@@ -136,9 +171,8 @@ Step 4:
 	 <outconfig> is the config file name to save
 	Note: the <sconfig> and <mask> should be for the same
 	 left-out subject
-
 </pre>
-
+<br>
 
 </div>
 </body>
