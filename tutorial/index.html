@@ -119,7 +119,7 @@ creates updated copies of the provided
 fcma file -- one for each leave-one-out
 voxel selection run-- and saves them
 all in the "step1" directory, unless
-an optional alternative <savedir> is supplied.
+an optional alternative "savedir" is supplied.
 
 uses files in the provided .fcma config
 "datadir" directory; each file's blocks
@@ -136,18 +136,18 @@ Coming soon
 <pre>
 usage: step2_calcranks configfile topvoxlist [savedir]
 
-reads <configfile> .fcma template and specializes
+reads "configfile" .fcma template and specializes
 it for running pni_fcma on increasing number of
 topvoxels.
 
-loads the <topvoxlist> output from selection
+loads the "topvoxlist" output from selection
 and reports percent correct for an increasing
 number of top voxels (10,20,50,100,200,500,1000 ...)
 so that a minimal viable cutoff can be chosen for
 the next step.
 
 saves results to the "step2" directory, unless
-an optional alternative <savedir> is supplied.
+an optional alternative "savedir" is supplied.
 </pre>
 <br>
 
@@ -155,10 +155,10 @@ an optional alternative <savedir> is supplied.
 Coming soon
 <pre>
 	step3_topmask prefix N
-	- will use AFNI to search <prefix>_seq.nii.gz and
-	  create a mask of top <N> voxels
-	- saves result as <prefix>_top<N>_mask.nii.gz
-	- <prefix> can contain directory names
+	- will use AFNI to search "prefix"_seq.nii.gz and
+	  create a mask of top "N" voxels
+	- saves result as "prefix"_top"N"_mask.nii.gz
+	- "prefix" can contain directory names
 </pre>
 <br>
 
@@ -166,10 +166,10 @@ Coming soon
 Coming soon
 <pre>
 	usage: step4_test_leftout sconfig mask outfile
-	 <sconfig> is a config file created during step1
-	 <mask> is topvoxel mask created during step3
-	 <outconfig> is the config file name to save
-	Note: the <sconfig> and <mask> should be for the same
+	 "config" is a config file created during step1
+	 "mask" is topvoxel mask created during step3
+	 "outconfig" is the config file name to save
+	Note: the "sconfig" and "mask" should be for the same
 	 left-out subject
 </pre>
 <br>
