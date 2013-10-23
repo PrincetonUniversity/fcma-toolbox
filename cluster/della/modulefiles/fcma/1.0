@@ -1,0 +1,20 @@
+#%Module1.0#####################################################################
+##
+## FCMA Module
+##
+proc ModulesHelp { } {
+        global version
+
+        puts stderr "\tThis module sets up FCMA toolbox on della.princeton.edu"
+        puts stderr "\t"
+        puts stderr "\n\tVersion $version\n"
+}
+
+module-whatis   "Loads FCMA toolbox settings on Della cluster"
+module		load			openmpi
+
+if { [ module-info mode load ] } {
+	puts stderr "fcma toolbox module loaded"
+}
+
+set     version      "1.0"
