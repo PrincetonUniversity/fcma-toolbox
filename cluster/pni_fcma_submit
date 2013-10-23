@@ -57,7 +57,11 @@ if (( USE_QSUB )); then
 
   shost=$(hostname -s)
   
-  if [[ $shost =~ rondo ]]; then
+  # check for gridengine with fullcorr project (used on rondo)
+  # (hostnames do not contain string "rondo"-- just "nodeXX")
+  qconf -sprj fullcorr >/dev/null 2>&1
+   
+  if (( $? == 0 )); then
 
     # ******** RONDO cluster ********
 
