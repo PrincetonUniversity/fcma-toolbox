@@ -51,7 +51,7 @@ CorrelationVisualization.o: common.h CorrelationVisualization.h CorrelationVisua
 	$(CXX) -c CorrelationVisualization.cpp -o $@ $(CXXFLAGS) $(WARNINGFLAGS)
 
 ErrorHandling.o: common.h ErrorHandling.h ErrorHandling.cpp
-	$(CXX) -c ErrorHandling.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
+	$(MPICXX) -c ErrorHandling.cpp -o $@ $(CXXFLAGS) $(MPIFLAGS) $(WARNINGFLAGS)
 
 PROGS=pni_fcma
 

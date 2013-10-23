@@ -1,0 +1,21 @@
+#%Module1.0#####################################################################
+##
+## modules modulefile
+##
+## modulefiles/modules.  Generated from modules.in by configure.
+##
+proc ModulesHelp { } {
+        global version modroot
+
+        puts stderr "\tOpen MPI 1.6.2"
+}
+
+module-whatis	"Open MPI : Popular MPI-2 implementation from open-mpi.org"
+
+# for Tcl script use only
+set	version		1.6.2
+set	modroot		/opt/pkg/OPENMPI/openmpi-1.6.2
+prepend-path    PATH    $modroot/bin
+prepend-path    LD_LIBRARY_PATH $modroot/lib
+prepend-path    MANPATH $modroot/share/man
+

@@ -1,0 +1,109 @@
+#!/bin/bash
+# december 2012 bdsinger
+set -u
+
+MDEF=1
+APP="$(basename $0)"
+DEFAULT_PROJ="short"
+KILLHRS=2
+
+if (( $# < 2 )); then
+cat<<EOF
+
+ usage: $APP [-P proj] <N> [<M>] <executable> [executable args]
+   Runs an MPI job in cluster-friendly way, where MPI tasks map
+   to Gridengine batch job tasks and play nice with others. You
+   can monitor task progress via logs in the PWD and 'qstat -g t'
+
+  [-P proj]: a gridengine project/queue name such as "short",
+             "long", or "verylong".
+
+             default is "$DEFAULT_PROJ" which means the jobs will
+             be killed after $KILLHRS hours.
+
+  N : the number of MPI tasks ("nodes" synonym, in practice)
+  M : OpenMP threads (ie cores) per task (default is $MDEF)
+  After that: the command line or script name to run plus its
+  arguments.
+
+  notes
+  - the following modules are loaded within each task
+    via pni_fcma module (in addition to fcma module itself):
+
+       gridengine, openmpi, nifticlib, gotoblas, gcc-4.4
+
+  - monitor your mpi tasks via
+
+       qstat -t
+
+EOF
+ exit 1
+fi
+
+PROJ=$DEFAULT_PROJ
+[[ $1 == -P ]] && PROJ=$2 && shift 2
+
+[[ -z $1 ]] && echo "would run in project ${PROJ}. continue." && exit 1
+
+N=$1
+/opt/pni/scripts/pni_isint $N >/dev/null 2>&1
+(( ! $? == 0 )) && echo "N should be an integer, not $N" && exit 1
+
+# check for optional M threads
+M=$2
+/opt/pni/scripts/pni_isint $M >/dev/null 2>&1
+if (( $? == 0 )); then
+   executable=$3
+   shift 3
+else
+   M=$MDEF
+   executable=$2
+   shift 2
+fi
+echo "using $M OpenMP threads per task"
+
+# pni_fcma module shortcut for
+# loading openmpi and related
+# modules, even if not using fcma
+. /usr/share/Modules/init/bash
+module load pni_fcma
+
+MPIRUN=$(which mpirun)
+
+if [[ ! ${executable:0:1} == '/' ]]; then
+   wex="$(pni_which $executable 2>/dev/null)"
+   if (( $? == 0 )); then
+      executable=$wex
+   else
+      pex="$(pwd)/$executable"
+      [[ ! -f $pex ]] && echo "$executable can not be located! Try 'module load $executable'" && exit 1 
+      executable="$pex"
+   fi
+fi
+
+# prevent disastrous matlab errors
+execbase=$(basename $executable)
+executable_args=$@
+
+tf=$(mktemp)
+cat<<EOF>$tf
+#!/bin/bash
+
+#$ -P $PROJ -cwd -N $execbase -l cores=$M -pe openmpi $N
+
+. /usr/share/Modules/init/bash
+module load pni_fcma
+
+OMP_NUM_THREADS=$M \
+$MPIRUN \
+  --mca pls_gridengine_verbose 1 \
+  --loadbalance \
+  -np $N \
+  $executable $executable_args
+
+EOF
+
+qsub $tf
+
+rm -f $tf
+

@@ -1,0 +1,24 @@
+#%Module1.0#####################################################################
+##
+## modules modulefile
+##
+## modulefiles/modules.  Generated from modules.in by configure.
+##
+proc ModulesHelp { } {
+        global version modroot
+
+        puts stderr "\tGotoBLAS2 v.1.13 compiled with gcc-4.4 rhel5.x"
+}
+
+module-whatis	"fast BLAS vector and matrix ops via Goto2 v1.13 compiled with gcc-4.4 on centos (rhel-based) 5.x"
+
+# for Tcl script use only
+set	version		1.13
+
+set	modroot		/opt/pkg/GOTOBLAS2/gotoblas2-1.13-gcc44
+prepend-path	LD_LIBRARY_PATH		$modroot
+setenv		GOTOBLAS2		$modroot
+
+set             laproot                 /opt/pkg/LAPACK/lapack
+prepend-path    MANPATH                 $laproot/manpages/man
+prepend-path    MANPATH                 $laproot/manpages/blas/man

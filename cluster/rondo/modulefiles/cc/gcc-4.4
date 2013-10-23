@@ -1,0 +1,30 @@
+#%Module1.0#####################################################################
+##
+## modules modulefile
+##
+## modulefiles/modules.  Generated from modules.in by configure.
+##
+proc ModulesHelp { } {
+        global version modroot
+
+        puts stderr "\tGnu Compiler Collection version 4.4.6
+}
+
+module-whatis	"Gnu gcc version 4.4.6"
+
+# for Tcl script use only
+set	version		4.4.6
+set	modroot		/usr/lib/gcc/x86_64-redhat-linux6E/4.4.6
+
+prepend-path	LD_LIBRARY_PATH		$modroot/lib
+
+set-alias	gcc			gcc44
+set-alias	cc			gcc44
+set-alias	g++			g++44
+set-alias	gcov			gcov44
+
+setenv		F77			gfortran44
+setenv		F95			gfortran44
+set-alias	gfortran		gfortran44
+set-alias	g77			gfortran44
+set-alias	g95			gfortran44

@@ -1,4 +1,3 @@
-node13 slots=1
 node14 slots=8
 node15 slots=8
 node16 slots=8

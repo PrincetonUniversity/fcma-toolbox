@@ -4,149 +4,128 @@ set -u
 # This file is part of the Princeton FCMA Toolbox, (c) 2013 
 # written by bdsinger@princeton.edu
 
-#defaults 
+#defaults for submission method
 USE_QSUB=0
 DRY_RUN=0
 GEN_TEMPLATE=0
 APP=pni_fcma
+MPIRUN=mpirun
+HOSTFILE=hostfile.txt
 ME=$(basename $0)
 
-(( $# == 0 )) && printf "%s jobfile.fcma. Type \"$ME template\" to generate a template.fcma file and follow the comments within\n" && exit 1
-(( $# > 0 )) && [[ $1 =~ template ]] && GEN_TEMPLATE=1
-(( GEN_TEMPLATE == 0 )) && JOBFILE=$1
-(( $# > 1 )) && [[ $@ =~ noqsub ]] && USE_QSUB=0
-(( $# > 1 )) && [[ $@ =~ dry ]] && DRY_RUN=1
+(( $# == 0 )) && printf "usage: %s jobfile.fcma\n\tPlease see the \"config file\" link at\n\thttp://www.princeton.edu/fcma\n" $(basename $0) && exit 1
+JOBFILE=$1
 
-# prefix commands that launch jobs with
-# dryecho -- on dryrun just prints command
-(( DRY_RUN )) && dryecho="echo" || dryecho=""
-# or cat script not run it
-(( DRY_RUN )) && drycat="cat" || drycat=""
-
-# ----------------
-#      prints list of descriptions for each
-#      keyword to template.fcma file
-#      and template_blocks.txt 
-# ----------------
-function generate_template() {
- declare -a key_and_descriptions
- key_and_descriptions=(
-        'omp_num_threads:2'                  'Set equal to (cores per node) / (slaves per node)'
-        'hostfile:hostfile.txt'              'Each line should have "<hostname>  slots=<slaves_per_node>"'
-        'num_processors:3'                   'Number of slaves + 1 (master). Balanced across nodes.'
-        "exefile:$APP"                       'Path to the pni_fcma binary, only needed if it is not in PATH'
-        "datadir:data/"                      'Every NIfTI dataset (usually == subject) in this dir will be used'
-        "matrix_format:.nii.gz"               'File extension for fmri data. Currently only NIfTI compressed (.nii.gz) is supported.'
-        "outputfile:top_voxels.txt"          'Your name for the text file that will contain the list of top-scoring voxels (task 0)'
-        "task_type:0"                        'Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4)'
-        "blockfile:blockfile.txt"            'Single blocks file to be applied to every fmri data file. See blocks_template.txt for format'
-        "blockdir:"                          'Every file in this dir must correspond 1:1 with its dataset-- same name, but .txt not .nii.gz'
-        "rows_per_round:100"                 'Empirical value, the rows of FC Matrix (rows*voxels*subjects*blocks) to process per iteration'
-        "first_left_out_block_id:-1"         'Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:-1)'
-        "num_items_held_for_test:0"          'Block_ids left out are contiguous, from first_left_out_block_id (flobi) to flobi + this number'
-        "is_test_mode:0"                     'Interacts with task_type: 1 (with task 4) when predicting using new data, 0 (with task 0) when selecting top voxels'
-        "num_folds_in_feature_selection:8"   'Divides the subjects*blocks samples evenly, does N-1 xvalidation to get each voxel score'
-        "first_maskfile:mask1.nii.gz"        'Voxels to score based on autocorrelation or correlation with those in second maskfile'
-        "second_maskfile:mask2.nii.gz"       'Besides selection, first & second maskfile can be used with new data in test mode '
-        "visualize_blockid:10"               '(used with task_type 8) Which block_id (0..blocks*subjects) correlation matrix to save'
-        "visualize_reference:block10.nii.gz" '(used with task_type 8) Name of 4D file, each volume a mask1 voxel, correlated with all mask2 voxels'
-)
-
-  outfile="template.fcma"
-  echo "# Sample FCMA config file" > $outfile
-  echo "" >> $outfile
-  (( j = 0 ))
-  for ((i=0; i<=numflags; i+=2)); do
-    (( j = i + 1 ))
-    echo "# ${key_and_descriptions[$j]}" >> $outfile
-    echo "${key_and_descriptions[$i]}" >> $outfile
-    echo "" >> $outfile
-    echo "" >> $outfile
-  done
-  
-  blockout="template_blocks.txt"
-  echo "NUM_BLOCKS" > $blockout
-  echo "LABEL(0/1)   START_TR  END_TR"  >> $blockout
-  echo "   ..." >> $blockout
-  echo "(NUM_BLOCKS LINES)" >> $blockout
-  echo "" >> $blockout
- 
-  exit
-}
-
-# ----------------
-#      list of possible settings
-#      and corresponding cmdline flags
-# ----------------
-declare -a key_and_flags
-key_and_flags=(
-	omp_num_threads			'OMP_NUM_THREADS='
-	num_processors			'-np '
-	exefile				' '
-	datadir				'-d '
-	matrix_format			'-m '
-	outputfile			'-t '
-	task_type			'-k '
-	blockfile			'-b '
-	blockdir			'-e '
-	rows_per_round			'-s '
-	first_left_out_block_id		'-l '
-	num_items_held_for_test		'-h '
-	is_test_mode			'-c '
-	num_folds_in_feature_selection	'-n '
-	first_maskfile			'-x '
-	second_maskfile			'-y '
-	visualize_blockid		'-v '
-	visualize_reference		'-r '
-)
-numflags=${#key_and_flags[@]}
-
+#----------------
 hget() {
 	hfile=$1
 	grep $2 $1 | cut -d: -f2
 }
 
-(( GEN_TEMPLATE > 0 )) && generate_template
-
-#----------------
-
-# first app arg in list above is datadir,
-# index 6 (if starting from 0) -- row * 2 cols
-app_arg_index=6
-app_args=""
-# get lines that set a value
 jtemp=$(mktemp tmp.XXXXX)
-#grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
-grep -v '\#' $JOBFILE > $jtemp
-[[ -n $drycat ]] && $drycat $jtemp
-for (( i=$app_arg_index; i<$numflags; i+=2 )); do
-	(( j = i + 1 ))
-	# substitute the corresponding flag from above
-	key="${key_and_flags[$i]}"
-	flag="${key_and_flags[$j]}"
-	line="$(grep $key: $jtemp)"
-	[[ X != X${line} ]] && app_args="$app_args $(echo $line | sed "s/${key}\:/${flag}/")"
-done
+grep -v '\#' $JOBFILE  | grep '\:[^\w]' > $jtemp
 
+# parse launch metainfo from .fcma file
 N=$(hget $jtemp num_processors)
 [[ -z $N ]] && echo "num_processors must be specified" && exit 1
 M=$(hget $jtemp omp_num_threads)
 [[ -z $M ]] && echo "omp_num_threads must be specified" && exit 1
 uAPP="$(hget $jtemp exefile)"
 [[ -x $uAPP ]] && APP=$uAPP
-
-[[ -n $drycat ]] && $drycat $jtemp
+uQSUB="$(hget $jtemp use_qsub)"
+[[ $uQSUB =~ yes ]] && USE_QSUB=1
+uDRY="$(hget $jtemp dryrun)"
+[[ $uDRY =~ yes ]] && dryecho="echo would run:" || dryecho=""
+uOPAL_PREFIX="$(hget $jtemp opal_prefix)"
+if [[ -n $uOPAL_PREFIX ]]; then
+  if [[ ${uOPAL_PREFIX:0:1} == / ]]; then
+    prefix=$uOPAL_PREFIX
+  else
+    prefix=$PWD/$uOPAL_PREFIX
+  fi
+  export OPAL_PREFIX=$prefix
+  MPIRUN=$prefix/bin/mpirun
+fi
 
 if (( USE_QSUB )); then
-	# gridengine config knows about hosts eligible 
-	# for $PROJECT, so hostfile not used here
-	rm $jtemp
-	$dryecho pni_mpirun -P fullcorr $N $M $APP $app_args
+
+  # - right now USE_QSUB requires an if-clause for your hostname
+  # - could source another script called "qsub.$host" but 
+  #   given its "write once, run all the time" nature, better
+  #   to inline it here and avoid the added complexity
+
+  shost=$(hostname -s)
+  
+  if [[ $shost =~ rondo ]]; then
+
+    # ******** RONDO cluster ********
+
+    # gridengine config knows about hosts eligible 
+    # for fullcorr project, so hostfile not used here
+    rm $jtemp
+    $dryecho pni_mpirun -P fullcorr $N $M $APP $JOBFILE
+
+  elif [[ $shost =~ della ]]; then
+
+    # *********** DELLA cluster **********
+
+    which module >/dev/null 2>&1
+    (( $? )) && source /usr/share/Modules/init/bash
+    module load fcma >/dev/null 2>&1
+    (( $? )) && echo "warning: could not load fcma module; check installation"
+    which mpirun >/dev/null 2>&1
+    (( $? )) && echo "error: mpiexec not in path; please ask sysadmin how to load MPI" && exit 1
+
+    tmpf=$(mktemp)
+
+cat<<EOF >$tmpf
+
+#PBS -l nodes=$N:ppn=$M,walltime=24:00:00
+. /usr/share/Modules/init/bash
+module load fcma
+export OMP_NUM_THREADS=$M
+mpirun -bynode -np $N $APP $app_args
+
+EOF
+
+    if (( DRY_RUN == 1 )); then
+      echo "would submit the following job script:"
+      echo
+      echo "----------------BEGIN---------"
+      cat $tmpf
+      echo "----------------END-----------"
+      echo
+    else
+      jobname="$(basename $JOBFILE)"
+      exec qsub -N $jobname $tmpf
+    fi
+
+  # elif 
+  # *************** YOUR CLUSTER here ************
+
+  else
+
+    # *************** UNKNOWN cluster **************
+
+    echo "unknown host $shost for when USE_QSUB=1 in $(basename $0)"
+    exit 1
+
+  fi 
+
 else
-        hostfile=$(hget $jtemp hostfile)
-	rm $jtemp
-	# Note that this is not used on rondo but could be
-	# if gridengine qsub method has issues
-	OMP_NUM_THREADS=$M mpirun -np $N -hostfile $hostfile $APP $app_args
+
+  # *********** GENERIC OpenMPI - No cluster scheduler ***********
+
+  uHOSTFILE="$(hget $jtemp hostfile)"
+  [[ -n $uHOSTFILE ]] && HOSTFILE=$uHOSTFILE
+  [[ -n $dryecho ]] && cat $jtemp
+  rm $jtemp
+
+  SUFFIX="$MPIRUN -np $N -hostfile $HOSTFILE $APP $JOBFILE"
+
+  [[ -n $dryecho ]] && $dryecho OMP_NUM_THREADS=$M $SUFFIX && exit
+
+  OMP_NUM_THREADS=$M $SUFFIX
+
 fi
 
