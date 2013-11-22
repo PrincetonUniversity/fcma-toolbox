@@ -46,7 +46,7 @@ void exit_with_help()
   "-y the second mask file, default no mask\n"
   "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
   "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
-  "-q bool, being quiet in test mode (1) or not (0), default 0\n"
+  "-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 7, default 0\n"
   );
   FATAL("usage");
 }
@@ -394,7 +394,7 @@ void run_fcma(Param* param)
                 SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1, is_quiet_mode);
                 break;
             case 4:
-                result = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds);
+                result = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
                 cout<<"accuracy: "<<result<<"/"<<nHolds<<"="<<result*1.0/nHolds<<endl;
                 break;
             case 5:
@@ -402,7 +402,7 @@ void run_fcma(Param* param)
                 while (l<=nTrials-nHolds) //assume that nHolds*an integer==nTrials
                 {
                     leaveSomeTrialsOut(trials, nTrials, 0, nHolds); // the setting of third parameter is tricky here
-                    int curResult = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds);
+                    int curResult = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
                     f++;
                     cout<<"fold "<<f<<": "<<curResult<<"/"<<nHolds<<"="<<curResult*1.0/nHolds<<endl;
                     result += curResult;
@@ -411,7 +411,7 @@ void run_fcma(Param* param)
                 cout<<"total accuracy: "<<result<<"/"<<nTrials<<"="<<result*1.0/nTrials<<endl;
                 break;
             case 6:
-                result = SVMPredictActivationWithMasks(avg_matrices, nSubs, mask_file1, nTrials, trials, nHolds);
+                result = SVMPredictActivationWithMasks(avg_matrices, nSubs, mask_file1, nTrials, trials, nHolds, is_quiet_mode);
                 cout<<"accuracy: "<<result<<"/"<<nHolds<<"="<<result*1.0/nHolds<<endl;
                 break;
             case 7:
@@ -419,7 +419,7 @@ void run_fcma(Param* param)
                 while (l<=nTrials-nHolds) //assume that nHolds*an integer==nTrials
                 {
                     leaveSomeTrialsOut(trials, nTrials, 0, nHolds); // the setting of third parameter is tricky here
-                    int curResult = SVMPredictActivationWithMasks(avg_matrices, nSubs, mask_file1, nTrials, trials, nHolds);
+                    int curResult = SVMPredictActivationWithMasks(avg_matrices, nSubs, mask_file1, nTrials, trials, nHolds, is_quiet_mode);
                     f++;
                     cout<<"fold "<<f<<": "<<curResult<<"/"<<nHolds<<"="<<curResult*1.0/nHolds<<endl;
                     result += curResult;

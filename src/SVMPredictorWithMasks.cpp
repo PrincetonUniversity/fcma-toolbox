@@ -18,7 +18,7 @@ Get two parts of the brain to compute the correlation and then use the correlati
 input: the raw activation matrix array, the number of subjects, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
-int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests)
+int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
 {
   int i, j;
   svm_set_print_string_function(&print_null);
@@ -80,20 +80,23 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
       predict_correctness[i-nTrainings] = false;
     }
   }
-  cout<<"blocking testing confidence:"<<endl;
-  for (i=nTrainings; i<nTrials; i++)
+  if (!is_quiet_mode)
   {
-    cout<<fabs(predict_distances[i-nTrainings])<<" (";
-    if (predict_correctness[i-nTrainings])
+    cout<<"blocking testing confidence:"<<endl;
+    for (i=nTrainings; i<nTrials; i++)
     {
-      cout<<"Correct) ";
+      cout<<fabs(predict_distances[i-nTrainings])<<" (";
+      if (predict_correctness[i-nTrainings])
+      {
+        cout<<"Correct) ";
+      }
+      else
+      {
+        cout<<"Incorrect) ";
+      }
     }
-    else
-    {
-      cout<<"Incorrect) ";
-    }
+    cout<<endl;
   }
-  cout<<endl;
   svm_free_and_destroy_model(&model);
   delete[] x;
   delete prob->y;
@@ -156,7 +159,7 @@ Get one part of the brain to compute the averaged activation and then use the no
 input: the raw activation matrix array, the number of voxels, the number of subjects, the ROI mask file, the number of blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
-int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const char* maskFile, int nTrials, Trial* trials, int nTests)
+int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const char* maskFile, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
 {
   int i, j;
   int nTrainings = nTrials-nTests;
@@ -217,20 +220,23 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
       predict_correctness[i-nTrainings] = false;
     }
   }
-  cout<<"blocking testing confidence:"<<endl;
-  for (i=nTrainings; i<nTrials; i++)
+  if (!is_quiet_mode)
   {
-    cout<<fabs(predict_distances[i-nTrainings])<<" (";
-    if (predict_correctness[i-nTrainings])
+    cout<<"blocking testing confidence:"<<endl;
+    for (i=nTrainings; i<nTrials; i++)
     {
-      cout<<"Correct) ";
+      cout<<fabs(predict_distances[i-nTrainings])<<" (";
+      if (predict_correctness[i-nTrainings])
+      {
+        cout<<"Correct) ";
+      }
+      else
+      {
+        cout<<"Incorrect) ";
+      }
     }
-    else
-    {
-      cout<<"Incorrect) ";
-    }
+    cout<<endl;
   }
-  cout<<endl;
   svm_free_and_destroy_model(&model);
   delete[] x;
   delete[] prob->y;
