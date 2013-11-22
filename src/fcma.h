@@ -28,6 +28,7 @@ typedef struct param_t
     int visualized_block_id;
     int isTestMode;
     int isUsingMaskFile;
+    int isQuietMode;
 }Param;
 
 void run_fcma(Param* param);

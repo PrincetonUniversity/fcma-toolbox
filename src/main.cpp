@@ -46,6 +46,7 @@ void exit_with_help()
   "-y the second mask file, default no mask\n"
   "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
   "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
+  "-q bool, being quiet in test mode (1) or not (0), default 0\n"
   );
   FATAL("usage");
 }
@@ -65,6 +66,7 @@ void set_default_parameters()
   Parameters.isTestMode = false;
   Parameters.mask_file1=Parameters.mask_file2=NULL;
   Parameters.ref_file=NULL;
+  Parameters.isQuietMode = false;
 }
 
 void check_parameters()
@@ -185,6 +187,9 @@ void parse_command_line(int argc, char **argv)
         break;
       case 'r':
         Parameters.ref_file = argv[i];
+        break;
+      case 'q':
+        Parameters.isQuietMode = (atoi(argv[i]) == 1);
         break;
       default:
         cout<<"unknown option: -"<<argv[i-1][1]<<endl;
@@ -319,6 +324,7 @@ void run_fcma(Param* param)
     int nHolds = param->nHolds; // the number of trials that being held from the analysis
     int nFolds = param->nFolds;
     int visualized_block_id = param->visualized_block_id;
+    int is_quiet_mode = param->isQuietMode;
     /* setting done */
     /* ---------------------------------------------- */
     /* data reading and initialization */
@@ -385,7 +391,7 @@ void run_fcma(Param* param)
             case 1:
             case 2:
             case 3:
-                SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1);
+                SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1, is_quiet_mode);
                 break;
             case 4:
                 result = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds);

@@ -31,14 +31,14 @@ predict a new sample based on a trained SVM model and a variation of the numbers
 input: the raw activation matrix array, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results, the mask file
 output: the results are displayed on the screen
 ****************************************/
-void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file)
+void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
 {
   RawMatrix** masked_matrices=NULL;
   int row = 0;
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 4000, 5000};//, 10000, 20000, 40000};
+  int tops[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 5000};//, 10000, 20000, 40000};
   int maxtops = sizeof(tops)/sizeof((tops)[0]);
   int ntops;
   switch (taskType)
@@ -55,7 +55,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
       ntops = getNumTopIndices(tops, maxtops, row);
       if (ntops > 0)
-          CorrelationBasedClassification(tops, ntops, nSubs, nTrials, trials, nTests, masked_matrices);
+          CorrelationBasedClassification(tops, ntops, nSubs, nTrials, trials, nTests, masked_matrices, is_quiet_mode);
       else
           cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
@@ -70,7 +70,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
       ntops = getNumTopIndices(tops, maxtops, row);
       if (ntops > 0)
-          ActivationBasedClassification(tops, ntops, nTrials, trials, nTests, masked_matrices);
+          ActivationBasedClassification(tops, ntops, nTrials, trials, nTests, masked_matrices, is_quiet_mode);
       else
           cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
@@ -82,10 +82,10 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
 
 /**********************************************
 do the prediction based on correlation and a variation of the numbers of top voxels
-input: the array of the numbers of top voxels, the number of subjects, the number of blocks, the blocks, the number of test samples, the raw activation matrix array
+input: the array of the numbers of top voxels, the number of subjects, the number of blocks, the blocks, the number of test samples, the raw activation matrix array, quiet mode
 output: the results are displayed on the screen
 ***********************************************/
-void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices)
+void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices, int is_quiet_mode)
 {
   int i, j, k;
   int col = r_matrices[0]->col;
@@ -138,20 +138,23 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
       }
     }
     cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
-    cout<<"blocking testing confidence:"<<endl;
-    for (j=nTrainings; j<nTrials; j++)
+    if (!is_quiet_mode)
     {
-      cout<<fabs(predict_distances[j-nTrainings])<<" (";
-      if (predict_correctness[j-nTrainings])
+      cout<<"blocking testing confidence:"<<endl;
+      for (j=nTrainings; j<nTrials; j++)
       {
-        cout<<"Correct) ";
+        cout<<fabs(predict_distances[j-nTrainings])<<" (";
+        if (predict_correctness[j-nTrainings])
+        {
+          cout<<"Correct) ";
+        }
+        else
+        {
+          cout<<"Incorrect) ";
+        }
       }
-      else
-      {
-        cout<<"Incorrect) ";
-      }
+      cout<<endl;
     }
-    cout<<endl;
     svm_free_and_destroy_model(&model);
     delete[] x;
     delete[] prob->y;
@@ -168,10 +171,10 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
 
 /**********************************************
 do the prediction based on activation and a variation of the numbers of top voxels
-input: the array of the numbers of top voxels, the number of blocks, the blocks, the number of test samples, and the raw activation matrix array
+input: the array of the numbers of top voxels, the number of blocks, the blocks, the number of test samples, and the raw activation matrix array, quiet mode
 output: the results are displayed on the screen
 ***********************************************/
-void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* trials, int nTests, RawMatrix** avg_matrices)
+void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* trials, int nTests, RawMatrix** avg_matrices, int is_quiet_mode)
 {
   int i, j, k;
   int nTrainings = nTrials-nTests;
@@ -225,20 +228,23 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
       }
     }
     cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
-    cout<<"blocking testing confidence:"<<endl;
-    for (j=nTrainings; j<nTrials; j++)
+    if (!is_quiet_mode)
     {
-      cout<<fabs(predict_distances[j-nTrainings])<<" (";
-      if (predict_correctness[j-nTrainings])
+      cout<<"blocking testing confidence:"<<endl;
+      for (j=nTrainings; j<nTrials; j++)
       {
-        cout<<"Correct) ";
+        cout<<fabs(predict_distances[j-nTrainings])<<" (";
+        if (predict_correctness[j-nTrainings])
+        {
+          cout<<"Correct) ";
+        }
+        else
+        {
+          cout<<"Incorrect) ";
+        }
       }
-      else
-      {
-        cout<<"Incorrect) ";
-      }
+      cout<<endl;
     }
-    cout<<endl;
     svm_free_and_destroy_model(&model);
     delete[] x;
   }
