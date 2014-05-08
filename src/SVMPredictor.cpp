@@ -92,7 +92,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
   float* simMatrix = new float[nTrials*nTrials];
   for (i=0; i<ntops; i++)
   {
-    //float* simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials, r_matrices);
+    //simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials, r_matrices);
     for (j=0; j<nTrials*nTrials; j++) simMatrix[j] = 0.0;
     int sr = 0, rowLength = 100;
     while (sr<tops[i])
@@ -126,7 +126,8 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
       }
       x[k+1].index = -1;
       predict_distances[j-nTrainings] = svm_predict_distance(model, x);
-      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      int predict_label = int(svm_predict(model, x));
       if (trials[j].label == predict_label)
       {
         result++;
@@ -216,7 +217,8 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
       }
       x[k].index = -1;
       predict_distances[j-nTrainings] = svm_predict_distance(model, x);
-      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      int predict_label = int(svm_predict(model, x));
       if (trials[j].label == predict_label)
       {
         result++;

@@ -50,3 +50,6 @@ bug fixed, don't do zscore when there's only one value
 
 1.3.5
 tune the z-score function, add quiet mode in predict
+
+1.3.6
+modify the svm prediction function in test mode to be consistent with the one in voxel selection mode --May 8 2014

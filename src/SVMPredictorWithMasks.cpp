@@ -69,7 +69,8 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
     }
     x[j+1].index = -1;
     predict_distances[i-nTrainings] = svm_predict_distance(model, x);
-    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+    int predict_label = int(svm_predict(model, x));
     if (trials[i].label == predict_label)
     {
       result++;
@@ -209,7 +210,8 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
     }
     x[j].index = -1;
     predict_distances[i-nTrainings] = svm_predict_distance(model, x);
-    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+    int predict_label = int(svm_predict(model, x));
     if (trials[i].label == predict_label)
     {
       result++;
