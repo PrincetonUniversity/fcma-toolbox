@@ -372,12 +372,14 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
 {
   int length = nVoxels*lengthPerCorrVector;
   int trialsPerSub = nTrials / nSubs; // should be dividable
-  float buf[trialsPerSub];
-  int i, j, k;
+  int i, j;
+  #pragma omp parallel for collapse(2) private(i,j)
   for (i=0; i<nSubs; i++) // do normalization subject by subject
   {
     for (j=0; j<length; j++)
     {
+      int k;
+      __declspec(align(64)) float buf[trialsPerSub];
       for (k=0; k<trialsPerSub; k++)
       {
         buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);
