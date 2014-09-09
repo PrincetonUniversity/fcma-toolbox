@@ -127,12 +127,8 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
         x[k+1].value = simMatrix[j*nTrials+k];
       }
       x[k+1].index = -1;
-<<<<<<< HEAD
       if (!is_quiet_mode)
         predict_distances[j-nTrainings] = svm_predict_distance(model, x);
-=======
-      predict_distances[j-nTrainings] = svm_predict_distance(model, x);
->>>>>>> 5ef711307760213a3231dd278ededeea77c3a95e
       //int predict_label = predict_distances[j-nTrainings]>0?0:1;
       int predict_label = int(svm_predict(model, x));
       if (trials[j].label == predict_label)
