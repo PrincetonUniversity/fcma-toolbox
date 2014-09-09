@@ -21,6 +21,7 @@ output: write the voxels in decreasing order of classification accuracy to the t
 ************************************/
 void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, Point* pts, const char* topVoxelFile, const char* maskFile)
 {
+#ifndef __MIC__
   RawMatrix** masked_matrices=NULL;
   Point* masked_pts=NULL;
   if (maskFile!=NULL)
@@ -58,6 +59,7 @@ void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials
   delete[] scores;
   if (maskFile!=NULL)
     delete masked_pts;
+#endif
 }
 
 /****************************************

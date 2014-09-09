@@ -6,7 +6,7 @@
 
 #include "common.h"
 #ifdef USE_MKL
-#include <mkl_cblas.h>
+#include <mkl.h>
 #else
 extern "C" {
 #include <cblas.h>

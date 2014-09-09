@@ -33,6 +33,7 @@ output: the results are displayed on the screen
 ****************************************/
 void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
 {
+#ifndef __MIC__
   RawMatrix** masked_matrices=NULL;
   int row = 0;
   int col = 0;
@@ -78,6 +79,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
       FATAL("Unknown task type");
   }
   delete[] scores;
+#endif
 }
 
 /**********************************************
@@ -92,9 +94,9 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
   float* simMatrix = new float[nTrials*nTrials];
   for (i=0; i<ntops; i++)
   {
-    //float* simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials, r_matrices);
+    //simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials, r_matrices);
     for (j=0; j<nTrials*nTrials; j++) simMatrix[j] = 0.0;
-    int sr = 0, rowLength = 100;
+    int sr = 0, rowLength = 500;
     while (sr<tops[i])
     {
       if (rowLength >= tops[i] - sr)
@@ -125,8 +127,10 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
         x[k+1].value = simMatrix[j*nTrials+k];
       }
       x[k+1].index = -1;
-      predict_distances[j-nTrainings] = svm_predict_distance(model, x);
-      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      if (!is_quiet_mode)
+        predict_distances[j-nTrainings] = svm_predict_distance(model, x);
+      //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      int predict_label = int(svm_predict(model, x));
       if (trials[j].label == predict_label)
       {
         result++;
@@ -216,7 +220,8 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
       }
       x[k].index = -1;
       predict_distances[j-nTrainings] = svm_predict_distance(model, x);
-      int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+      int predict_label = int(svm_predict(model, x));
       if (trials[j].label == predict_label)
       {
         result++;
@@ -370,12 +375,14 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
 {
   int length = nVoxels*lengthPerCorrVector;
   int trialsPerSub = nTrials / nSubs; // should be dividable
-  float buf[trialsPerSub];
-  int i, j, k;
+  int i, j;
+  #pragma omp parallel for collapse(2) private(i,j)
   for (i=0; i<nSubs; i++) // do normalization subject by subject
   {
     for (j=0; j<length; j++)
     {
+      int k;
+      __declspec(align(64)) float buf[trialsPerSub];
       for (k=0; k<trialsPerSub; k++)
       {
         buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);

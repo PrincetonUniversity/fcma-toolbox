@@ -21,6 +21,7 @@ output: write the result to the nifti file
 ****************************************/
 void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, const char* refFile, Trial trial, const char* output_file)
 {
+#ifndef __MIC__
   RawMatrix* masked_matrix1=NULL;
   RawMatrix* masked_matrix2=NULL;
   if (maskFile1!=NULL)
@@ -63,6 +64,7 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
   nifti_image_free(nim);*/
   Write4DNiiGzData(output_file, refFile, (void*)wholeData, DT_FLOAT32, row1);
   return;
+#endif
 }
 
 /*******************************
@@ -72,6 +74,7 @@ output: the data that is ready to be written to a nifti file
 ********************************/
 float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
 {
+#ifndef __MIC__
   nifti_image* nim = nifti_image_read(maskFile, 1); // 1 means reading the data as well
   if (nim == NULL)
   {
@@ -161,4 +164,7 @@ float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col)
   }
   nifti_image_free(nim);
   return returnData;
+#else
+  return 0;
+#endif
 }

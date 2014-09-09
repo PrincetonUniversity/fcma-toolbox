@@ -50,3 +50,7 @@ bug fixed, don't do zscore when there's only one value
 
 1.3.5
 tune the z-score function, add quiet mode in predict
+
+1.4
+modify the data reading procedure to be master reading then broadcasting
+be Xeon Phi runnable

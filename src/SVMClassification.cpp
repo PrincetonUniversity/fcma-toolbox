@@ -102,6 +102,7 @@ SVMProblem* GetSVMProblemWithPreKernel(CorrMatrix** c_matrices, int row, int sta
     {
       corrMatrix[i*row+j] = c_matrices[i]->matrix[startIndex+j];
     }
+    //memcpy(corrMatrix+i*row, (c_matrices[i]->matrix)+startIndex, sizeof(float)*row);
   }
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corrMatrix, row, corrMatrix, row, 0.0, simMatrix, nTrainings);
   for (i=0; i<nTrainings; i++)

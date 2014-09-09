@@ -1,0 +1,15 @@
+# if you want to use this file then edit Makefile to include it
+# at the top
+
+#CXX=/share/intel/bin/icc
+CXX=icc
+#MPICXX=/share/intel/impi/4.1.1/bin64/mpiicc
+MPICXX=mpiicc
+MPIFLAGS=-I/opt/intel/impi/4.1.1/include
+CXXFLAGS = -I/opt/intel/include -I$(HOME)/tools/nifticlib-2.0.0/include -I$(HOME)/code/include -I/opt/intel/mkl/include -O3 -fopenmp -fPIC -g -mkl=parallel -DUSE_MKL
+ARCHFLAGS = -mmic
+WARNINGFLAGS = -Wall -Werror -Wextra
+LDFLAGS=-L/share/intel/lib/intel64 -L$(HOME)/tools/nifticlib-2.0.0/lib -L/opt/intel/mkl/lib/intel64/
+LD_LIBS = -lm -lpthread#-Wl,--start-group -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -Wl,--end-group
+HOST_LD_LIBS = -lz  -lniftiio -lznz
+SHLIB = libfcma.so

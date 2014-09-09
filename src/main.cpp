@@ -10,6 +10,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "Scheduler.h"
+#include "Marginal_Scheduler.h"
 #include "SVMPredictor.h"
 #include "SVMPredictorWithMasks.h"
 #include "Searchlight.h"
@@ -120,6 +121,7 @@ void check_parameters()
 
 void parse_command_line(int argc, char **argv)
 {
+#ifndef __MIC__
   set_default_parameters();
   int i;
   for (i=1; i<argc; i++)
@@ -197,6 +199,7 @@ void parse_command_line(int argc, char **argv)
     }
   }
   check_parameters();
+#endif
 }
 
 #define KEYS_DEF \
@@ -307,6 +310,7 @@ void run_fcma(Param* param)
     int me, nprocs;
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    //cout<<me<<" "<<nprocs<<endl;
     /* initialization done */
     /* ---------------------------------------------- */
     /* set a series of input arguments */
@@ -328,10 +332,22 @@ void run_fcma(Param* param)
     /* setting done */
     /* ---------------------------------------------- */
     /* data reading and initialization */
+    // MIC process doesn't read in parameters, so some parameters need to be broadcasted
+    MPI_Bcast((void*)&nHolds, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast((void*)&leave_out_id, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast((void*)&nFolds, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast((void*)&taskType, 1, MPI_INT, 0, MPI_COMM_WORLD);
     int nTrials = 0;
     int nSubs = 0;
 
-    RawMatrix** r_matrices = ReadGzDirectory(fmri_directory, fmri_file_type, nSubs);  // set nSubs here
+    RawMatrix** r_matrices;
+#ifndef __MIC__
+    if (me==0)
+    {
+      r_matrices = ReadGzDirectory(fmri_directory, fmri_file_type, nSubs);  // set nSubs here
+    }
+#endif
+    MPI_Bcast((void*)&nSubs, 1, MPI_INT, 0, MPI_COMM_WORLD);
     //Point* temp_pts=new Point[r_matrices[0]->row];
     //int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
     MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
@@ -340,16 +356,33 @@ void run_fcma(Param* param)
         cout<<"data reading done!"<<endl;
         //cout<<row_tmp<<endl;
     }
-    Point* pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects are aligned; use first subject's voxel coordinates
+    Point* pts;
+#ifndef __MIC__
+    if (me == 0)
+    {
+      pts = ReadLocInfoFromNii(r_matrices[0]);  // assume that all subjects are aligned; use first subject's voxel coordinates
+    }
+#endif
     Trial* trials=NULL;
-    if (block_information_file!=NULL)
+#ifndef __MIC__
+    if (me == 0)
     {
+      if (block_information_file!=NULL)
+      {
         trials = GenRegularTrials(nSubs, 0, nTrials, block_information_file);  // 0 for no shift, nTrials is assigned a value here
-    }
-    else
-    {
+      }
+      else
+      {
         trials = GenBlocksFromDir(nSubs, 0, nTrials, r_matrices, block_information_directory);  // 0 for no shift, nTrials is assigned a value here
+      }
     }
+#endif
+    MPI_Bcast((void*)&nTrials, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (me != 0)
+    {
+      trials = new Trial[nTrials];
+    }
+    MPI_Bcast((void*)trials, sizeof(Trial)*nTrials, MPI_CHAR, 0, MPI_COMM_WORLD);
     if (me == 0)
     {
         cout<<"blocks generation done! "<<nTrials<<" in total."<<endl;
@@ -459,6 +492,13 @@ void run_fcma(Param* param)
                 cout<<"Searchlight selecting..."<<endl;
                 Searchlight(avg_matrices, nSubs, trials, nTrials, nHolds, nFolds, pts, output_file, mask_file1);  // doesn't need mpi
                 break;
+            case 9:
+                if (me==0)
+                {
+                  cout<<"marginal screening starting..."<<endl;
+                }
+                Marginal_Scheduler(me, nprocs, step, r_matrices, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1);
+                break;
             default:
                 cerr<<"Unknown task type"<<endl;
                 exit_with_help();
@@ -468,7 +508,7 @@ void run_fcma(Param* param)
     if (me == 0)
     {
         cout.precision(6);
-        cout<<"it takes "<<tstop-tstart<<" s to complete the whole task (exclude data reading)"<<endl;
+        cout<<"it takes "<<tstop-tstart<<" s to compute the whole task (exclude data reading and transferring)"<<endl;
     }
     /* main program ends */
     /* -------------------------------- */

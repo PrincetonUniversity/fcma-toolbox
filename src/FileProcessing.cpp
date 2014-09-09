@@ -3,7 +3,7 @@
  Copyright (c) 2013 the authors (see AUTHORS file)
  For license terms, please see the LICENSE file.
 */
-
+#ifndef __MIC__
 #include "FileProcessing.h"
 #include "common.h"
 #include <zlib.h>
@@ -951,3 +951,4 @@ int ReadConfigFile(const char* fcma_file, const int& length, char** keys_and_val
     delete [] text;
     return count;
 }
+#endif

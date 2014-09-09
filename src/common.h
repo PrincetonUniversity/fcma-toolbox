@@ -25,11 +25,13 @@
 //#include <omp.h>
 #include <iomanip>
 #include <nifti1_io.h>
+#include <offload.h>
 
 using namespace std;
 
 // Matrix multiplication parameters
 #define TINYNUM 1e-4
+#define LOGISTICTRHEHOLD 1e-6
 #define MAXFILENAMELENGTH 300
 #define MAXSUBJS 100
 #define MAXTRIALPERSUBJ 64
@@ -87,9 +89,12 @@ typedef struct point_t  //voxel's 3-d coordinates
 
 extern unsigned long long counter;
 
+// MPI communication tags
 #define COMPUTATIONTAG 1
 #define LENGTHTAG 2
 #define VOXELCLASSIFIERTAG 3
 #define ELAPSETAG 4
+#define POSITIONTAG 5
+#define SECONDORDERTAG 6
 
 #endif

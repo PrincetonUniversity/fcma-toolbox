@@ -20,6 +20,7 @@ output: the results are displayed on the screen and returned
 ****************************************/
 int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
 {
+#ifndef __MIC__
   int i, j;
   svm_set_print_string_function(&print_null);
   RawMatrix** masked_matrices1=NULL;
@@ -69,7 +70,8 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
     }
     x[j+1].index = -1;
     predict_distances[i-nTrainings] = svm_predict_distance(model, x);
-    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+    int predict_label = int(svm_predict(model, x));
     if (trials[i].label == predict_label)
     {
       result++;
@@ -116,6 +118,9 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   delete masked_matrices1;
   if (maskFile2!=NULL) delete masked_matrices2;
   return result;
+#else
+  return 0;
+#endif
 }
 
 /***********************************************
@@ -161,6 +166,7 @@ output: the results are displayed on the screen and returned
 ****************************************/
 int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const char* maskFile, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
 {
+#ifndef __MIC__
   int i, j;
   int nTrainings = nTrials-nTests;
   SVMParameter* param = SetSVMParameter(0); // linear
@@ -209,7 +215,8 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
     }
     x[j].index = -1;
     predict_distances[i-nTrainings] = svm_predict_distance(model, x);
-    int predict_label = predict_distances[i-nTrainings]>0?0:1;
+    //int predict_label = predict_distances[j-nTrainings]>0?0:1;
+    int predict_label = int(svm_predict(model, x));
     if (trials[i].label == predict_label)
     {
       result++;
@@ -253,4 +260,7 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
   }
   delete masked_matrices;
   return result;
+#else
+  return 0;
+#endif
 }

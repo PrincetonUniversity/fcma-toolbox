@@ -14,30 +14,34 @@ output: write results to the normalized matrix, return the length of time points
 ******************************/
 int getBuf(int start_col, int end_col, int row, int col, float* mat, float* buf)
 {
-	int i, j, delta_col=0;
-	for (i=0; i<row; i++)
-	{
-    delta_col = 0;
-		double mean=0, sd=0;  // float here is not precise enough to handle
-		for (j=start_col; j<=end_col; j++)
-		{
-			mean += (double)mat[i*col+j];
-			sd += (double)mat[i*col+j] * mat[i*col+j]; // convert to double to avoid overflow
-      delta_col++;
+  int i;
+  int delta_col = end_col-start_col+1;
+  //#pragma omp parallel for private(i)
+  for (i=0; i<row; i++)
+  {
+    double mean=0, sd=0;  // float here is not precise enough to handle
+    for (int j=start_col; j<=end_col; j++)
+    {
+      mean += (double)mat[i*col+j];
+      sd += (double)mat[i*col+j] * mat[i*col+j]; // convert to double to avoid overflow
     }
-		mean /= delta_col;
-		sd = sd - delta_col * mean * mean;
+    mean /= delta_col;
+    sd = sd - delta_col * mean * mean;
     //if (sd < 0) {cerr<<"sd<0! "<<sd; exit(1);}
-		sd = sqrt(sd);
-    //if (sd == 0) {cerr<<"sd=0!"<<endl; exit(1);}
-		for (j=start_col; j<=end_col; j++)
-		{
-      if (sd!=0)
-			  buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean) / sd; // if sd is zero, a "nan" appears
-      else
-        buf[i*delta_col+j-start_col] = 0;
-		}
-	}
+    sd = sqrt(sd);
+    if (sd == 0)
+    {
+      memset(buf+i*delta_col, 0, sizeof(float)*delta_col);
+      continue;
+    }
+    __declspec(align(64)) float inv_sd_f=1/sd;  // do time-comsuming division once
+    __declspec(align(64)) float mean_f=mean;  // for vecterization
+    #pragma simd
+    for (int j=start_col; j<=end_col; j++)
+    {
+      buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean_f) * 1/sd; // if sd is zero, a "nan" appears
+    }
+  }
   return delta_col;
 }
 
@@ -65,9 +69,14 @@ CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** mat
   c_matrix->tlabel = trial.label;
   c_matrix->sr = sr;
   c_matrix->step = step;
-  c_matrix->nVoxels = row2; //
+  c_matrix->nVoxels = row2;
   float* corrs = new float[step*row2];
+  //struct timeval start, end;
+  //gettimeofday(&start, NULL);
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml1, 1.0, buf1+sr*ml1, ml1, buf2, ml2, 0.0, corrs, row2);
+  //gettimeofday(&end, NULL);
+  //long secs = end.tv_sec-start.tv_sec;
+  //cout<<"pure matrix computing: "<<secs<<"s"<<endl;
   c_matrix->matrix = corrs;
   delete[] buf1;
   delete[] buf2;
@@ -83,6 +92,7 @@ CorrMatrix** ComputeAllTrialsCorrMatrices(Trial* trials, int nTrials, int sr, in
 {
   int i;
   CorrMatrix** c_matrices = new CorrMatrix*[nTrials];
+  #pragma omp parallel for private(i)
   for (i=0; i<nTrials; i++)
   {
     c_matrices[i] = CorrMatrixComputation(trials[i], sr, step, matrices1, matrices2);

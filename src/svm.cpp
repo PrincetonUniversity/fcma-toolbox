@@ -2472,7 +2472,6 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
 	int l = prob->l;
 	int *perm = Malloc(int,l);
 	int nr_class;
-
 	// stratified cv may not give leave-one-out rate
 	// Each class to l folds -> some folds may have zero elements
 	if((param->svm_type == C_SVC ||
@@ -2481,9 +2480,10 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
 		int *start = NULL;
 		int *label = NULL;
 		int *count = NULL;
+    // put the same class to be adjacent to each other
 		svm_group_classes(prob,&nr_class,&label,&start,&count,perm);
 
-		// random shuffle and then data grouped by fold using the array perm
+		// data grouped by fold using the array perm
 		int *fold_count = Malloc(int,nr_fold);
 		int c;
 		int *index = Malloc(int,l);
@@ -2495,6 +2495,7 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
 				int j = i+rand()%(count[c]-i);
 				swap(index[start[c]+j],index[start[c]+i]);
 			}*/
+    // according to the number of folds, assign each fold with same number of different classes
 		for(i=0;i<nr_fold;i++)
 		{
 			fold_count[i] = 0;
@@ -2535,11 +2536,10 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
 		for(i=0;i<=nr_fold;i++)
 			fold_start[i]=i*l/nr_fold;
 	}
-
 	for(i=0;i<nr_fold;i++)
 	{
 		int begin = fold_start[i];
-		int end = fold_start[i+1];
+		int end = fold_start[i+1];    
 		int j,k;
 		struct svm_problem subprob;
 
@@ -2548,6 +2548,7 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
 		subprob.y = Malloc(double,subprob.l);
 			
 		k=0;
+    //for(int ii=0;ii<l;ii++) perm[ii]=ii;  // for further making sure no permutation happens, actually no need
 		for(j=0;j<begin;j++)
 		{
 			subprob.x[k] = prob->x[perm[j]];

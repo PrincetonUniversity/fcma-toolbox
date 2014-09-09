@@ -34,7 +34,7 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
       bool flag = true;
       for (k=0; k<col; k++)
       {
-        flag &= (mat[j*col+k]<=10.0);  // 2 is a threshold for "almost" all-zero
+        flag &= (mat[j*col+k]<=10.0);  // 10 is a threshold for "almost" all-zero
       }
       if (flag) flags[j] = false;
     }
@@ -97,6 +97,7 @@ output: the remaining number of voxels, remove voxels from raw matrix and locati
 ***************************/
 int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Point* pts)
 {
+#ifndef __MIC__
   // align multi-subjects, remove all-zero voxels, assume that all subjects have the same number of voxels  
   int row = r_matrices[0]->row; // originally is the total number of voxels x*y*z
   int i, j;
@@ -138,6 +139,9 @@ int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Poi
   }
   nifti_image_free(nim);
   return count;
+#else
+  return 0;
+#endif
 }
 
 /*********************************
@@ -171,78 +175,53 @@ void leaveSomeTrialsOut(Trial* trials, int nTrials, int tid, int nLeaveOut)
 }
 
 /****************************************
-RT regression, Fisher transform the correlation values (coefficients) then z-scored them across blocks
+Fisher transform the correlation values (coefficients) then z-scored them across blocks
 input: the correlation matrix array, the length of this array (the number of blocks), the number of subjects
 output: update values to the matrices
 *****************************************/
 void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
-{
+{//cout<<c_matrices[0]->matrix[0]<<" "<<c_matrices[0]->matrix[1]<<" "<<c_matrices[0]->matrix[2]<<endl;
   int row = c_matrices[0]->step;
   int col = c_matrices[0]->nVoxels; // assume that all correlation matrices have the same size
   int i;
+  if (n%nSubs!=0)
+  {
+    FATAL("number of blocks in every subject must be the same");
+  }
+  int nPerSub = n/nSubs;  //assume that the blocks belonged to the same subject are placed together
+  /*#pragma omp parallel for collapse(2)
+  for (i=0; i<n; i++)
+  {
+    for (l=0; l<row*col; l++)
+    {
+      c_matrices[i]->matrix[l] = fisherTransformation(c_matrices[i]->matrix[l]);
+    }
+  }*/
   #pragma omp parallel for private(i)
   for (i=0; i<row*col; i++)
   {
-    float buf[n];
     int j, k;
-    // need to do RT regression and get z-scored subject by subject
+    __declspec(align(64)) float buf[nPerSub];
+    // need to get z-scored subject by subject
     for (k=0; k<nSubs; k++)
     {
-      int count = 0;
-      for (j=0; j<n; j++)
+      //for (j=0; j<nPerSub; j++)
+      //{
+      //  buf[j] = c_matrices[k*nPerSub+j]->matrix[i];
+      //}
+      #pragma simd
+      for (j=0; j<nPerSub; j++)
       {
-        if (c_matrices[j]->sid == k)
-        {
-          buf[count] = c_matrices[j]->matrix[i];
-          count++;
-        }
+        buf[j] = fisherTransformation(c_matrices[k*nPerSub+j]->matrix[i]);
       }
-      /*for (j=0; j<n; j++)
+      if (nPerSub>1)  // nPerSub==1 results in 0
+        z_score(buf, nPerSub);
+      for (j=0; j<nPerSub; j++)
       {
-        if (c_matrices[j]->sid == k)
-        {
-          buf[count] = fisherTransformation(c_matrices[j]->matrix[i]);
-          count++;
-        }
-      }*/
-      for (j=0; j<count; j++)
-      {
-        buf[j] = fisherTransformation(buf[j]);
-        //buf[j] = fabs(buf[j]);
-      }
-      if (count>1)  // count==1 results in 0
-        z_score(buf, count);
-      count = 0;
-      for (j=0; j<n; j++)
-      {
-        if (c_matrices[j]->sid == k)
-        {
-          c_matrices[j]->matrix[i] = buf[count];
-          count++;
-        }
+        c_matrices[k*nPerSub+j]->matrix[i] = buf[j];
       }
     }
   }
-}
-
-/****************************************
-Fisher transform a correlation value (coefficients)
-input: the correlation value
-output: the transformed value
-*****************************************/
-float fisherTransformation(float v)
-{
-  float f1 = 1+v;
-  if (f1<=0.0)
-  {
-    f1 = TINYNUM;
-  }
-  float f2 = 1-v;
-  if (f2<=0.0)
-  {
-    f2 = TINYNUM;
-  }
-  return 0.5 * logf(f1/f2);
 }
 
 /***************************************
@@ -253,28 +232,33 @@ output: write z-scored values to the vector
 void z_score(float* v, int n)
 {
   int i;
-  double mean=0, sd=0;  // float here is not precise enough to handle
+  __declspec(align(64)) double mean=0, sd=0;  // float here is not precise enough to handle
+  __declspec(align(64)) double dv[n];
+  #pragma simd
   for (i=0; i<n; i++)
   {
-    mean += (double)v[i];
-    sd += (double)v[i] * v[i]; // double other than float can avoid overflow
+    dv[i] = (double)v[i];
+  }
+  for (i=0; i<n; i++)
+  {
+    mean += dv[i];
+    sd += dv[i] * dv[i]; // double other than float can avoid overflow
   }
   mean /= n;
-  //if (sd == n * mean * mean) mean -= 0.1; // to deal with the no variance case
   sd = sd/n - mean * mean;
-  if (sd < 0) {cerr<<"sd<0! "<<sd; FATAL("zscore error");}  // if the type is double above, this won't happen
+  if (sd < 0) {cerr<<"sd<0! "<<sd; FATAL("zscore error");}  // if the types of mean and sd are double, this won't happen
   sd = sqrt(sd);
+  if (sd==0)// all values are the same
+  {
+    memset(v, 0, sizeof(float)*n);
+    return;
+  }
+  __declspec(align(64)) float inv_sd_f=1/sd;  // do time-comsuming division once
+  __declspec(align(64)) float mean_f=mean;  // for vecterization
+  #pragma simd
   for (i=0; i<n; i++)
   {
-    if (sd != 0)
-      v[i] = (v[i] - mean) / sd;
-    else  // all values are the same
-      v[i] = 0.0f;
-// todo: compromise between above line and bottom 4
-//    {
-//      cerr<<"All values are the same when doing z-score"<<endl;
-//      exit(1);
-//    }
+    v[i] = (v[i] - mean_f)*inv_sd_f;
   }
 }
 
