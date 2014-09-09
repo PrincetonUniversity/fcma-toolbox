@@ -54,3 +54,4 @@ tune the z-score function, add quiet mode in predict
 1.4
 modify the data reading procedure to be master reading then broadcasting
 be Xeon Phi runnable
+add marginal screening as task 9
