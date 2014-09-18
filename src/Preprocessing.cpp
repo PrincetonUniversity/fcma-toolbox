@@ -188,27 +188,18 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
   {
     FATAL("number of blocks in every subject must be the same");
   }
-  int nPerSub = n/nSubs;  //assume that the blocks belonged to the same subject are placed together
-  /*#pragma omp parallel for collapse(2)
-  for (i=0; i<n; i++)
+  int nPerSub = n/nSubs;
+  // assume that the blocks belonged to the same subject are placed together
+  // for each subject, go through the availble voxel pairs;
+  // then for each pairs, Fisher transform it and z-score within subject
+  // doing this can make better cache usage than going through voxel pairs in the outtest loop
+  for (int k=0; k<nSubs; k++)
   {
-    for (l=0; l<row*col; l++)
+    #pragma omp parallel for private(i)
+    for (i=0; i<row*col; i++)
     {
-      c_matrices[i]->matrix[l] = fisherTransformation(c_matrices[i]->matrix[l]);
-    }
-  }*/
-  #pragma omp parallel for private(i)
-  for (i=0; i<row*col; i++)
-  {
-    int j, k;
-    __declspec(align(64)) float buf[nPerSub];
-    // need to get z-scored subject by subject
-    for (k=0; k<nSubs; k++)
-    {
-      //for (j=0; j<nPerSub; j++)
-      //{
-      //  buf[j] = c_matrices[k*nPerSub+j]->matrix[i];
-      //}
+      int j;
+      __declspec(align(64)) float buf[nPerSub];
       #pragma simd
       for (j=0; j<nPerSub; j++)
       {

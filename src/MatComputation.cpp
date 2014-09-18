@@ -73,7 +73,9 @@ CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** mat
   float* corrs = new float[step*row2];
   //struct timeval start, end;
   //gettimeofday(&start, NULL);
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml1, 1.0, buf1+sr*ml1, ml1, buf2, ml2, 0.0, corrs, row2);
+  //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml1, 1.0, buf1+sr*ml1, ml1, buf2, ml2, 0.0, corrs, row2);
+  matmul(buf1+sr*ml1, buf2, corrs, step, ml1, row2);
+  //if (sr==0 && sid==2 && sc==4) {cout<<corrs[99]<<" "<<corrs[100]<<endl; exit(1);}
   //gettimeofday(&end, NULL);
   //long secs = end.tv_sec-start.tv_sec;
   //cout<<"pure matrix computing: "<<secs<<"s"<<endl;
@@ -98,4 +100,25 @@ CorrMatrix** ComputeAllTrialsCorrMatrices(Trial* trials, int nTrials, int sr, in
     c_matrices[i] = CorrMatrixComputation(trials[i], sr, step, matrices1, matrices2);
   }
   return c_matrices;
+}
+
+// c=a*b', a: n1*n2, b: n3*n2, c: n1*n3
+void matmul(float *a, float* b, float *c, int n1, int n2, int n3)
+{
+  memset((void*)c, 0, n1*n3*sizeof(float));
+  int s = 500;
+  for(int jj=0; jj<n3; jj+= s){
+    for(int kk=0; kk<n2; kk+= s){
+      for(int i=0;i<n1;i++){
+        for(int j = jj; j<((jj+s)>n3?n3:(jj+s)); j++){
+          float temp = 0.0;
+          for(int k = kk; k<((kk+s)>n2?n2:(kk+s)); k++){
+            //temp += a[i*n2+k]*b[k*n3+j];  // this is c=a*b
+            temp += a[i*n2+k]*b[j*n2+k];
+          }
+          c[i*n3+j] += temp;
+        }
+      }
+    }
+  }
 }

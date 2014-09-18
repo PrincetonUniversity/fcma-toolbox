@@ -58,3 +58,7 @@ modify the svm prediction function in test mode to be consistent with the one in
 modify the data reading procedure to be master reading then broadcasting
 be Xeon Phi runnable
 add marginal screening as task 9
+
+1.4.1
+add matmul function in MatComputation.cpp/h to replace cblas_sgemm for skinny matrix multiplication
+rearrange data access sequence in Preprocessing.cpp/h to make better cache usage

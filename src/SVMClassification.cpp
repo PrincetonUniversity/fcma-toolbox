@@ -5,6 +5,7 @@
 */
 
 #include "SVMClassification.h"
+#include "MatComputation.h"
 #include "LibSVM.h"
 #include "common.h"
 #include "ErrorHandling.h"
@@ -105,6 +106,7 @@ SVMProblem* GetSVMProblemWithPreKernel(CorrMatrix** c_matrices, int row, int sta
     //memcpy(corrMatrix+i*row, (c_matrices[i]->matrix)+startIndex, sizeof(float)*row);
   }
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corrMatrix, row, corrMatrix, row, 0.0, simMatrix, nTrainings);
+  //matmul(corrMatrix, corrMatrix, simMatrix, nTrainings, row, nTrainings);
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = c_matrices[i]->tlabel;
