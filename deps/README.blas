@@ -1,0 +1,14 @@
+Can use
+  - intel MKL
+  - OpenBLAS
+  - native platform blas
+
+Make a Make.user in src/ containing your BLAS info:
+
+BLASINCLUDE
+BLASCFLAGS
+BLASLDFLAGS
+
+based on one of the example Make.xxx files in src.
+
+

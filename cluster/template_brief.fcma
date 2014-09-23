@@ -1,0 +1,12 @@
+datadir:subjects/
+outputfile:face_scene_9subj
+first_maskfile:mask.nii.gz
+second_maskfile:mask.nii.gz
+blockfile:blockfile.txt
+num_folds_in_feature_selection:9
+task_type:0
+is_test_mode:0
+omp_num_threads:32
+num_processors:8
+matrix_format:.nii.gz
+rows_per_round:2000

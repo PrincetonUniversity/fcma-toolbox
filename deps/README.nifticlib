@@ -1,0 +1,10 @@
+
+You can download nifticlib from here:
+http://downloads.sourceforge.net/project/niftilib/nifticlib/nifticlib_2_0_0/nifticlib-2.0.0.tar.gz
+
+build:
+ - uncompress and expand to make nifticlib-2.0.0 directory
+ - cd into directory
+ - type "make"
+
+use "make clean_all" to undo the make. (the form it is in repository)
