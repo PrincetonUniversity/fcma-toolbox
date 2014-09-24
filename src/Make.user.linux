@@ -1,0 +1,13 @@
+# if you want to use this file then edit Makefile to include it
+# at the top
+#
+# location of your BLAS implementation
+# should have this first in your LD_LIBRARY_PATH
+BLASINCLUDE = -I/opt/OpenBLAS/include
+BLASLIBINC = -L/opt/OpenBLAS/lib
+BLASLDFLAGS = -lopenblas
+
+# openmpi
+# note that your PATH and LD_LIBRARY_PATH
+# should have this MPI implementation first
+MPICC = /opt/openmpi/bin/mpic++

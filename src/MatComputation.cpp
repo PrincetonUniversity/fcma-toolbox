@@ -34,8 +34,8 @@ int getBuf(int start_col, int end_col, int row, int col, float* mat, float* buf)
       memset(buf+i*delta_col, 0, sizeof(float)*delta_col);
       continue;
     }
-    __declspec(align(64)) float inv_sd_f=1/sd;  // do time-comsuming division once
-    __declspec(align(64)) float mean_f=mean;  // for vecterization
+    ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
+    ALIGNED(64) float mean_f=mean;  // for vecterization
     #pragma simd
     for (int j=start_col; j<=end_col; j++)
     {

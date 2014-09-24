@@ -1,4 +1,4 @@
-//#include "common.h"
+#include "common.h"
 #include <iostream>
 #include <cmath>
 #include <string.h>

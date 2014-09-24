@@ -28,6 +28,16 @@
 
 #ifdef __INTEL_COMPILER
 #include <offload.h>
+#else
+#include <mm_malloc.h>
+#endif
+
+#if defined(__GNUC__)
+// gcc supports this syntax
+#define ALIGNED(x) __attribute__ ((aligned(x)))
+#else
+// visual c++, clang, icc
+#define ALIGNED(x) __declspec(align(x))
 #endif
 
 using namespace std;

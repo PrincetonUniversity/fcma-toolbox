@@ -382,7 +382,7 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
     for (j=0; j<length; j++)
     {
       int k;
-      __declspec(align(64)) float buf[trialsPerSub];
+      ALIGNED(64) float buf[trialsPerSub];
       for (k=0; k<trialsPerSub; k++)
       {
         buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);

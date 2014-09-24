@@ -27,12 +27,12 @@ output: the transformed value
 *****************************************/
 inline float fisherTransformation(float v)
 {
-  __declspec(align(64)) float f1 = 1+v;
+  ALIGNED(64) float f1 = 1+v;
   if (f1<=0.0)
   {
     f1 = TINYNUM;
   }
-  __declspec(align(64)) float f2 = 1-v;
+  ALIGNED(64) float f2 = 1-v;
   if (f2<=0.0)
   {
     f2 = TINYNUM;

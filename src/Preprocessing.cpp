@@ -199,7 +199,7 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
     for (i=0; i<row*col; i++)
     {
       int j;
-      __declspec(align(64)) float buf[nPerSub];
+      ALIGNED(64) float buf[nPerSub];
       #pragma simd
       for (j=0; j<nPerSub; j++)
       {
@@ -223,8 +223,8 @@ output: write z-scored values to the vector
 void z_score(float* v, int n)
 {
   int i;
-  __declspec(align(64)) double mean=0, sd=0;  // float here is not precise enough to handle
-  __declspec(align(64)) double dv[n];
+  ALIGNED(64) double mean=0, sd=0;  // float here is not precise enough to handle
+  ALIGNED(64) double dv[n];
   #pragma simd
   for (i=0; i<n; i++)
   {
@@ -244,8 +244,8 @@ void z_score(float* v, int n)
     memset(v, 0, sizeof(float)*n);
     return;
   }
-  __declspec(align(64)) float inv_sd_f=1/sd;  // do time-comsuming division once
-  __declspec(align(64)) float mean_f=mean;  // for vecterization
+  ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
+  ALIGNED(64) float mean_f=mean;  // for vecterization
   #pragma simd
   for (i=0; i<n; i++)
   {

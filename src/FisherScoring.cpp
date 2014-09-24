@@ -1,9 +1,4 @@
 #include "FisherScoring.h"
-#if defined(__INTEL_COMPILER)
-#include <malloc.h>
-#else
-#include <mm_malloc.h>
-#endif 
 
 // data only cotains one row, i.e. one voxel's data
 void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, int rank, double* S, double* H, int v1, int v2, int n)
@@ -32,15 +27,15 @@ void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, 
   }
   else if (rank==3)
   {
-    __declspec(align(64)) double s0[length];
-    __declspec(align(64)) double s1[length];
-    __declspec(align(64)) double s2[length];
-    __declspec(align(64)) double h0[length];
-    __declspec(align(64)) double h1[length];
-    __declspec(align(64)) double h2[length];
-    __declspec(align(64)) double h4[length];
-    __declspec(align(64)) double h5[length];
-    __declspec(align(64)) double h8[length];
+    ALIGNED(64) double s0[length];
+    ALIGNED(64) double s1[length];
+    ALIGNED(64) double s2[length];
+    ALIGNED(64) double h0[length];
+    ALIGNED(64) double h1[length];
+    ALIGNED(64) double h2[length];
+    ALIGNED(64) double h4[length];
+    ALIGNED(64) double h5[length];
+    ALIGNED(64) double h8[length];
     #pragma simd
     for (i=0; i<length; i++)
     {
