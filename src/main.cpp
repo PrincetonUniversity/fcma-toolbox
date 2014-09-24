@@ -348,7 +348,7 @@ void run_fcma(Param* param)
     }
 #endif
     MPI_Bcast((void*)&nSubs, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    //Point* temp_pts=new Point[r_matrices[0]->row];
+    //VoxelXYZ* temp_pts=new VoxelXYZ[r_matrices[0]->row];
     //int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
     MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
     if (me == 0)
@@ -356,7 +356,7 @@ void run_fcma(Param* param)
         cout<<"data reading done!"<<endl;
         //cout<<row_tmp<<endl;
     }
-    Point* pts;
+    VoxelXYZ* pts;
 #ifndef __MIC__
     if (me == 0)
     {

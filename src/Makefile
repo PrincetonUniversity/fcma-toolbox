@@ -23,14 +23,21 @@ OBJECTS = $(SOURCES:.cpp=.o)
 HEADERS = common.h $(SOURCES:.cpp=.h)
 
 ifeq ($(BUILD_MIC), 1)
+
+CFLAGS_MIC = -mmic $(CFLAGS)
 OBJECTS_MIC = $(SOURCES:.cpp=.o.MIC)
+BLASLIBINC_MIC = $(BLASLIBINC:intel64=mic)
+LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC)
 all: $(SOURCES) $(EXECUTABLE) $(EXECUTABLE).MIC
 clean:
 	rm -f *.o *.MIC $(EXECUTABLE) *~
+
 else
+
 all: $(SOURCES) $(EXECUTABLE)
 clean:
 	rm -f *.o $(EXECUTABLE) *~
+
 endif
 
 $(EXECUTABLE): $(OBJECTS)
@@ -40,10 +47,10 @@ $(EXECUTABLE): $(OBJECTS)
 	$(MPICC) $(CFLAGS) $< -o $@
 
 $(EXECUTABLE).MIC: $(OBJECTS_MIC)
-	mpiicc -mmic $(OBJECTS_MIC) $(BLASLDFLAGS) -L/opt/intel/mkl/lib/mic -o $@
+	$(MPICC) $(OBJECTS_MIC) $(LDFLAGS_MIC) -o $@
 
 %.o.MIC: %.cpp
-	mpiicc -mmic $(CFLAGS) $< -o $@
+	$(MPICC) $(CFLAGS_MIC) $< -o $@
 
 .PHONY: clean
 

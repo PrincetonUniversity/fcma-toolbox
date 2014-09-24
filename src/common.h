@@ -25,7 +25,10 @@
 //#include <omp.h>
 #include <iomanip>
 #include <nifti1_io.h>
+
+#ifdef __INTEL_COMPILER
 #include <offload.h>
+#endif
 
 using namespace std;
 
@@ -82,10 +85,10 @@ typedef struct voxel_Score_t
   float score;
 }VoxelScore;
 
-typedef struct point_t  //voxel's 3-d coordinates
+typedef struct voxelxyz_t  //voxel's 3-d coordinates
 {
   int x, y, z;
-}Point;
+}VoxelXYZ;
 
 extern unsigned long long counter;
 

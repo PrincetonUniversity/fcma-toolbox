@@ -4,10 +4,11 @@
 # set location of your MPI and BLAS development install here
 #  (assumes subdirs include and lib for each)
 BLASINCLUDE = -I/opt/intel/mkl/include
-BLASCFLAGS = -DUSE_MKL -vec-report=3
-BLASLIBINC = -L/opt/intel/mkl/lib/intel64
+BLASCFLAGS = -DUSE_MKL -vec-report=1
+BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include
+NIFTILOC = /share/apps/fcma-toolbox/deps/nifticlib-2.0.0
 BUILD_MIC = 1
-MPICC = mpiicc
+MPICC = mpiicpc
 

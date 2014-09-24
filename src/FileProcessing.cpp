@@ -373,9 +373,9 @@ Generate masked point location using the mask file
 input: the raw point location, the number of voxels after masking, the mask file
 output: a masked point location array
 *************************************************/
-Point* GetMaskedPts(Point* pts, int nMaskedVoxels, const char* maskFile)
+VoxelXYZ* GetMaskedPts(VoxelXYZ* pts, int nMaskedVoxels, const char* maskFile)
 {
-  Point* masked_pts = new Point[nMaskedVoxels];
+  VoxelXYZ* masked_pts = new VoxelXYZ[nMaskedVoxels];
   nifti_image* nim = nifti_image_read(maskFile, 1);
   int i;
   if (nim == NULL)
@@ -569,14 +569,14 @@ read the location information, from a binary file, the file has row (#voxels) an
 input: the file name
 output: the location struct
 ****************************/
-Point* ReadLocInfo(const char* file)
+VoxelXYZ* ReadLocInfo(const char* file)
 {
   int row, col;
   FILE* fp = fopen(file, "rb");
   fread((void*)&row, sizeof(int), 1, fp);
   fread((void*)&col, sizeof(int), 1, fp);
-  Point* pts = new Point[row];
-  fread((void*)pts, sizeof(Point), row, fp);
+  VoxelXYZ* pts = new VoxelXYZ[row];
+  fread((void*)pts, sizeof(VoxelXYZ), row, fp);
   fclose(fp);
   // one time adjustment
   /*int i;
@@ -594,13 +594,13 @@ generrate the initial location information following the nifti format, using the
 input: an arbitrary raw matrix, assuming that all subjects have the same format
 output: the location struct
 ****************************/
-Point* ReadLocInfoFromNii(RawMatrix* r_matrix)
+VoxelXYZ* ReadLocInfoFromNii(RawMatrix* r_matrix)
 {
   int row = r_matrix->row;
   int nx = r_matrix->nx;
   int ny = r_matrix->ny;
   int nz = r_matrix->nz;
-  Point* pts = new Point[row];
+  VoxelXYZ* pts = new VoxelXYZ[row];
   for (int z=0; z<nz; z++)
     for (int y=0; y<ny; y++)
       for (int x=0; x<nx; x++)

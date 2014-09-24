@@ -19,11 +19,11 @@ main function of this file, do the traditional feature selection and classificat
 input: the averaged raw matrix array, the number of subjects, the trials, the number of trials, the number of test samples, the number of folds in the svm-cv, the voxel location information, the top voxel file name, the mask file name
 output: write the voxels in decreasing order of classification accuracy to the top voxel file\
 ************************************/
-void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, Point* pts, const char* topVoxelFile, const char* maskFile)
+void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, VoxelXYZ* pts, const char* topVoxelFile, const char* maskFile)
 {
 #ifndef __MIC__
   RawMatrix** masked_matrices=NULL;
-  Point* masked_pts=NULL;
+  VoxelXYZ* masked_pts=NULL;
   if (maskFile!=NULL)
   {
     masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile);
@@ -68,7 +68,7 @@ the linear kernel of libSVM is applied here
 input: the average activation matrix array, the blocks(trials), the number of blocks, the number of test samples, the number of folds in the cross validation, the location info
 output: a list of voxels' scores in terms of SVM accuracies
 *****************************************/
-VoxelScore* GetSearchlightSVMPerformance(RawMatrix** avg_matrices, Trial* trials, int nTrials, int nTests, int nFolds, Point* pts)  //classifiers for a r_matrix array
+VoxelScore* GetSearchlightSVMPerformance(RawMatrix** avg_matrices, Trial* trials, int nTrials, int nTests, int nFolds, VoxelXYZ* pts)  //classifiers for a r_matrix array
 {
   svm_set_print_string_function(&print_null);
   int row = avg_matrices[0]->row;  // assume all elements in r_matrices array have the same row
@@ -103,7 +103,7 @@ generate a SVM classification problem
 input: the average activation matrix array, the number of blocks, the blocks, the current voxel id, the number of training samples, the location info
 output: the SVM problem described in the libSVM recognizable format
 ******************************************/
-SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, int curVoxel, int nTrainings, Point* pts)
+SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, int curVoxel, int nTrainings, VoxelXYZ* pts)
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
@@ -142,7 +142,7 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
 }
 
 // get the nearby voxel ids of a given voxel, within the radius 2 here
-int* GetSphere(int voxelId, int nVoxels, Point* pts)
+int* GetSphere(int voxelId, int nVoxels, VoxelXYZ* pts)
 {
   int x = pts[voxelId].x;
   int y = pts[voxelId].y;
@@ -186,7 +186,7 @@ int* GetSphere(int voxelId, int nVoxels, Point* pts)
 
 
 //get the voxel id given the 3d coordinates
-int GetPoint(int x, int y, int z, int nVoxels, Point* pts)
+int GetPoint(int x, int y, int z, int nVoxels, VoxelXYZ* pts)
 {
   int i;
   for (i=0; i<nVoxels; i++)

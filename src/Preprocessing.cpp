@@ -15,7 +15,7 @@ align multi-subjects, remove all-zero voxels, if all-zero in one subject, remove
 input: the raw matrix data structure array, the number of matrices (subjects)
 output: the remaining number of voxels, remove voxels from raw matrix and location
 ***************************/
-int AlignMatrices(RawMatrix** r_matrices, int nSubs, Point* pts)
+int AlignMatrices(RawMatrix** r_matrices, int nSubs, VoxelXYZ* pts)
 {
   // align multi-subjects, remove all-zero voxels, assume that all subjects have the same number of voxels  
   int row = r_matrices[0]->row;
@@ -95,7 +95,7 @@ align multi-subjects, using a file containing a binary vector that indicates whe
 input: the raw matrix data structure array, the number of matrices (subjects), the binary vector file
 output: the remaining number of voxels, remove voxels from raw matrix and location
 ***************************/
-int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Point* pts)
+int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, VoxelXYZ* pts)
 {
 #ifndef __MIC__
   // align multi-subjects, remove all-zero voxels, assume that all subjects have the same number of voxels  

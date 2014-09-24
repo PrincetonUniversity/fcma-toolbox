@@ -1,13 +1,1 @@
-# if you want to use this file then edit Makefile to include it
-# at the top
-#
-# set location of your MPI and BLAS development install here
-#  (assumes subdirs include and lib for each)
-BLASINCLUDE = -I/opt/intel/mkl/include
-BLASCFLAGS = -DUSE_MKL -vec-report=3
-BLASLIBINC = -L/opt/intel/mkl/lib/intel64
-BLASLDFLAGS = -mkl=parallel
-OTHER_INCLUDES = -I/opt/intel/include
-BUILD_MIC = 1
-MPICC = mpiicc
-
+Make.user.intel

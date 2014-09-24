@@ -1,4 +1,9 @@
 #include "FisherScoring.h"
+#if defined(__INTEL_COMPILER)
+#include <malloc.h>
+#else
+#include <mm_malloc.h>
+#endif 
 
 // data only cotains one row, i.e. one voxel's data
 void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, int rank, double* S, double* H, int v1, int v2, int n)
