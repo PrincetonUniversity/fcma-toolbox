@@ -7,7 +7,7 @@ include Make.user
 # and optionally OTHER_INCLUDES
 
 # can override anything with ?= as well
-MPICC ?= mpicc
+MPICC ?= mpic++
 NIFTILOC ?= ../deps/nifticlib-2.0.0
 WARNFLAGS ?= -Wall -Wextra
 OPTIMFLAGS ?= -O3 -fopenmp

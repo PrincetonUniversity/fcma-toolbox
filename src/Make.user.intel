@@ -8,7 +8,6 @@ BLASCFLAGS = -DUSE_MKL -vec-report=1
 BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include
-NIFTILOC = /share/apps/fcma-toolbox/deps/nifticlib-2.0.0
-BUILD_MIC = 1
+BUILD_MIC = 0
 MPICC = mpiicpc
 
