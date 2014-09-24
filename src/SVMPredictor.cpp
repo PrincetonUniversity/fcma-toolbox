@@ -170,7 +170,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
     delete prob;
     svm_destroy_param(param);
   }
-  delete simMatrix;
+  delete [] simMatrix; // bds []
 }
 
 /**********************************************
@@ -207,7 +207,9 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
     SVMNode* x = new SVMNode[tops[i]+1];
     int result = 0;
     double predict_distances[nTrials-nTrainings];
+    memset(predict_distances, 0, (nTrials-nTrainings)*sizeof(double));
     bool predict_correctness[nTrials-nTrainings];
+    memset(predict_correctness, false, (nTrials-nTrainings)*sizeof(bool));
     for (j=nTrainings; j<nTrials; j++)
     {
       int sid = trials[j].sid;
@@ -253,12 +255,12 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
     svm_free_and_destroy_model(&model);
     delete[] x;
   }
-  delete prob->y;
+  delete [] prob->y;
   for (j=0; j<nTrainings; j++)
   {
     delete prob->x[j];
   }
-  delete prob->x;
+  delete [] prob->x;
   delete prob;
   svm_destroy_param(param);
 }

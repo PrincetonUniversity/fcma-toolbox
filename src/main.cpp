@@ -340,7 +340,7 @@ void run_fcma(Param* param)
     int nTrials = 0;
     int nSubs = 0;
 
-    RawMatrix** r_matrices;
+    RawMatrix** r_matrices = NULL; // bds init to null
 #ifndef __MIC__
     if (me==0)
     {
@@ -356,7 +356,7 @@ void run_fcma(Param* param)
         cout<<"data reading done!"<<endl;
         //cout<<row_tmp<<endl;
     }
-    VoxelXYZ* pts;
+    VoxelXYZ* pts = NULL; // bds init to null
 #ifndef __MIC__
     if (me == 0)
     {

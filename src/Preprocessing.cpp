@@ -113,6 +113,7 @@ int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, Vox
     default:
       FATAL("wrong data type of mask file!");
   }
+  assert(data);
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
     int col = r_matrices[i]->col;

@@ -37,7 +37,6 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   cout<<"#voxels for mask1: "<<masked_matrices1[0]->row<<" #voxels for mask2: "<<masked_matrices2[0]->row<<endl;
   float* simMatrix = new float[nTrials*nTrials];
   int corrRow = masked_matrices1[0]->row;
-  //int corrCol = masked_matrices2[0]->row; // no use here
   memset((void*)simMatrix, 0, nTrials*nTrials*sizeof(float));
   int sr = 0, rowLength = 100;
   int result = 0;
@@ -58,7 +57,9 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   int nTrainings = nTrials-nTests;
   SVMNode* x = new SVMNode[nTrainings+2];
   double predict_distances[nTrials-nTrainings];
+  memset(predict_distances, 0, (nTrials-nTrainings)*sizeof(double)); // bds init
   bool predict_correctness[nTrials-nTrainings];
+  memset(predict_correctness, false, (nTrials-nTrainings)*sizeof(bool)); // bds init
   for (i=nTrainings; i<nTrials; i++)
   {
     x[0].index = 0;
@@ -201,7 +202,9 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
   struct svm_model *model = svm_train(prob, param);
   SVMNode* x = new SVMNode[nVoxels+1];
   double predict_distances[nTrials-nTrainings];
+  memset(predict_distances,0,(nTrials-nTrainings)*sizeof(double)); // bds init
   bool predict_correctness[nTrials-nTrainings];
+  memset(predict_correctness, false,(nTrials-nTrainings)*sizeof(bool)); // bds init
   int result = 0;
   for (i=nTrainings; i<nTrials; i++)
   {

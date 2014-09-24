@@ -90,7 +90,7 @@ void Marginal_Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, in
     FILE* fp=fopen(fullfilename, "wb");
     fwrite((const void*)second_order, sizeof(float), row*row, fp);
     fclose(fp);*/
-    delete second_order;
+    delete [] second_order; // bds []
 #endif
   }
   else
@@ -163,9 +163,9 @@ void compute_second_order(float* data, int* labels, int nTrialsUsed, int row, fl
 {
   //omp_lock_t writelock;
   //omp_init_lock(&writelock);
-  int i, n=0;
+  // int n=0;
   #pragma omp parallel for private(i)
-  for (i=0; i<step; i++)
+  for (int i=0; i<step; i++)
   {
     /*omp_set_lock(&writelock);
     n++;
@@ -270,7 +270,7 @@ void Do_Marginal_Master(int nprocs, int step, int row, float* second_order, cons
 {
 #ifndef __MIC__
   int curSr = 0;
-  int i, j;
+  int i;
   int total = row / step;
   if (row%step != 0)
   {
@@ -461,6 +461,6 @@ void Do_Marginal_Slave(int me, int masterId, float* data, int* labels, int row, 
            masterId,                            /* destination process rank */
            SECONDORDERTAG,                      /* user chosen message tag */
            MPI_COMM_WORLD);                 /* default communicator */
-    delete second_order;
+    delete [] second_order; // bds []
   }
 }

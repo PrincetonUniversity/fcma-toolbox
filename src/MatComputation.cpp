@@ -39,7 +39,7 @@ int getBuf(int start_col, int end_col, int row, int col, float* mat, float* buf)
     #pragma simd
     for (int j=start_col; j<=end_col; j++)
     {
-      buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean_f) * 1/sd; // if sd is zero, a "nan" appears
+        buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean_f) * inv_sd_f; // bds 1/sd; // if sd is zero, a "nan" appears
     }
   }
   return delta_col;
@@ -59,11 +59,11 @@ CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** mat
   int row2 = matrices2[sid]->row;
   int col = matrices1[sid]->col;  // the column of 1 and 2 should be the same, i.e. the number of TRs of a block
   float* mat1 = matrices1[sid]->matrix;
-  float* mat2 = matrices2[sid]->matrix;
+  //float* mat2 = matrices2[sid]->matrix;
   float* buf1 = new float[row1*col]; // col is more than what really need, just in case
   float* buf2 = new float[row2*col]; // col is more than what really need, just in case
   int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
-  int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
+  //int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
   CorrMatrix* c_matrix = new CorrMatrix();
   c_matrix->sid = sid;
   c_matrix->tlabel = trial.label;

@@ -115,8 +115,9 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
   nim = nifti_image_read(file, 1);
   if (nim == NULL)
   {
-    FATAL("file not found: ");
+    FATAL("file not found: " << file);
   }
+  assert(nim);
   /*cout<<"fname: "<<nim->fname<<endl;
   cout<<"iname: "<<nim->iname<<endl;
   cout<<"nifti_type: "<<nim->nifti_type<<endl;
@@ -207,6 +208,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
   {
     FATAL("file not found: ");
   }
+  assert(nim);
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
@@ -297,6 +299,7 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile)
   {
     FATAL("file not found: "<<maskFile);
   }
+  assert(nim); // quiet static analyzer
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
@@ -382,6 +385,7 @@ VoxelXYZ* GetMaskedPts(VoxelXYZ* pts, int nMaskedVoxels, const char* maskFile)
   {
     FATAL("file not found: "<<maskFile);
   }
+  assert(nim); // quiet static analyzer
   int* data_int = NULL;
   short* data_short = NULL;
   unsigned char* data_uchar = NULL;
@@ -646,6 +650,7 @@ void WriteNiiGzData(const char* outputFile, const char* refFile, void* data, int
   {
     FATAL("sample file not found: "<<refFile);
   }
+  assert(nim); // quiet static analyzer
   nifti_image* nim2 = nifti_copy_nim_info(nim);
   char* newFileName = nifti_makeimgname((char*)outputFile, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
   delete nim2->fname; // delete the old filename to avoid memory leak
@@ -671,6 +676,7 @@ void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data, i
   {
     FATAL("sample file not found: "<<refFile);
   }
+  assert(nim); // quiet static analyzer
   nifti_image* nim2 = nifti_copy_nim_info(nim);
   char* newFileName = nifti_makeimgname((char*)outputFile, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
   delete nim2->fname; // delete the old filename to avoid memory leak
@@ -845,6 +851,7 @@ void* GenerateNiiDataFromMask(const char* maskFile, VoxelScore* scores, int leng
       }
       else  // must be DT_FLOAT here
       {
+        assert(returnData_float);
         returnData_float[i] = ((float*)maskedData)[count];
       }
       count++;

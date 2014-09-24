@@ -151,7 +151,7 @@ double DoIteration(float* data, float* data2, int length, int* labels, double ep
       lambda = -((S[0]*iH[0]+S[1]*iH[2])*S[0]+(S[0]*iH[1]+S[1]*iH[3])*S[1]);
       beta[0] = beta[0]-(iH[0]*S[0]+iH[1]*S[1]);
       beta[1] = beta[1]-(iH[2]*S[0]+iH[3]*S[1]);
-      delete iH;
+      delete [] iH; // bds []
     }
     for (int i=0; i<length; i++)
     {
@@ -177,7 +177,7 @@ double DoIteration(float* data, float* data2, int length, int* labels, double ep
       beta[0] = beta[0]-(iH[0]*S[0]+iH[1]*S[1]+iH[2]*S[2]);
       beta[1] = beta[1]-(iH[3]*S[0]+iH[4]*S[1]+iH[5]*S[2]);
       beta[2] = beta[2]-(iH[6]*S[0]+iH[7]*S[1]+iH[8]*S[2]);
-      delete iH;
+      delete [] iH; // bds
       n++;
     }
     //#pragma simd
@@ -221,7 +221,7 @@ double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2,
       lambda = -((S[0]*iH[0]+S[1]*iH[2])*S[0]+(S[0]*iH[1]+S[1]*iH[3])*S[1]);
       beta[0] = beta[0]-(iH[0]*S[0]+iH[1]*S[1]);
       beta[1] = beta[1]-(iH[2]*S[0]+iH[3]*S[1]);
-      delete iH;
+      delete [] iH; // bds []
     }
     for (int i=0; i<length; i++)
     {
@@ -246,7 +246,7 @@ double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2,
       beta[0] = beta[0]-(iH[0]*S[0]+iH[1]*S[1]+iH[2]*S[2]);
       beta[1] = beta[1]-(iH[3]*S[0]+iH[4]*S[1]+iH[5]*S[2]);
       beta[2] = beta[2]-(iH[6]*S[0]+iH[7]*S[1]+iH[8]*S[2]);
-      delete iH;
+      delete [] iH; // bds []
     }
     #pragma simd
     for (int i=0; i<length; i++)
@@ -258,8 +258,8 @@ double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2,
       loglikelihood += y*exponent-log(1+e);
     }
   }
-  delete beta;
-  delete H;
-  delete S;
+  delete [] beta;   // bds []
+  delete [] H;      // "
+  delete [] S;      // "
   return loglikelihood;
 }
