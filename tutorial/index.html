@@ -63,12 +63,9 @@ This tutorial goes through a leave-one-subject-out analysis using FCMA. In the i
 <br><br>
 <h4>Downloads</h4>
 <ul>
-<li><strong>Sample data and scripts</strong>: <a href="http://www.pni.princeton.edu/fcma_tutorial.zip">fcma_tutorial.zip</a> [~330MB] contains the materials that will be used in the tutorial (other than the <code>pni_fcma</code> binary.) PNI users, get a copy  on rondo from <code>/opt/pkg/FCMA/fcma_tutorial.zip</code>
+<li><strong>Sample data and scripts</strong>: <a href="http://www.pni.princeton.edu/fcma_tutorial.zip">fcma_tutorial.zip</a> [~330MB] contains the materials that will be used in the tutorial.
 <br>
 The sample data is a preprocessed form of the original <a href="http://dx.doi.org/10.1126/science.1063736">Haxby et al (2001)</a> 8-category study <a href="http://data.pymvpa.org/datasets/haxby2001/">data</a>-- down-sampled to 4mm cubed voxels, motion-corrected and detrended, and aligned to the MNI standard brain.</li>
-<li><strong>Binaries</strong>: <a href="http://www.pni.princeton.edu/fcmac.zip">fcmac.zip</a> is the <code>pni_fcma</code> binaries compiled for Mac OS X. Although voxel selection (step1) would take an extremely long time to run on the typical Mac, it may be instructive to do so using ROIs containing hundreds of voxels as both first and second maskfiles (perhaps generated on a cluster first). Analysis steps beyond feature selection are tractable however. The executable and the libraries it requires have been adapted so that they do not depend on anything outside the "fcmac" folder. Put that folder in your PATH via <code>export PATH=/path/to/fcmac:$PATH</code> in Terminal.app (or run from within that directory). On Linux, you'll want to set up your server as described on the <a href="../cluster">cluster</a> page. PNI users can add <code>pni_fcma</code> and its dependencies to the shell environment via the command <code>module load fcma</code>. A Windows PC version will be available soon. If you want to try building, the key dependencies to install are <a href="http://www.open-mpi.org/software/ompi/v1.6/ms-windows.php">OpenMPI</a> and <a href="http://prs.ism.ac.jp/~nakama/SurviveGotoBLAS2/binary/">GotoBLAS2</a> for Windows. </li>
-<br>
-Again, desktop versions are mostly for trying out scaled down versions of an analysis or for exploration using top1000 (say) voxel masks generated on a cluster.
 <br>
 </ul>
 <h4>Preparation</h4>
@@ -101,7 +98,7 @@ The resulting fcma file can be run with either <code>pni_fcma</code> or <code>pn
 <br><br>
 Each selection job runs a nested, inner loop: a leave-one-out cross validation run for a subset of voxels, for all subjects, for all blocks (except those held out). The voxel subsets are combined by a master process and each voxel's average score (across included subjects & blocks) is recorded. 
 <br><br>
-Now, onto the meat of the tutorial:
+The tutorial has 4 steps, each with a script that generates the fcma files that will be used. The help text of each script is included below. Once the fcma files are created you run <code>pni_fcma_submit</code> on each .fcma file that is created. By examining the contents of the fcma file, the appropriate settings for each step in the analysis you want to carry out should hopefully become apparent. Please contact the address in the footer if you have any questions and to report any issues.
 <br><br>
 <ol>
 <li>Selection</li>
@@ -111,7 +108,6 @@ Now, onto the meat of the tutorial:
 </ol>
 <br>
 <h4>Step 1: Selection</h4>
-Coming soon
 <pre>
 usage: step1_selection config.fcma [savedir]
 
@@ -132,7 +128,6 @@ run using one of the generated fcma files in
 <br>
 
 <h4>Step 2: Top voxel determination</h4>
-Coming soon
 <pre>
 usage: step2_calcranks configfile topvoxlist [savedir]
 
@@ -151,29 +146,55 @@ an optional alternative "savedir" is supplied.
 </pre>
 <br>
 
-<h4>Step3: Top voxel mask creation</h4>
-Coming soon
+<h4>Step 3: Top voxel mask creation</h4>
 <pre>
-	step3_topmask prefix N
-	- will use AFNI to search "prefix"_seq.nii.gz and
-	  create a mask of top "N" voxels
-	- saves result as "prefix"_top"N"_mask.nii.gz
-	- "prefix" can contain directory names
+usage: step3_topmask prefix N
+  - will use AFNI to search "prefix"_seq.nii.gz and
+    create a mask of top "N" voxels
+  - saves result as "prefix"_top"N"_mask.nii.gz
+  - "prefix" can contain directory names
 </pre>
 <br>
 
 <h4>Step 4: Testing left-out subject</h4>
-Coming soon
 <pre>
-	usage: step4_test_leftout sconfig mask outfile
-	 "config" is a config file created during step1
-	 "mask" is topvoxel mask created during step3
-	 "outconfig" is the config file name to save
-	Note: the "sconfig" and "mask" should be for the same
-	 left-out subject
+usage: step4_test_leftout sconfig mask outfile
+ "config" is a config file created during step1
+ "mask" is topvoxel mask created during step3
+ "outconfig" is the config file name to save
+ 
+ Note: the "sconfig" and "mask" should be for the same
+       left-out subject
 </pre>
 <br>
-
 </div>
 </body>
 </html>
+
+<div class="container">
+<script type="text/javascript" language="javascript">
+<!--
+// Email obfuscator script 2.1 by Tim Williams, University of Arizona
+// Random encryption key feature by Andrew Moulden, Site Engineering Ltd
+// This code is freeware provided these four comment lines remain intact
+// A wizard to generate this code is at http://www.jottings.com/obfuscator/
+{ coded = "xNulybx@xCuNJyKdN.yEF"
+  key = "AVi7covN2zGplaZftk5RgOru9JdXPUHWxb48sKeY0qDCFBTEnQ6SIhwLm13yMj"
+  shift=coded.length
+  link=""
+  for (i=0; i<coded.length; i++) {
+    if (key.indexOf(coded.charAt(i))==-1) {
+      ltr = coded.charAt(i)
+      link += (ltr)
+    }
+    else {     
+      ltr = (key.indexOf(coded.charAt(i))-shift+key.length) % key.length
+      link += (key.charAt(ltr))
+    }
+  }
+  document.write("<a href='mailto:"+link+"'>contact</a>")
+}
+//-->
+</script>
+<noscript>Please enable javascript to see the contact info</noscript>
+</div>

@@ -61,16 +61,15 @@
 	</div>
     <blockquote>
   <p> The audience for the following section is the system administrator who will set up the cluster for FCMA.</p>
-	<br><p>The FCMA Toolbox runs under MPI, and the main dependencies are an MPI implementation (we use that latest <a href="http://openmpi.org">OpenMPI</a> 1.6.x but only basic MPI calls are used), a C++ compiler (g++ 4.4 and icc 11 have been tested), gfortran (again, 4.4), <a href="https://www.tacc.utexas.edu/tacc-software/gotoblas2">GotoBLAS2</a>, and <a href="http://niftilib.sourceforge.net">nifticlib 2.0</a> open source libraries. The toolbox is currently running on three 64-bit Linux CentOS 5.x clusters at Princeton.</p>
+	<br><p>The FCMA Toolbox runs under MPI. The main dependencies are an MPI implementation, a C++ compiler with OpenMP support, a tuned CBLAS implentation, and <a href="http://niftilib.sourceforge.net">nifticlib 2.0</a> open source libraries. See the README files in the top-level deps/ folder in the source distribution for more details.</p>
+	<br><p>At the Princeton Neuroscience Institute we use the Intel compiler with Intel MPI and MKL libraries. This makes sense for us, since our main cluster has Xeon Phi boards installed in each node. While this configuration is tested the most, we test and supply setup files for other configurations.</p>
+	<br><p>The <code>Makefile</code> in the src/ directory includes a <code>Make.user</code> file that should be edited to supply, at a minimum, the location of the CBLAS implementation's headers and libraries. As long as you have <code>mpic++</code> in your <code>PATH</code> and its libraries in your <code>LD_LIBRARY_PATH</code> when you type <code>make</code> you should have no problems compiling. A <code>Make.user.linux</code> file contains the settings necessary to compile a Linux binary using  <a href="http://openblas.net">OpenBLAS</a>, <a href="http://gcc.gnu.org">GCC</a>, and <a href="http://www.open-mpi.org">OpenMPI</a>, and <code>Make.user.osx</code> contains OS X settings.</p>
 <br><p>
-You need to customize a Makefile.cluster file as well, for where you've installed the dependencies on your cluster as well as setting the appropriate compiler flags (the supplied ones should be self explanatory). You only need edit the Makefile.cluster file, since the main Makefile will include it as a first step. There are Makefile.cluster files for the three clusters currently being used: rondo, della, and a cs cluster.</p>
-<br><p>
-Launching jobs via MPI is the most straightforward-- since it avoids integration issues with a cluster scheduler. Having said that both the submission shell scripts written for rondo and della are examples for how to integrate with SGE and PBS cluster schedulers respectively. We advise starting out with a small number of set aside machines (or some portion of some machines) for mpirun/mpiexec. You can specify both the number of cores per node <b>M</b>, and the number of nodes <b>N</b>, in the command used to launch.</p>
-<br><p>
-From the help:
+<code>pni_fcma</code> typed alone supplies this help text:
 <pre class="prettyprint"><code>
-OMP_NUM_THREADS=M mpirun -np N -hostfile file ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]
-
+**********************************************************
+Usage 1: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]
+Usage 2: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma config.fcma
 required:
 -d matrix directory, contains files in binary gz format, beginning with numbers of row and column
 -m matrix file type, usually the extension name
@@ -88,10 +87,11 @@ optional:
 -y the second mask file, default no mask
 -v the block id that you want to visualize the correlation, must be specified in task 8
 -r the referred file of the output file of task 8, must be a 4D file, usually is the input data file
+-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 7, default 0
 </code></pre>
 </p>
 <br><p>
-The <a href="../config">FCMA File</a> page documents each of these input arguments and will generate an .fcma file that can be used with the pni_fcma_submit script, once MPI is working directly. Some effort will be required to adapt the particulars of the pni_fcma_submit script and the pni_mpirun script it depends upon, to your particular site, and advanced users may want to dispense with the layer of abstraction introduced by the .fcma file method, and use MPI directly.</p>
+The <a href="../config">FCMA File</a> page documents each of these input arguments and will generate an .fcma file that can be used with the pni_fcma_submit script, once MPI is working directly. Some effort will be required to adapt the particulars of the pni_fcma_submit script to your particular site, and advanced users may want to dispense with the layer of abstraction and use MPI directly. Several MPI implementations are scheduler-aware, obviating the need for a submit script.</p>
 </p>
 </blockquote>
 </div>
