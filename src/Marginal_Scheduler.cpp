@@ -164,8 +164,9 @@ void compute_second_order(float* data, int* labels, int nTrialsUsed, int row, fl
   //omp_lock_t writelock;
   //omp_init_lock(&writelock);
   // int n=0;
+  int i=0;
   #pragma omp parallel for private(i)
-  for (int i=0; i<step; i++)
+  for (i=0; i<step; i++)
   {
     /*omp_set_lock(&writelock);
     n++;

@@ -55,6 +55,8 @@ extern "C" {
 }
 #endif
 
+#include <cassert>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
