@@ -4,8 +4,8 @@
 # written by bdsinger@princeton.edu
 
 #defaults for submission method
-USE_QSUB=0
-DRY_RUN=0
+USE_QSUB=1
+DRY_RUN=1
 GEN_TEMPLATE=0
 APP=pni_fcma
 MPIRUN=mpirun
@@ -67,7 +67,7 @@ if (( USE_QSUB )); then
 
     # gridengine config knows about hosts eligible 
     # for fullcorr project, so hostfile not used here
-    $dryecho pni_mpirun -P fullcorr $N $M $APP $JOBFILE
+    $dryecho pni_mpirun $N $M $APP $JOBFILE
 
   elif [[ $shost =~ della ]]; then
 

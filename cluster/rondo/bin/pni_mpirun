@@ -30,8 +30,8 @@ cat<<EOF
   - the following modules are loaded within each task
     via pni_fcma module (in addition to fcma module itself):
 
-       gridengine, openmpi, nifticlib, gotoblas, gcc-4.4
-
+       gridengine, intel
+ intel
   - monitor your mpi tasks via
 
        qstat -t
@@ -62,25 +62,6 @@ else
 fi
 echo "using $M OpenMP threads per task"
 
-# pni_fcma module shortcut for
-# loading openmpi and related
-# modules, even if not using fcma
-. /usr/share/Modules/init/bash
-module load pni_fcma
-
-MPIRUN=$(which mpirun)
-
-if [[ ! ${executable:0:1} == '/' ]]; then
-   wex="$(pni_which $executable 2>/dev/null)"
-   if (( $? == 0 )); then
-      executable=$wex
-   else
-      pex="$(pwd)/$executable"
-      [[ ! -f $pex ]] && echo "$executable can not be located! Try 'module load $executable'" && exit 1 
-      executable="$pex"
-   fi
-fi
-
 # prevent disastrous matlab errors
 execbase=$(basename $executable)
 executable_args=$@
@@ -89,17 +70,13 @@ tf=$(mktemp)
 cat<<EOF>$tf
 #!/bin/bash
 
-#$ -P $PROJ -cwd -N $execbase -l cores=$M -pe openmpi $N
+#$ -P $PROJ -V -j y -cwd -N $execbase -l cores=$M -pe impi $N
 
-. /usr/share/Modules/init/bash
-module load pni_fcma
+export OMP_NUM_THREADS=4
+export LD_LIBRARY_PATH=/opt/intel/lib:/opt/intel/mkl/lib/intel64
+export PATH=/opt/pkg/FCMA/bin:/opt/intel/impi/4.1.1/bin64:$PATH
 
-OMP_NUM_THREADS=$M \
-$MPIRUN \
-  --mca pls_gridengine_verbose 1 \
-  --loadbalance \
-  -np $N \
-  $executable $executable_args
+mpirun $executable $executable_args
 
 EOF
 

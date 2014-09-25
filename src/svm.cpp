@@ -863,7 +863,6 @@ int Solver::select_working_set(int &out_i, int &out_j)
 	if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
 		Q_i = Q->get_Q(i,active_size);
 
-    assert(Q_i);
 	for(int j=0;j<active_size;j++)
 	{
 		if(y[j]==+1)
@@ -875,7 +874,8 @@ int Solver::select_working_set(int &out_i, int &out_j)
 					Gmax2 = G[j];
 				if (grad_diff > 0)
 				{
-					double obj_diff; 
+					double obj_diff;
+                    assert(Q_i);
 					double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
 					if (quad_coef > 0)
 						obj_diff = -(grad_diff*grad_diff)/quad_coef;
@@ -899,7 +899,8 @@ int Solver::select_working_set(int &out_i, int &out_j)
 					Gmax2 = -G[j];
 				if (grad_diff > 0)
 				{
-					double obj_diff; 
+					double obj_diff;
+                    assert(Q_i);
 					double quad_coef = QD[i]+QD[j]+2.0*y[i]*Q_i[j];
 					if (quad_coef > 0)
 						obj_diff = -(grad_diff*grad_diff)/quad_coef;
@@ -1116,8 +1117,6 @@ int Solver_NU::select_working_set(int &out_i, int &out_j)
 	if(in != -1)
 		Q_in = Q->get_Q(in,active_size);
 
-    assert(Q_ip);
-    assert(Q_in);
 	for(int j=0;j<active_size;j++)
 	{
 		if(y[j]==+1)
@@ -1129,7 +1128,8 @@ int Solver_NU::select_working_set(int &out_i, int &out_j)
 					Gmaxp2 = G[j];
 				if (grad_diff > 0)
 				{
-					double obj_diff; 
+					double obj_diff;
+                    assert(Q_ip);
 					double quad_coef = QD[ip]+QD[j]-2*Q_ip[j];
 					if (quad_coef > 0)
 						obj_diff = -(grad_diff*grad_diff)/quad_coef;
@@ -1153,7 +1153,8 @@ int Solver_NU::select_working_set(int &out_i, int &out_j)
 					Gmaxn2 = -G[j];
 				if (grad_diff > 0)
 				{
-					double obj_diff; 
+					double obj_diff;
+                    assert(Q_in);
 					double quad_coef = QD[in]+QD[j]-2*Q_in[j];
 					if (quad_coef > 0)
 						obj_diff = -(grad_diff*grad_diff)/quad_coef;
@@ -2093,7 +2094,7 @@ static void svm_group_classes(const svm_problem *prob, int *nr_class_ret, int **
 			++nr_class;
 		}
 	}
-    assert(nr_class > 0); // static analyzer
+
 	int *start = Calloc(int,nr_class);
 	start[0] = 0;
 	for(i=1;i<nr_class;i++)
@@ -2203,9 +2204,7 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 		bool *nonzero = Calloc(bool,l);
 		for(i=0;i<l;i++)
 			nonzero[i] = false;
-        size_t alloc_size = nr_class*(nr_class-1)/2;
-        assert(alloc_size > 0); // static analyzer
-		decision_function *f = Calloc(decision_function,alloc_size);
+		decision_function *f = Calloc(decision_function,nr_class*(nr_class-1)/2);
 
 		double *probA=NULL,*probB=NULL;
 		if (param->probability)
@@ -2299,7 +2298,6 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 		info("Total nSV = %d\n",total_sv);
 
 		model->l = total_sv;
-        assert(total_sv > 0); // static analyzer
 		model->SV = Calloc(svm_node *,total_sv);
 		p = 0;
 		for(i=0;i<l;i++)
@@ -2969,7 +2967,6 @@ svm_model *svm_load_model(const char *model_file_name)
 		else if(strcmp(cmd,"rho")==0)
 		{
 			int n = model->nr_class * (model->nr_class-1)/2;
-            assert(n > 0);
 			model->rho = Calloc(double,n);
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%lf",&model->rho[i]);
@@ -2977,7 +2974,6 @@ svm_model *svm_load_model(const char *model_file_name)
 		else if(strcmp(cmd,"label")==0)
 		{
 			int n = model->nr_class;
-            assert(n > 0);
 			model->label = Calloc(int,n);
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%d",&model->label[i]);
@@ -2985,7 +2981,6 @@ svm_model *svm_load_model(const char *model_file_name)
 		else if(strcmp(cmd,"probA")==0)
 		{
 			int n = model->nr_class * (model->nr_class-1)/2;
-            assert(n > 0);
 			model->probA = Calloc(double,n);
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%lf",&model->probA[i]);
@@ -2993,7 +2988,6 @@ svm_model *svm_load_model(const char *model_file_name)
 		else if(strcmp(cmd,"probB")==0)
 		{
 			int n = model->nr_class * (model->nr_class-1)/2;
-            assert(n > 0);
 			model->probB = Calloc(double,n);
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%lf",&model->probB[i]);
@@ -3001,7 +2995,6 @@ svm_model *svm_load_model(const char *model_file_name)
 		else if(strcmp(cmd,"nr_sv")==0)
 		{
 			int n = model->nr_class;
-            assert(n > 0);
 			model->nSV = Calloc(int,n);
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%d",&model->nSV[i]);
@@ -3052,12 +3045,10 @@ svm_model *svm_load_model(const char *model_file_name)
 
 	int m = model->nr_class - 1;
 	int l = model->l;
-    assert(m > 0); // static analyzer
 	model->sv_coef = Calloc(double *,m);
 	int i;
 	for(i=0;i<m;i++)
 		model->sv_coef[i] = Calloc(double,l);
-    assert(l > 0);
 	model->SV = Calloc(svm_node*,l);
 	svm_node *x_space = NULL;
 	if(l>0) x_space = Calloc(svm_node,elements);
@@ -3069,7 +3060,7 @@ svm_model *svm_load_model(const char *model_file_name)
 		model->SV[i] = &x_space[j];
 
 		p = strtok(line, " \t");
-        
+        assert(model->sv_coef && model->sv_coef[0]);
 		model->sv_coef[0][i] = strtod(p,&endptr);
 		for(int k=1;k<m;k++)
 		{
