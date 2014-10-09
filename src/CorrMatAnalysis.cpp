@@ -65,7 +65,7 @@ float GetVectorSum(float* v, int length)
   {
     if (!isnan(v[i]))
     {
-      result += v[i];
+      result += fabs(v[i]);
     }
   }
   return result;
