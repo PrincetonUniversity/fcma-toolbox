@@ -1,0 +1,5 @@
+depend.mk
+bin
+nifti_tool
+nifti_stats
+nifti1_test
