@@ -11,7 +11,8 @@ proc ModulesHelp { } {
 }
 
 module-whatis   "Loads FCMA toolbox settings on Della cluster"
-module		load			openmpi
+module		load			intel/14
+module		load			openmpi/intel-14
 
 if { [ module-info mode load ] } {
 	puts stderr "fcma toolbox module loaded"

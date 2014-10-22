@@ -8,6 +8,15 @@ BLASCFLAGS = -DUSE_MKL -vec-report=1
 BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include
-BUILD_MIC = 0
 MPICC = mpiicpc
+
+# to build for other supported architectures
+# (right now MIC is the only one)
+# set/add it to OTHER_TARGETS below.
+# Then, in the Makefile create a target with
+# that name (usually pni_fcma.$suffix for arch)
+# "make all" will build it
+
+# MIC example:
+#OTHER_TARGETS = pni_fcma.MIC
 

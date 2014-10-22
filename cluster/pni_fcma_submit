@@ -78,30 +78,37 @@ if (( USE_QSUB )); then
     module load fcma >/dev/null 2>&1
     (( $? )) && echo "warning: could not load fcma module; check installation"
     which mpirun >/dev/null 2>&1
-    (( $? )) && echo "error: mpiexec not in path; please ask sysadmin how to load MPI" && exit 1
+    (( $? )) && echo "error: mpirun not in path; please ask sysadmin how to load MPI" && exit 1
 
+    jobname="$(basename $JOBFILE)"
     tmpf=$(mktemp)
 
 cat<<EOF >$tmpf
-
-#PBS -l nodes=$N:ppn=$M,walltime=24:00:00
-. /usr/share/Modules/init/bash
+#!/bin/sh
+#SBATCH -N $N                  # nodes=$N
+#SBATCH --cpus-per-task=$M   # ppn=$M
+#SBATCH -J $JOBFILE            # job name (uses fcma file)
+#SBATCH -t 10:00               # 10 minutes walltime! change if takes longer
+#SBATCH --mem=65536
+#SBATCH --mail-user=`whoami`@princeton.edu
+#SBATCH --mail-type=begin
+#SBATCH --mail-type=end
 module load fcma
 export OMP_NUM_THREADS=$M
-mpirun -bynode -np $N $APP $JOBFILE
-
+# problems with mpiexec/mpirun so use srun
+srun $APP $JOBFILE
 EOF
 
     if (( DRY_RUN == 1 )); then
-      echo "would submit the following job script:"
+      echo
+      echo "sbatch the following job script:"
       echo
       echo "----------------BEGIN---------"
       cat $tmpf
       echo "----------------END-----------"
       echo
     else
-      jobname="$(basename $JOBFILE)"
-      exec qsub -N $jobname $tmpf
+      exec sbatch $tmpf
     fi
 
   # elif 
