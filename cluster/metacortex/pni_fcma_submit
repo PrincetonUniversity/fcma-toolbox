@@ -1,6 +1,6 @@
 #!/bin/bash
 
-default_pe="pe"
+default_pe="mpi"
 # the fcma file with runtime settings read in by pni_fcma
 # and this script too (for meta-settings)
 fcmafile="/share/apps/fcma-toolbox/cluster/template.fcma"
