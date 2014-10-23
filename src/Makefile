@@ -1,6 +1,6 @@
 # include Make.user here
 # edit to match your environment
-include Make.user.intel.della
+include Make.user
 
 # the above included Makefile should supply:
 # BLASINCLUDE, BLASLIBINC, BLASLDFLAGS, BLASCFLAGS
