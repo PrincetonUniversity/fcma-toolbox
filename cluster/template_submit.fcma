@@ -1,78 +1,76 @@
-# Sample FCMA config file
+# Sample base FCMA config file
 
-# Set equal to (cores per node) / (slaves per node)
-omp_num_threads:2
+# Set equal to the number of cores (or hyperthreads) per computer
+omp_num_threads:16
 
 
-# Each line should have "<hostname>  slots=<slaves_per_node>"
+# MPI hosts in your cluster, for use with mpirun/mpiexec 
+# note: hostfile not needed if using a scheduler like sge, slurm, or torque/pbs
 hostfile:hostfile.txt
 
 
-# Number of slaves + 1 (master). Balanced across nodes.
-num_processors:3
+# Number of workers + 1 (master), not necessarily CPUs. Each worker can use multiple CPUs.
+num_processors:40
 
 
 # Path to the pni_fcma binary, only needed if it is not in PATH
 exefile:pni_fcma
 
 
-# Every NIfTI dataset (usually == subject) in this dir will be used
+# Every NIfTI dataset (usually == subject) in this dir will be used. Dirs must end with '/'
 datadir:data/
 
 
 # File extension for fmri data. Currently only NIfTI compressed (.nii.gz) is supported.
-matrix_format:nii.gz
+matrix_format:.nii.gz
 
 
-# Your name for the text file that will contain the list of top-scoring voxels (task 0)
-outputfile:top_voxels.txt
+# Your name for the prefix for output containing top-scoring voxels (task 0)
+outputfile:topvoxels
 
 
-# Roughly 2 categories: 1) top-voxel selection (0) and 2) prediction using top voxels (4,5)
+# First set to: 0) top voxel selection, then set to: 4 or 5) prediction using top voxels
 task_type:0
 
 
-# Single blocks file to be applied to every fmri data file. See blocks_template.txt for format
+# Applies to every fmri data file. See template_blocks.txt for format. Mutually exclusive with blockdir.
 blockfile:blockfile.txt
 
 
 # Every file in this dir must correspond 1:1 with its dataset-- same name, but .txt not .nii.gz
-blockdir:
+#blockdir:
 
 
-# Empirical value, the rows of FC Matrix (rows*voxels*subjects*blocks) to process per iteration
-rows_per_round:100
+# Empirical value depending on RAM. Num voxels at a time in mask1 to compare vs all voxels in mask2.
+rows_per_round:1000
 
 
-# Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous (skip:0)
+# Here block_id ranges from 0 to subjects*blocks where within-subject blocks are contiguous. (-1 to include all)
 first_left_out_block_id:-1
 
 
-# Selection: w/first_left_out_block_id are blocks excluded; Test task 5: xvalidation folds=trials/items
+# Selection:  num blocks to exclude (req. first_left_out_block_id) in test task 5: xvalidation folds=trials/items
 num_items_held_for_test:0
 
 
-# If 1 use input list or mask voxels to report accuracy, if 0 rank voxels in mask by accuracy
+# If 0: do voxel selection (training). If 1: load selected voxels and report accuracy in test data
 is_test_mode:0
 
 
-# Divides the subjects*blocks trials into samples for N-1 xvalidation to get each voxel score
+# Divides the subjects*blocks trials into samples for N-1 xvalidation. Usually == num subjects
 num_folds_in_feature_selection:8
 
 
-# Voxels to score during selection. If left blank all voxels used. If first == second autocorrelates.
+# Voxels to score during selection. If left blank all voxels used. If first mask == second mask, autocorrelates.
 first_maskfile:mask1.nii.gz
 
 
-# In testing (tasks 3-5) top voxels are taken from either both masks (4&5) or first mask only (task 3)
-second_maskfile:mask2.nii.gz
+# In testing (tasks 3-5) top voxels are taken from either first mask (task 3) or both masks (tasks 4 and 5)
 
 
-# (used with task_type 8) Which block_id (0..blocks*subjects) correlation matrix to save
+# (used with task_type 8) Which block_id (0..blocks*subjects) correlation to save (4D; t = all voxels in mask1)
 visualize_blockid:10
 
 
 # (used with task_type 8) File header will be reused, but will make new file using outputfile prefix
 visualize_reference:block10.nii.gz
-
-

@@ -9,16 +9,15 @@
 #
 # directory, relative to PWD, containing
 # the image data to correlate/analyze
-#   * PNI USERS: copy data first to /fastscratch ! *
 # - all files in the dir are used
 # - the ending slash (/) is required!
-datadir:/fastscratch/bdsinger/fcma_test/face_scene/subjects/
+datadir:subjects/
 
 # - top voxel list output during voxel selection (is_test_mode:0,
 #   task_types 0 to 3)
 # - used as input during single-mask testing (is_test_mode:1,
 #   task_types 0 to 3)
-outputfile:/fastscratch/bdsinger/fcma_test/face_scene/top_correlation
+outputfile:topvoxels
 
 # BLOCKFILE/DIR: choose one or the other
 # block information file (if not a directory)
@@ -36,7 +35,7 @@ outputfile:/fastscratch/bdsinger/fcma_test/face_scene/top_correlation
 #   1  35  40
 #   ----
 #
-blockfile:/fastscratch/bdsinger/fcma_test/face_scene/blockfile.txt
+blockfile:blockfile.txt
 
 # block information directory (if not a file)
 # each file in the directory has 1:1 correspondence
@@ -51,11 +50,11 @@ blockfile:/fastscratch/bdsinger/fcma_test/face_scene/blockfile.txt
 #   - exception: second maskfile unused in testing tasks 0 to 2
 # - when testing (tasks 4-7) masks could be subset of top voxels
 #   output from selection phase (selection tasks 0-3)
-first_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
-second_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
+first_maskfile:topvoxels.nii.gz
+second_maskfile:mask.nii.gz
 
 # task_type
-# is_test_mode:0
+# is_test_mode:0 when:
 #  0 for voxel selection using svm <--- RECOMMENDED FOR SELECTION
 #  1 for voxel selection using smart distance ratio
 #  2 for voxel selection using searchlight (mvpa)
@@ -64,7 +63,7 @@ second_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
 #     1) topvoxels ("outputfile_list.txt")
 #     2) rank ("outputfile_seq.nii.gz" file)
 #     3) scores ("outputfile_score.nii.gz" file)
-# is_test_mode:1
+# is_test_mode:1 when:
 # uses maskfile1 only, and "outpufile_list.txt" only for test predictions:
 #  0-1: correlation classification 
 #  2: activation (ie MVPA) based classification
@@ -77,19 +76,18 @@ second_maskfile:/fastscratch/bdsinger/fcma_test/face_scene/mask.nii.gz
 #  7 for cross validating new data (mvpa activation method)
 #  8 correlation visualization
 task_type:5
+
 # set is_test_mode:0 for task_type 0-3
 # set is_test_mode:1 for task_type 3-7
-# exception is 
 is_test_mode:1
 
 # step, number of rows to be assigned to each task
-# (set empirically; but for some reason 100 works well)
 # Depends on how much memory is available per node for the fullcorr matrix (FCM)
 #
-# bytes: rows_per_round * mask2_voxels * subjects * blocks/subject * 4 (float)
-#  So, if 100, and 40k wholebrain voxels, 10 subjects, 10 blocks/subject would be
-#          400M*4 = 1.6G RAM for rows_per_round rows of the FCM
-rows_per_round:100
+# bytes: rows_per_round * mask2_voxels * subjects * numblocks * 4 (float)
+#  So, if 1000, and 40k wholebrain voxels, 10 subjects, 10 blocks/subject would be
+#          1000*40000*10*10*4 = 16GB RAM
+rows_per_round:1000
 
 # the first block id that is being left out of
 # voxel selection (is_test_mode:0, task_type 0-3)
@@ -139,9 +137,9 @@ num_folds_in_feature_selection:10
 # SAVE PARTIAL FC MATRIX
 # (only if task_type:8)
 # blockid correlations to save in file below
-# 4D file, each "TR" is one voxel's correlation
+# 4D file, each 3D volume is one voxel's correlation
 # in first_maskfile with all second_maskfile
-# voxels, so number of "TRs" is number of voxels
+# voxels, so the "t" dimension is number of voxels
 # in first_maskfile. Due to size, is done for a
 # given blockid, rather than for all blocks.
 # Note: blockid numbering is described in
@@ -155,14 +153,13 @@ visualize_blockid:10
 # (only if task_type:8)
 visualize_reference:data/subject01.nii.gz
 
-# number of cores per node for slave
+# number of cores per node for worker machine
 # consult your system administrator!
-# rondo: 8 during selection, 1 during testing
-omp_num_threads:1
+omp_num_threads:16
 
 # number of tasks (nodes)
 # consult your system administrator!
-# rondo: 8 or 9 for selection, 1 or 2 when testing
+# 1 when testing
 num_processors:1
 
 # image file format extension(s)

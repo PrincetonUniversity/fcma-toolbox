@@ -3,13 +3,14 @@
 # 
 # cd to a dir containing "subjects" dir, mask.nii.gz, and blockfile.txt
 datadir:subjects/
-outputfile:face_scene_9subj
+outputfile:topvoxels
 first_maskfile:brainmask.nii.gz
 second_maskfile:brainmask.nii.gz
 blockfile:blockfile.txt
 num_folds_in_feature_selection:9
 task_type:0
 is_test_mode:0
-omp_num_threads:8
+omp_num_threads:16
 num_processors:8
+rows_per_round:1000
 matrix_format:.nii.gz

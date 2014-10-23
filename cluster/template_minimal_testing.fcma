@@ -11,6 +11,7 @@ blockfile:blockfile.txt
 task_type:5
 is_test_mode:1
 num_items_held_for_test:1
-omp_num_threads:1
+omp_num_threads:16
+rows_per_round:1000
 num_processors:1
 matrix_format:.nii.gz
