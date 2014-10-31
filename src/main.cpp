@@ -157,7 +157,7 @@ void parse_command_line(int argc, char **argv)
     }
   }
 
-  for (int i=start+1; i<argc; i++)
+  for (int i=start+1; i<argc; i+=2)  // here i should increase by two, but the code here is not safe now
   {
     switch (argv[i-1][1])
     {
