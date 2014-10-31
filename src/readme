@@ -65,3 +65,4 @@ rearrange data access sequence in Preprocessing.cpp/h to make better cache usage
 
 1.4.2
 add -f and -p to randomly shuffle the data for non-parametric statistical test
+add ridge regularization and change the data normalization method in marginal screening task
