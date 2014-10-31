@@ -62,3 +62,6 @@ add marginal screening as task 9
 1.4.1
 add matmul function in MatComputation.cpp/h to replace cblas_sgemm for skinny matrix multiplication
 rearrange data access sequence in Preprocessing.cpp/h to make better cache usage
+
+1.4.2
+add -f and -p to randomly shuffle the data for non-parametric statistical test

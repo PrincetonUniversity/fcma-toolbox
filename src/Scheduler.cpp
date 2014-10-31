@@ -16,7 +16,7 @@
 #include "ErrorHandling.h"
 
 // two mask files can be different
-void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2)
+void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
   int i;
   RawMatrix** masked_matrices1=NULL;
@@ -27,17 +27,21 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskTyp
     if (mask_file1!=NULL)
     {
       masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1);
-      //MatrixPermutation(masked_matrices1, nSubs);
     }
     else
       masked_matrices1 = r_matrices;
     if (mask_file2!=NULL)
     {
       masked_matrices2 = GetMaskedMatrices(r_matrices, nSubs, mask_file2);
-      //MatrixPermutation(masked_matrices2, nSubs);
     }
     else
       masked_matrices2 = r_matrices;
+    if (shuffle==1 || shuffle==2)
+    {
+      unsigned int seed = (unsigned int)time(NULL);
+      MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
+      MatrixPermutation(masked_matrices2, nSubs, seed, permute_book_file);
+    }
   }
 #endif
   double tstart = MPI_Wtime();

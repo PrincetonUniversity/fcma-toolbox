@@ -304,28 +304,48 @@ float getAverage(RawMatrix* r_matrix, Trial trial, int vid)
   return result;
 }
 
-void MatrixPermutation(RawMatrix** r_matrices, int nSubs)
+void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, const char* permute_book_file)
 {
   int row = r_matrices[0]->row;
   int col = r_matrices[0]->col;
   int i, j;
-  uint16 buf[row];
-  srand((unsigned int)time(NULL));
-  ifstream ifile("/state/partition3/yidawang/face_scene/permBook1.txt", ios::in);
-  if (!ifile)
+  float buf[row];
+  int index[row];
+  ifstream ifile;
+  if (permute_book_file)  // use permute book
   {
-    FATAL("file not found: "<<"/state/partition3/yidawang/face_scene/permBook1.txt");
+    ifile.open(permute_book_file, ios::in);
+    if (!ifile)
+    {
+      FATAL("file not found: "<<permute_book_file);
+    }
+  }
+  else // use build-in random
+  {
+    srand(seed);
+    for (i=0; i<row; i++) index[i]=i;
   }
   int k;
   for (i=0; i<nSubs; i++)
   {
+    if (permute_book_file)
+    {
+      for (j=0; j<row; j++) ifile>>index[j];
+    }
+    else
+    {
+      random_shuffle(&index[0], &index[row-1]);
+    }
     for (j=0; j<row; j++)
     {
-      ifile>>k;
-      memcpy((void*)buf, (const void*)&(r_matrices[i]->matrix[j*col]), col*sizeof(uint16));
-      memcpy((void*)&(r_matrices[i]->matrix[j*col]), (const void*)&(r_matrices[i]->matrix[k*col]), col*sizeof(double));
-      memcpy((void*)&(r_matrices[i]->matrix[k*col]), (const void*)buf, col*sizeof(double));
+      k = index[j];
+      memcpy((void*)buf, (const void*)&(r_matrices[i]->matrix[j*col]), col*sizeof(float));
+      memcpy((void*)&(r_matrices[i]->matrix[j*col]), (const void*)&(r_matrices[i]->matrix[k*col]), col*sizeof(float));
+      memcpy((void*)&(r_matrices[i]->matrix[k*col]), (const void*)buf, col*sizeof(float));
     }
   }
-  ifile.close();
+  if (permute_book_file)
+  {
+    ifile.close();
+  }
 }

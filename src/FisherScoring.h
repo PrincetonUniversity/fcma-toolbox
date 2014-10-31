@@ -3,6 +3,15 @@
 #include <cmath>
 #include <string.h>
 #include <cstdlib>
+#ifdef USE_MKL
+#include <mkl.h>
+#elif defined __APPLE__
+#include <Accelerate/Accelerate.h>
+#else
+extern "C" {
+#include <cblas.h>
+}
+#endif
 using namespace std;
 void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, int rank, double* S, double* H, int v1, int v2, int n);
 double* GetInverseMat(double* mat, int rank);

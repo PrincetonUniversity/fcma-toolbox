@@ -29,6 +29,8 @@ typedef struct param_t
     int isTestMode;
     int isUsingMaskFile;
     int isQuietMode;
+    int shuffle;
+    const char* permute_book_file;
 }Param;
 
 void run_fcma(Param* param);

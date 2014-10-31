@@ -130,15 +130,19 @@ float* prepare_data(RawMatrix** masked_matrices, Trial* trials, int row, int nTr
       data[j*nTrialsUsed+i] = mean_value;
     }
   }
-  // z-score data
+  // z-score data or convert the data to be the same L2 norm
   #pragma omp parallel for private(i)
   for (i=0; i<row; i++)
   {
-    //z_score(data+i*nTrials, nTrials); // z-score over all blocks
-    for (int j=0; j<nTrialsUsed; j+=nBlocksPerSub)  // z-score within subjects
+    //z_score(data+i*nTrialsUsed, nTrialsUsed); // z-score over all blocks
+    /*for (int j=0; j<nTrialsUsed; j+=nBlocksPerSub)  // z-score within subjects
     {
       z_score(data+i*nTrialsUsed+j, nBlocksPerSub);
-    }
+    }*/
+    double l2norm = 0.0;
+    for (int j=0; j<nTrialsUsed; j++) l2norm+=data[i*nTrialsUsed+j]*data[i*nTrialsUsed+j];
+    l2norm = sqrt(l2norm);
+    for (int j=0; j<nTrialsUsed; j++) data[i*nTrialsUsed+j] = data[i*nTrialsUsed+j] / l2norm;
   }
   return data;
 }
@@ -165,7 +169,7 @@ void compute_second_order(float* data, int* labels, int nTrialsUsed, int row, fl
   //omp_init_lock(&writelock);
   // int n=0;
   int i=0;
-  #pragma omp parallel for private(i)
+  #pragma omp parallel for private(i) schedule(dynamic)
   for (i=0; i<step; i++)
   {
     /*omp_set_lock(&writelock);

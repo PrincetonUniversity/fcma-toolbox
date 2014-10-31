@@ -48,6 +48,8 @@ void exit_with_help()
   "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
   "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
   "-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 7, default 0\n"
+  "-f randomly shuffle the voxel data, 0-no shuffling, 1-shuffle using a random time seed (results are not repeatable), 2-shuffle using an input permuting book (results are repeatable), default 0\n"
+  "-p permuting book, only get values when -f is set to 2; the book contains #subjects row and #voxels column; each row contains random shuffling result of 0 to #voxels-1\n"
   );
   FATAL("usage");
 }
@@ -68,6 +70,8 @@ void set_default_parameters()
   Parameters.mask_file1=Parameters.mask_file2=NULL;
   Parameters.ref_file=NULL;
   Parameters.isQuietMode = false;
+  Parameters.shuffle=0;
+  Parameters.permute_book_file=NULL;
 }
 
 void check_parameters()
@@ -115,6 +119,16 @@ void check_parameters()
   if (Parameters.taskType==8 && Parameters.ref_file==NULL)
   {
     cout<<"in the voxel correlation visualization task, a reference file must be provided"<<endl;
+    exit_with_help();
+  }
+  if (Parameters.shuffle==2 && Parameters.permute_book_file==NULL)
+  {
+    cout<<"the permute book file should be specified"<<endl;
+    exit_with_help();
+  }
+  if (Parameters.shuffle!=2 && Parameters.permute_book_file!=NULL)
+  {
+    cout<<"the permute book file should not be set if -f is not 2"<<endl;
     exit_with_help();
   }
 }
@@ -194,6 +208,12 @@ void parse_command_line(int argc, char **argv)
         break;
       case 'q':
         Parameters.isQuietMode = (atoi(argv[i]) == 1);
+        break;
+      case 'f':
+        Parameters.shuffle = atoi(argv[i]);
+        break;
+      case 'p':
+        Parameters.permute_book_file = argv[i];
         break;
       default:
         cout<<"unknown option: -"<<argv[i-1][1]<<endl;
@@ -331,6 +351,8 @@ void run_fcma(Param* param)
     int nFolds = param->nFolds;
     int visualized_block_id = param->visualized_block_id;
     int is_quiet_mode = param->isQuietMode;
+    int shuffle = param->shuffle;
+    const char* permute_book_file = param->permute_book_file;
     /* setting done */
     /* ---------------------------------------------- */
     /* data reading and initialization */
@@ -488,7 +510,7 @@ void run_fcma(Param* param)
                     if (taskType==1) cout<<"distance ratio selecting..."<<endl;
                     if (taskType==3) cout<<"correlation sum..."<<endl;
                 }
-                Scheduler(me, nprocs, step, r_matrices, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1, mask_file2);
+                Scheduler(me, nprocs, step, r_matrices, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1, mask_file2, shuffle, permute_book_file);
                 break;
             case 2:
                 cout<<"Searchlight selecting..."<<endl;
