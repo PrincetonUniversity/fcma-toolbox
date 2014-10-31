@@ -123,26 +123,28 @@ void parse_command_line(int argc, char **argv)
 {
 #ifndef __MIC__
   set_default_parameters();
-  int i;
-  for (i=1; i<argc; i++)
+
+  if (argc < 2) {
+    exit_with_help();
+  }
+
+  int start = 1;
+  if (argv[1][0] != '-')
   {
-    if (argv[i][0] != '-')
+    const char* ext = GetFilenameExtension(argv[1]);
+    if (!strncasecmp(ext,"fcma",4))
     {
-      const char* ext = GetFilenameExtension(argv[i]);
-      if (!strncasecmp(ext,"fcma",4))
-      {
-          //std::cout << "reading fcma config file" << std::endl;
-          int max_elements = 256;
-          char** keys_and_values = new char*[max_elements];
-          int num_elements = ReadConfigFile(argv[i], max_elements, keys_and_values);
-          params_from_keyvalues(keys_and_values,num_elements);
-      }
-      break;
+        //std::cout << "reading fcma config file" << std::endl;
+        int max_elements = 256;
+        char** keys_and_values = new char*[max_elements];
+        int num_elements = ReadConfigFile(argv[1], max_elements, keys_and_values);
+        params_from_keyvalues(keys_and_values,num_elements);
+        start = 2;
     }
-    if (++i >= argc)
-    {
-      exit_with_help();
-    }
+  }
+
+  for (int i=start+1; i<argc; i++)
+  {
     switch (argv[i-1][1])
     {
       case 's':
@@ -332,7 +334,7 @@ void run_fcma(Param* param)
     /* setting done */
     /* ---------------------------------------------- */
     /* data reading and initialization */
-    // MIC process doesn't read in parameters, so some parameters need to be broadcasted
+    // workers don't read in parameters, so some parameters need to be broadcasted
     MPI_Bcast((void*)&nHolds, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast((void*)&leave_out_id, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast((void*)&nFolds, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -340,7 +342,7 @@ void run_fcma(Param* param)
     int nTrials = 0;
     int nSubs = 0;
 
-    RawMatrix** r_matrices = NULL; // bds init to null
+    RawMatrix** r_matrices = NULL;
 #ifndef __MIC__
     if (me==0)
     {
@@ -356,7 +358,7 @@ void run_fcma(Param* param)
         cout<<"data reading done!"<<endl;
         //cout<<row_tmp<<endl;
     }
-    VoxelXYZ* pts = NULL; // bds init to null
+    VoxelXYZ* pts = NULL; 
 #ifndef __MIC__
     if (me == 0)
     {

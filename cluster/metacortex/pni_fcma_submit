@@ -1,12 +1,13 @@
 #!/bin/bash
 
-default_pe="mpi"
 # the fcma file with runtime settings read in by pni_fcma
 # and this script too (for meta-settings)
 fcmafile="/share/apps/fcma-toolbox/cluster/template.fcma"
 (( $# < 1 )) && echo "usage: $(basename $0) params.fcma  | example fcmafile at $fcmafile" && exit 1
 [[ ! -f $1 ]] && echo "$1 not found" && exit 1
 fcmafile=$1
+shift
+the_rest=$@
 dryrun=0
 #----------------
 # hget()
@@ -21,14 +22,6 @@ dryrun=$(hget dryrun)
 # which binary to run
 binary=$(hget binary)
 [[ -z $binary ]] && binary=pni_fcma
-
-# use sge job?
-use_sge=$(hget use_sge)
-[[ -n $use_sge ]] && (( use_sge == 0 )) && use_sge=0 || use_sge=1
-(( use_sge )) && qconf -sp $default_pe >/dev/null 2>&1 && use_sge=1 || use_sge=0
-(( use_sge )) ||  echo -n "NOT "
-echo "using sge job submission"
-(( use_sge )) || hostfile=$(hget hostfile)
 
 # use xeon phi?
 use_phi=$(hget use_phi)
@@ -45,18 +38,13 @@ if (( use_phi )); then
 
   micenable="I_MPI_MIC=enable"
   threadline_mic="-env OMP_NUM_THREADS ${threads_mic}"
-  [[ -f $hostfile ]] && michosts=$(cat $hostfile | grep mic | xargs echo | sed 's/ /,/')
-  [[ -n $michosts ]] && nmhosts=$(cat $hostfile | grep mic | wc -l | awk '{print $1}')
-  (( nmhosts > 0 )) && hostline_mic="-hosts $michosts" || hostline_mic=""
+  #TODO: slurm srun phi
+  pmiline_mic="" 
 else
-  nmhosts=0
   micenable=""
   threadline_mic=""
+  pmiline_mic=""
 fi
-
-[[ -f $hostfile ]] && cpuhosts=$(cat $hostfile | grep -v mic | xargs echo | sed 's/ /,/')
-[[ -n $cpuhosts ]] && nchosts=$(cat $hostfile | grep -v mic | wc -l | awk '{print $1}')
-(( nchosts > 0 )) && hostline="-hosts $cpuhosts" || hostline=""
 
 # number of OpenMP threads
 # per node. max is 32 on metacortex
@@ -64,66 +52,52 @@ fi
 threads_max=32
 threads=$(hget omp_num_threads)
 ( [[ x$threads == x ]] || (( threads > threads_max )) ) && threads=$threads_max
-threadline="-env OMP_NUM_THREADS ${threads}"
-
-# TODO: set rows_per_round dynamically in
-# the pni_fcma C++ code. Depends on the
-# data, memory available etc
+threadline="OMP_NUM_THREADS=${threads}"
+pmiline="I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so"
 
 # --------------------------
 # main
 # --------------------------
 
-#-genv I_MPI_DEBUG 5 \
-#-genv I_MPI_FABRICS_LIST tcp \
-#-genv I_MPI_FALLBACK 0"
-
 command="\
 $micenable \
-mpiexec.hydra $threadline $hostline $binary $fcmafile"
+$threadline $pmiline \
+srun $binary $fcmafile $the_rest"
 
 if (( use_phi )); then
 
   command="$command \
 : \
-$threadline_mic \
--env LD_LIBRARY_PATH /opt/intel/mkl/lib/mic:/opt/intel/composer_xe/compiler/lib/mic \
-${binary_mic} $hostline_mic $fcmafile"
+$threadline_mic $pmiline_mic \
+LD_LIBRARY_PATH=/opt/intel/mkl/lib/mic:/opt/intel/composer_xe/compiler/lib/mic \
+${binary_mic} $fcmafile"
 
 fi
 
 [[ x$dryrun != x ]] && printf "\n\t**** DRY RUN, would run: ****\n\n"
 
-if (( use_sge )); then
-  containingdir=$(basename $(dirname $fcmafile))
-  [[ -z $containingdir ]] || [[ $containingdir == . ]] && containingdir=$(basename $PWD)
-  fr=$(basename $fcmafile)
-  fcmaroot=${fr%\.fcma}
-  jobname="${containingdir}_${fcmaroot}"
-  echo "job name set to $jobname"
+containingdir=$(basename $(dirname $fcmafile))
+[[ -z $containingdir ]] || [[ $containingdir == . ]] && containingdir=$(basename $PWD)
+fr=$(basename $fcmafile)
+fcmaroot=${fr%\.fcma}
+jobname="${containingdir}_${fcmaroot}"
+echo "job name set to $jobname"
 
-  tempfile=$(mktemp)
+tempfile=$(mktemp)
 
-  num_processors=$(hget num_processors)
-  [[ -z $num_processors ]] && num_processors=8
+num_processors=$(hget num_processors)
+[[ -z $num_processors ]] && num_processors=8
 
 cat <<EOF > $tempfile
-#!/bin/bash
-#\$-V -j y -cwd -N $jobname
-#\$-q fcma.q
-#\$-pe mpi $num_processors
+#!/bin/sh
+#SBATCH -J $jobname
+#SBATCH -p fcma
+#SBATCH -n $num_processors
+#SBATCH -c $threads
 $command
 EOF
   
-  [[ x$dryrun != x ]] && echo "qsubbing this file:" && cat $tempfile && rm -f $tempfile && exit 
+[[ x$dryrun != x ]] && echo "submitting this file:" && cat $tempfile && rm -f $tempfile && exit 
 
-  qsub $tempfile
-else
-
-  echo $command
-  [[ x$dryrun != x ]] && exit
-
-  eval $command
-
-fi
+sbatch $tempfile
 
