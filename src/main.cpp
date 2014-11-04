@@ -514,7 +514,7 @@ void run_fcma(Param* param)
                 break;
             case 2:
                 cout<<"Searchlight selecting..."<<endl;
-                Searchlight(avg_matrices, nSubs, trials, nTrials, nHolds, nFolds, pts, output_file, mask_file1);  // doesn't need mpi
+                Searchlight(avg_matrices, nSubs, trials, nTrials, nHolds, nFolds, pts, output_file, mask_file1, shuffle, permute_book_file);  // doesn't need mpi
                 break;
             case 9:
                 if (me==0)

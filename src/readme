@@ -66,3 +66,7 @@ rearrange data access sequence in Preprocessing.cpp/h to make better cache usage
 1.4.2
 add -f and -p to randomly shuffle the data for non-parametric statistical test
 add ridge regularization and change the data normalization method in marginal screening task
+
+1.4.3
+improve the performance of activity-based searchligt voxel selection (-k 2)
+add shuffling to activity-based voxel selection, works as for correlation-based voxel selection

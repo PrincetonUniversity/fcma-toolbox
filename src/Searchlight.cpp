@@ -19,7 +19,7 @@ main function of this file, do the traditional feature selection and classificat
 input: the averaged raw matrix array, the number of subjects, the trials, the number of trials, the number of test samples, the number of folds in the svm-cv, the voxel location information, the top voxel file name, the mask file name
 output: write the voxels in decreasing order of classification accuracy to the top voxel file\
 ************************************/
-void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, VoxelXYZ* pts, const char* topVoxelFile, const char* maskFile)
+void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials, int nTests, int nFolds, VoxelXYZ* pts, const char* topVoxelFile, const char* maskFile, int shuffle, const char* permute_book_file)
 {
 #ifndef __MIC__
   RawMatrix** masked_matrices=NULL;
@@ -34,6 +34,11 @@ void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials
     masked_matrices = avg_matrices;
     masked_pts = pts;
   }
+  if (shuffle==1 || shuffle==2)
+    {
+      unsigned int seed = (unsigned int)time(NULL);
+      MatrixPermutation(masked_matrices, nSubs, seed, permute_book_file);
+    }
   int i;
   int row = masked_matrices[0]->row;  // assume all elements in r_matrices array have the same row
   cout<<"#voxels for mask: "<<row<<endl;
@@ -73,17 +78,19 @@ VoxelScore* GetSearchlightSVMPerformance(RawMatrix** avg_matrices, Trial* trials
   svm_set_print_string_function(&print_null);
   int row = avg_matrices[0]->row;  // assume all elements in r_matrices array have the same row
   VoxelScore* score = new VoxelScore[row];  // get step voxels classification accuracy here
-  int i, j;
+  int i;
+  #pragma omp parallel for private(i) schedule(dynamic)
   for (i=0; i<row; i++)
   {
     SVMProblem* prob = GetSearchlightSVMProblem(avg_matrices, trials, i, nTrials-nTests, pts);
-    if (i%1000==0) cout<<i<<" ";
+    if (i%1000==0) cout<<i<<" "<<flush;
     //if (me==0) PrintSVMProblem(prob);
     SVMParameter* param = SetSVMParameter(0); // 2 for RBF kernel
     (score+i)->vid = i;
     (score+i)->score = DoSVM(nFolds, prob, param);
     delete param;
     delete prob->y;
+    int j;
     for (j=0; j<nTrials-nTests; j++)
     {
       delete prob->x[j];
@@ -112,7 +119,6 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
   int nVoxels = avg_matrices[0]->row;
   int* voxels = GetSphere(curVoxel, nVoxels, pts);
   int nSphereVoxels = 33;
-  #pragma omp parallel for
   for (int i=0; i<nTrainings; i++)
   {
     //cout<<trials[i].tid<<" "<<trials[i].sid<<" "<<trials[i].label<<" "<<trials[i].sc<<" "<<trials[i].ec<<endl;
