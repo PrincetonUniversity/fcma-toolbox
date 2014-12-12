@@ -388,6 +388,13 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
       for (k=0; k<trialsPerSub; k++)
       {
         buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);
+        //cout<<values[i*trialsPerSub*length+k*length+j]<<" ";
+        /*if (values[i*trialsPerSub*length+k*length+j]>=0)
+          values[i*trialsPerSub*length+k*length+j] = log(values[i*trialsPerSub*length+k*length+j]+1);
+        else
+          values[i*trialsPerSub*length+k*length+j] = -log(-values[i*trialsPerSub*length+k*length+j]+1);
+        buf[k] = values[i*trialsPerSub*length+k*length+j];*/
+        //cout<<values[i*trialsPerSub*length+k*length+j]<<endl;
       }
       z_score(buf, trialsPerSub);
       for (k=0; k<trialsPerSub; k++)

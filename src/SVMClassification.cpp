@@ -149,3 +149,60 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
   delete[] target;
   return 1.0*total_correct/prob->l;
 }
+
+VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
+{
+  if (me==0)  //sanity check
+  {
+    FATAL("the master node isn't supposed to do classification jobs");
+  }
+  svm_set_print_string_function(&print_null);
+  int row = voxels[0]->nVoxels; // assume all elements in voxels array have the same #voxels
+  //int length = row * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
+  VoxelScore* scores = new VoxelScore[step];  // get step voxels classification accuracy here
+  int i;
+  #pragma omp parallel for private(i)
+  for (i=0; i<step; i++)
+  {
+    SVMProblem* prob = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
+    SVMParameter* param = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
+    (scores+i)->vid = voxels[i]->vid;
+    (scores+i)->score = DoSVM(nFolds, prob, param);
+    delete param;
+    delete[] prob->y;
+    for (int j=0; j<nTrainings; j++)
+    {
+      delete prob->x[j];
+    }
+    delete[] prob->x;
+    delete prob;
+  }
+  return scores;
+}
+
+SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, int nTrainings)  //for voxelwise
+{
+  SVMProblem* prob = new SVMProblem();
+  prob->l = nTrainings;
+  prob->y = new double[nTrainings];
+  prob->x = new SVMNode*[nTrainings];
+  int i, j;
+  float* simMatrix = new float[nTrainings*nTrainings];
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, voxel->corr_vecs, row, voxel->corr_vecs, row, 0.0, simMatrix, nTrainings);
+  //matmul(corrMatrix, corrMatrix, simMatrix, nTrainings, row, nTrainings);
+  for (i=0; i<nTrainings; i++)
+  {
+    prob->y[i] = trials[i].label;
+    prob->x[i] = new SVMNode[nTrainings+2];
+    prob->x[i][0].index = 0;
+    prob->x[i][0].value = i+1;
+    for (j=0; j<nTrainings; j++)
+    {
+      prob->x[i][j+1].index = j+1;
+      prob->x[i][j+1].value = simMatrix[i*nTrainings+j];
+    }
+    prob->x[i][j+1].index = -1;
+  }
+  delete[] simMatrix;
+  return prob;
+}

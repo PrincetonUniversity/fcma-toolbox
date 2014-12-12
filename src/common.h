@@ -86,6 +86,15 @@ typedef struct trial_t
   int tid_withinsubj;
 }Trial;
 
+typedef struct voxel_t
+{
+  int vid;
+  float* corr_vecs;
+  int nTrials;  //row
+  int nVoxels;  //col
+  voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
+}Voxel;
+
 typedef struct voxel_Score_t
 {
   int vid;

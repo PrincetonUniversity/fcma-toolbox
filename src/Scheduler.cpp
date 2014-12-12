@@ -13,6 +13,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "SVMClassification.h"
+#include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
 
 // two mask files can be different
@@ -284,31 +285,76 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     {
       break;
     }
+#ifdef __MIC__
+#if __MEASURE_TIME__
+    double t1 = MPI_Wtime();
+#endif
+    Voxel** voxels = ComputeAllVoxelsAnalysisData(trials, nTrials, sr, step, matrices1, matrices2);
+#if __MEASURE_TIME__
+    double t2 = MPI_Wtime();
+    cout<<"voxel computing: "<<t2-t1<<"s"<<endl<<flush;
+#endif
+#else
     CorrMatrix** c_matrices;
-    //double t1 = MPI_Wtime();
+#if __MEASURE_TIME__
+    double t1 = MPI_Wtime();
+#endif
     c_matrices = ComputeAllTrialsCorrMatrices(trials, nTrials, sr, step, matrices1, matrices2);
-    //double t2 = MPI_Wtime();
-    //cout<<"matrix computing: "<<t2-t1<<"s"<<endl;
+#if __MEASURE_TIME__
+    double t2 = MPI_Wtime();
+    cout<<"matrix computing: "<<t2-t1<<"s"<<endl;
+#endif
+#endif
     VoxelScore* scores = NULL;
     switch (taskType)
     {
       case 0:
+#ifdef __MIC__
+#if __MEASURE_TIME__
+        t1 = MPI_Wtime();
+#endif
+        PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
+#if __MEASURE_TIME__
+        t2 = MPI_Wtime();
+        cout<<"prerocessing: "<<t2-t1<<"s"<<endl;
+#endif
+        scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
+#if __MEASURE_TIME__
+        t1 = MPI_Wtime();
+        cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+#endif
+#else
         // Fisher transform and z-score (across the blocks) the data here
-        //double t3 = MPI_Wtime();
+#if __MEASURE_TIME__
+        t1 = MPI_Wtime();
+#endif
         corrMatPreprocessing(c_matrices, nTrials, nSubs);
-        //double t4 = MPI_Wtime();
-        //cout<<"matrix normalization: "<<t4-t3<<"s"<<endl;
+#if __MEASURE_TIME__
+        t2 = MPI_Wtime();
+        cout<<"matrix normalization: "<<t2-t1<<"s"<<endl;
+#endif
         scores = GetSVMPerformance(me, c_matrices, nTrials-nHolds, nFolds);
-        //double t5 = MPI_Wtime();
-        //cout<<"svm processing: "<<t5-t4<<"s"<<endl;
+#if __MEASURE_TIME__
+        t1 = MPI_Wtime();
+        cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+#endif
+#endif
         break;
       case 1:
+#ifdef __MIC__
+
+#else
         // Fisher transform and z-score (across the blocks) the data here
         corrMatPreprocessing(c_matrices, nTrials, nSubs);
         scores = GetDistanceRatio(me, c_matrices, nTrials-nHolds);
+#endif
         break;
       case 3:
+#ifdef __MIC__
+
+#else
         scores = GetCorrVecSum(me, c_matrices, nTrials);
+#endif
         break;
       default:
         FATAL("unknown task type");
@@ -322,24 +368,33 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
            masterId,                            /* destination process rank */
            ELAPSETAG,                      /* user chosen message tag */
            MPI_COMM_WORLD);                 /* default communicator */
-    MPI_Send(&(c_matrices[0]->step),  /* message buffer, the correlation vector */
+    MPI_Send(&step,  /* message buffer, the correlation vector */
            1,                  /* number of data to send */
            MPI_INT,                       /* data item is float */
            masterId,                            /* destination process rank */
            LENGTHTAG,                      /* user chosen message tag */
            MPI_COMM_WORLD);                 /* default communicator */
     MPI_Send(scores,  /* message buffer, the correlation vector */
-           c_matrices[0]->step*2,                  /* number of data to send */
+           step*2,                  /* number of data to send */
            MPI_FLOAT,                       /* data item is float */
            masterId,                            /* destination process rank */
            VOXELCLASSIFIERTAG,                      /* user chosen message tag */
            MPI_COMM_WORLD);                 /* default communicator */
     delete scores;
+#ifdef __MIC__
+    int i;
+    for (i=0; i<step; i++)
+    {
+      delete voxels[i]->corr_vecs;
+    }
+    delete voxels;
+#else
     int i;
     for (i=0; i<nTrials; i++)
     {
       delete c_matrices[i]->matrix;
     }
     delete c_matrices;
+#endif
   }
 }
