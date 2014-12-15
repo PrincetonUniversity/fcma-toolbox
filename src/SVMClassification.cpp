@@ -139,13 +139,11 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
   //svm_cross_validation(prob, param, 8, target);  // 8-fold cross validation
   for(i=0;i<prob->l;i++)
   {
-    //cout<<target[i]<<" "<<prob->y[i]<<endl; getchar();
-		if(target[i] == prob->y[i])
+    if(target[i] == prob->y[i])
     {
-			total_correct++;
+      total_correct++;
     }
   }
-  //cout<<total_correct<<" "<<prob->l; getchar();
   delete[] target;
   return 1.0*total_correct/prob->l;
 }
@@ -172,7 +170,7 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
     delete[] prob->y;
     for (int j=0; j<nTrainings; j++)
     {
-      delete prob->x[j];
+      kmp_free(prob->x[j]);
     }
     delete[] prob->x;
     delete prob;
@@ -193,7 +191,7 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, in
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = trials[i].label;
-    prob->x[i] = new SVMNode[nTrainings+2];
+    prob->x[i] = (SVMNode*)kmp_malloc(sizeof(SVMNode)*(nTrainings+2));
     prob->x[i][0].index = 0;
     prob->x[i][0].value = i+1;
     for (j=0; j<nTrainings; j++)

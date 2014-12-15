@@ -74,3 +74,5 @@ add shuffling to activity-based voxel selection, works as for correlation-based 
 1.4.4
 add VoxelwiseAnalysis.cpp/h for better performance (3x faster) of correlation-based voxel selection (-k 0) running on Phi
 provide a flag option __MEASURE_TIME__ for printing the matrix multiply, normalization and SVM classification time info for correlation-based voxel selection
+1.4.5
+replace the intensively used malloc in Phi version with kmp_malloc to release locking issue
