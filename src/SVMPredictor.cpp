@@ -27,14 +27,15 @@ int getNumTopIndices(int* tops, int maxtops, int nvoxels)
 }
 
 /***************************************
-predict a new sample based on a trained SVM model and a variation of the numbers of top voxels. if correlation, assume that it's a self correlation, so only one mask file is enough
-input: the raw activation matrix array, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results, the mask file
+predict a new sample based on a trained SVM model and a variation of the numbers of top voxels. if correlation, assume that the mask files used for two correlated subjects are the same, so only one mask file is enough
+input: the raw activation matrix arrays, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results, the mask file
 output: the results are displayed on the screen
 ****************************************/
-void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
+void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
 {
 #ifndef __MIC__
-  RawMatrix** masked_matrices=NULL;
+  RawMatrix** masked_matrices1=NULL;
+  RawMatrix** masked_matrices2=NULL;
   int row = 0;
   int col = 0;
   svm_set_print_string_function(&print_null);
@@ -47,31 +48,38 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
     case 0:
     case 1:
       if (mask_file!=NULL)
-        masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file);
+      {
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file);
+        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file);
+      }
       else
-        masked_matrices = r_matrices;
-      row = masked_matrices[0]->row;
-      col = masked_matrices[0]->col;
+      {
+        masked_matrices1 = r_matrices;
+        masked_matrices2 = r_matrices2;
+      }
+      row = masked_matrices1[0]->row;
+      col = masked_matrices1[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);
-      RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
+      RearrangeMatrix(masked_matrices1, scores, row, col, nSubs);
+      RearrangeMatrix(masked_matrices2, scores, row, col, nSubs);
       ntops = getNumTopIndices(tops, maxtops, row);
       if (ntops > 0)
-          CorrelationBasedClassification(tops, ntops, nSubs, nTrials, trials, nTests, masked_matrices, is_quiet_mode);
+          CorrelationBasedClassification(tops, ntops, nSubs, nTrials, trials, nTests, masked_matrices1, masked_matrices2, is_quiet_mode);
       else
           cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
     case 2:
       if (mask_file!=NULL)
-        masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
+        masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
       else
-        masked_matrices = avg_matrices;
-      row = masked_matrices[0]->row;
-      col = masked_matrices[0]->col;
+        masked_matrices1 = avg_matrices;
+      row = masked_matrices1[0]->row;
+      col = masked_matrices1[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);
-      RearrangeMatrix(masked_matrices, scores, row, col, nSubs);
+      RearrangeMatrix(masked_matrices1, scores, row, col, nSubs);
       ntops = getNumTopIndices(tops, maxtops, row);
       if (ntops > 0)
-          ActivationBasedClassification(tops, ntops, nTrials, trials, nTests, masked_matrices, is_quiet_mode);
+          ActivationBasedClassification(tops, ntops, nTrials, trials, nTests, masked_matrices1, is_quiet_mode);
       else
           cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
@@ -84,13 +92,13 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** avg_matrices, int nSubs, int
 
 /**********************************************
 do the prediction based on correlation and a variation of the numbers of top voxels
-input: the array of the numbers of top voxels, the number of subjects, the number of blocks, the blocks, the number of test samples, the raw activation matrix array, quiet mode
+input: the array of the numbers of top voxels, the number of subjects, the number of blocks, the blocks, the number of test samples, the raw activation matrix arrays, quiet mode
 output: the results are displayed on the screen
 ***********************************************/
-void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices, int is_quiet_mode)
+void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials, Trial* trials, int nTests, RawMatrix** r_matrices1, RawMatrix** r_matrices2, int is_quiet_mode)
 {
   int i, j, k;
-  int col = r_matrices[0]->col;
+  int col = r_matrices1[0]->col;
   float* simMatrix = new float[nTrials*nTrials];
   for (i=0; i<ntops; i++)
   {
@@ -103,7 +111,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
       {
         rowLength = tops[i] - sr;
       }
-      float* tempSimMatrix = GetPartialInnerSimMatrix(tops[i], col, nSubs, nTrials, sr, rowLength, trials, r_matrices);
+      float* tempSimMatrix = GetPartialInnerSimMatrix(tops[i], col, nSubs, nTrials, sr, rowLength, trials, r_matrices1, r_matrices2);
       for (j=0; j<nTrials*nTrials; j++) simMatrix[j] += tempSimMatrix[j];
       //cout<<i<<" "<<sr<<" "<<tempSimMatrix[0]<<" "<<tempSimMatrix[1]<<endl;
       delete[] tempSimMatrix;
@@ -310,7 +318,7 @@ void RearrangeMatrix(RawMatrix** r_matrices, VoxelScore* scores, int row, int co
 }
 
 // row here is nTops, most of the time is function is not practical due to out of memory
-float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix** r_matrices) // only compute the correlation among the selected voxels
+float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix** r_matrices1, RawMatrix** r_matrices2) // only compute the correlation among the selected voxels
 {
   int i;
   float* values = new float[nTrials*row*row];
@@ -321,11 +329,15 @@ float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
-    float* mat = r_matrices[sid]->matrix;
-    float* buf = new float[row*col]; // col is more than what really need, just in case
-    int ml = getBuf(sc, ec, row, col, mat, buf);  // get the normalized matrix, return the length of time points to be computed
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row, row, ml, 1.0, buf, ml, buf, ml, 0.0, values+i*row*row, row);
-    delete[] buf;
+    float* mat1 = r_matrices1[sid]->matrix;
+    float* mat2 = r_matrices2[sid]->matrix;
+    float* buf1 = new float[row*col]; // col is more than what really need, just in case
+    float* buf2 = new float[row*col]; // col is more than what really need, just in case
+    int ml = getBuf(sc, ec, row, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
+    getBuf(sc, ec, row, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row, row, ml, 1.0, buf1, ml, buf2, ml, 0.0, values+i*row*row, row);
+    delete[] buf1;
+    delete[] buf2;
   }
   GetDotProductUsingMatMul(simMatrix, values, nTrials, row, row);
   delete[] values;
@@ -333,7 +345,7 @@ float* GetInnerSimMatrix(int row, int col, int nTrials, Trial* trials, RawMatrix
 }
 
 // row here is nTops, get the inner product of vectors from start row(sr), last rowLength-length
-float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials, int sr, int rowLength, Trial* trials, RawMatrix** r_matrices) // only compute the correlation among the selected voxels
+float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials, int sr, int rowLength, Trial* trials, RawMatrix** r_matrices1, RawMatrix** r_matrices2) // only compute the correlation among the selected voxels
 {
   int i;
   float* values = new float[nTrials*rowLength*row];
@@ -344,14 +356,18 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials, int sr
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
-    float* mat = r_matrices[sid]->matrix;
+    float* mat1 = r_matrices1[sid]->matrix;
+    float* mat2 = r_matrices2[sid]->matrix;
     //if (i==0 && sr==0) cout<<mat[1000*col]<<" "<<mat[1000*col+1]<<" "<<mat[1000*col+2]<<" "<<mat[1000*col+3]<<endl;
     //else if (i==0 && sr!=0) cout<<mat[0]<<" "<<mat[1]<<" "<<mat[2]<<" "<<mat[3]<<endl;
-    float* buf = new float[row*col]; // col is more than what really need, just in case
-    int ml = getBuf(sc, ec, row, col, mat, buf);  // get the normalized matrix, return the length of time points to be computed
+    float* buf1 = new float[row*col]; // col is more than what really need, just in case
+    float* buf2 = new float[row*col]; // col is more than what really need, just in case
+    int ml = getBuf(sc, ec, row, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
+    getBuf(sc, ec, row, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed
     //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row, ml, 1.0, buf+sr*ml, ml, buf, ml, 0.0, corrs, row);
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row, ml, 1.0, buf+sr*ml, ml, buf, ml, 0.0, values+i*rowLength*row, row);
-    delete[] buf;
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row, ml, 1.0, buf1+sr*ml, ml, buf2, ml, 0.0, values+i*rowLength*row, row);
+    delete[] buf1;
+    delete[] buf2;
   }
   NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);

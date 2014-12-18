@@ -13,6 +13,8 @@ extern "C" {
 typedef struct param_t
 {
     const char* fmri_directory;
+    const char* fmri_directory1;
+    const char* fmri_directory2;
     const char* fmri_file_type;
     const char* block_information_file;
     const char* block_information_directory;

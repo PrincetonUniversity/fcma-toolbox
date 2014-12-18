@@ -17,7 +17,7 @@
 #include "ErrorHandling.h"
 
 // two mask files can be different
-void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
+void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
   int i;
   RawMatrix** masked_matrices1=NULL;
@@ -33,10 +33,12 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskTyp
       masked_matrices1 = r_matrices;
     if (mask_file2!=NULL)
     {
-      masked_matrices2 = GetMaskedMatrices(r_matrices, nSubs, mask_file2);
+      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2);
     }
     else
-      masked_matrices2 = r_matrices;
+    {
+      masked_matrices2 = r_matrices2;
+    }
     if (shuffle==1 || shuffle==2)
     {
       unsigned int seed = (unsigned int)time(NULL);

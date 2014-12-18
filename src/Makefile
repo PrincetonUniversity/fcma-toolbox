@@ -10,7 +10,7 @@ include Make.user
 MPICC ?= mpic++
 NIFTILOC ?= ../deps/nifticlib-2.0.0
 WARNFLAGS ?= -Wall -Wextra
-OPTIMFLAGS ?= -O3 -fopenmp -pthread
+OPTIMFLAGS ?= -O3 -fopenmp -pthread -ansi_alias
 EXECUTABLE ?= pni_fcma
 
 LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -L$(HOME)/code/fcma-toolbox/src_th/multi_depend_th -lniftiio -lznz -lz

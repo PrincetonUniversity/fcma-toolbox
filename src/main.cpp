@@ -31,7 +31,9 @@ void exit_with_help()
   "Usage 1: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma -d matrix_directory -m matrix_file_type -t output_file -k taskType [options]\n"
   "Usage 2: [OMP_NUM_THREADS=n mpirun -np n -hostfile host] ./pni_fcma config.fcma\n"
   "required:\n"
-  "-d matrix directory, contains files in binary gz format, beginning with numbers of row and column\n"
+  "-d nifti file directory, contains files in nifti gz format\n"
+  "-1 one of the nifti file directories, if providing -1, -2 must be provided, too. providing -1 and -2 will cause error if providing -d as well\n"
+  "-2 the other one of the nifti file directories, -1 and -2 MUST have the same number of nifti files and file name sequence should be matched. -2 won't be used in activity-based analysis\n"
   "-m matrix file type, usually the extension name\n"
   "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation, 8 for voxel correlation visualizarion\n"
   "-t output file for task 0,1,2,3 in the voxel selection mode, input file for the same tasks in the test mode\n"
@@ -44,7 +46,7 @@ void exit_with_help()
   "-c bool, test mode (1) or not (0), default 0\n"
   "-n number of folds in the feature selection, default 0\n"
   "-x the first mask file, default no mask\n"
-  "-y the second mask file, default no mask\n"
+  "-y the second mask file, default no mask. for voxel selection, we generally require mask1==mask2\n"
   "-v the block id that you want to visualize the correlation, must be specified in task 8\n"
   "-r the referred file of the output file of task 8, must be a 4D file, usually is the input data file\n"
   "-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 7, default 0\n"
@@ -56,7 +58,9 @@ void exit_with_help()
 
 void set_default_parameters()
 {
-  Parameters.fmri_directory = "data/";
+  Parameters.fmri_directory = NULL;
+  Parameters.fmri_directory1 = NULL;
+  Parameters.fmri_directory2 = NULL;
   Parameters.fmri_file_type = ".nii.gz";
   Parameters.output_file = "topvoxels";
   Parameters.block_information_file = Parameters.block_information_directory = NULL;
@@ -76,7 +80,7 @@ void set_default_parameters()
 
 void check_parameters()
 {
-  if (Parameters.fmri_directory==NULL)
+  if (Parameters.fmri_directory==NULL && Parameters.fmri_directory1==NULL && Parameters.fmri_directory2==NULL)
   {
     cout<<"no fmri directory, general information below"<<endl;
     exit_with_help();
@@ -131,6 +135,16 @@ void check_parameters()
     cout<<"the permute book file should not be set if -f is not 2"<<endl;
     exit_with_help();
   }
+  if (Parameters.fmri_directory!=NULL && (Parameters.fmri_directory1!=NULL || Parameters.fmri_directory2!=NULL))
+  {
+    cout<<"-d and -1 -2 cannot be used together"<<endl;
+    exit_with_help();
+  }
+  if (Parameters.fmri_directory==NULL && (Parameters.fmri_directory1==NULL || Parameters.fmri_directory2==NULL))
+  {
+    cout<<"-1 -2 should be provided together"<<endl;
+    exit_with_help();
+  }
 }
 
 void parse_command_line(int argc, char **argv)
@@ -166,6 +180,12 @@ void parse_command_line(int argc, char **argv)
         break;
       case 'd':
         Parameters.fmri_directory = argv[i];
+        break;
+      case '1':
+        Parameters.fmri_directory1 = argv[i];
+        break;
+      case '2':
+        Parameters.fmri_directory2 = argv[i];
         break;
       case 'm':
         Parameters.fmri_file_type = argv[i];
@@ -257,71 +277,71 @@ const char* values[] = { KEYS_DEF };
 
 static void params_from_keyvalues(char** keys_and_values,const int& num_elements)
 {
-    bool found[FCMA_NUM_KEYS];
-    for (int i=0; i<FCMA_NUM_KEYS; i++) found[i] = false;
-    
-    for ( int i=0; i<num_elements; i+=2 )
+  bool found[FCMA_NUM_KEYS];
+  for (int i=0; i<FCMA_NUM_KEYS; i++) found[i] = false;
+
+  for ( int i=0; i<num_elements; i+=2 )
+  {
+    int v = i+1;
+    for ( int k = FCMA_FIRSTKEY; k < FCMA_NUM_KEYS; k++ )
     {
-        int v = i+1;
-        for ( int k = FCMA_FIRSTKEY; k < FCMA_NUM_KEYS; k++ )
+      if ( found[k] ) continue;
+      if ( !strcmp(keys_and_values[i],values[k]) )
+      {
+        switch( k )
         {
-            if ( found[k] ) continue;
-            if ( !strcmp(keys_and_values[i],values[k]) )
-            {
-                switch( k )
-                {
-                    case FCMA_DATADIR:
-                        Parameters.fmri_directory = keys_and_values[v];
-                        break;
-                    case FCMA_MATRIX_FORMAT:
-                        Parameters.fmri_file_type = keys_and_values[v];
-                        break;
-                    case FCMA_OUTPUTFILE:
-                        Parameters.output_file = keys_and_values[v];
-                        break;
-                    case FCMA_TASK_TYPE:
-                        Parameters.taskType = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_BLOCKFILE:
-                        Parameters.block_information_file = keys_and_values[v];
-                        break;
-                    case FCMA_BLOCKDIR:
-                        Parameters.block_information_directory = keys_and_values[v];
-                        break;
-                    case FCMA_ROWS_PER_ROUND:
-                        Parameters.step = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_FIRST_LEFT_OUT_BLOCK_ID:
-                        Parameters.leave_out_id = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_NUM_ITEMS_HELD_FOR_TEST:
-                        Parameters.nHolds = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_IS_TEST_MODE:
-                        Parameters.isTestMode = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_NUM_FOLDS_IN_FEATURE_SELECTION:
-                        Parameters.nFolds = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_FIRST_MASKFILE:
-                        Parameters.mask_file1 = keys_and_values[v];
-                        break;
-                    case FCMA_SECOND_MASKFILE:
-                        Parameters.mask_file2 = keys_and_values[v];
-                        break;
-                    case FCMA_VISUALIZE_BLOCKID:
-                        Parameters.visualized_block_id = atoi(keys_and_values[v]);
-                        break;
-                    case FCMA_VISUALIZE_REFERENCE:
-                        Parameters.ref_file = keys_and_values[v];
-                        break;
-                    default:
-                        break;
-                }
-                found[k] = true;
-            }
+          case FCMA_DATADIR:
+            Parameters.fmri_directory = keys_and_values[v];
+            break;
+          case FCMA_MATRIX_FORMAT:
+            Parameters.fmri_file_type = keys_and_values[v];
+            break;
+          case FCMA_OUTPUTFILE:
+            Parameters.output_file = keys_and_values[v];
+            break;
+          case FCMA_TASK_TYPE:
+            Parameters.taskType = atoi(keys_and_values[v]);
+            break;
+          case FCMA_BLOCKFILE:
+            Parameters.block_information_file = keys_and_values[v];
+            break;
+          case FCMA_BLOCKDIR:
+            Parameters.block_information_directory = keys_and_values[v];
+            break;
+          case FCMA_ROWS_PER_ROUND:
+            Parameters.step = atoi(keys_and_values[v]);
+            break;
+          case FCMA_FIRST_LEFT_OUT_BLOCK_ID:
+            Parameters.leave_out_id = atoi(keys_and_values[v]);
+            break;
+          case FCMA_NUM_ITEMS_HELD_FOR_TEST:
+            Parameters.nHolds = atoi(keys_and_values[v]);
+            break;
+          case FCMA_IS_TEST_MODE:
+            Parameters.isTestMode = atoi(keys_and_values[v]);
+            break;
+          case FCMA_NUM_FOLDS_IN_FEATURE_SELECTION:
+            Parameters.nFolds = atoi(keys_and_values[v]);
+            break;
+          case FCMA_FIRST_MASKFILE:
+            Parameters.mask_file1 = keys_and_values[v];
+            break;
+          case FCMA_SECOND_MASKFILE:
+            Parameters.mask_file2 = keys_and_values[v];
+            break;
+          case FCMA_VISUALIZE_BLOCKID:
+            Parameters.visualized_block_id = atoi(keys_and_values[v]);
+            break;
+          case FCMA_VISUALIZE_REFERENCE:
+            Parameters.ref_file = keys_and_values[v];
+            break;
+          default:
+            break;
         }
+        found[k] = true;
+      }
     }
+  }
 }
 
 void run_fcma(Param* param)
@@ -339,6 +359,8 @@ void run_fcma(Param* param)
     int step = param->step;
     int taskType = param->taskType;
     const char* fmri_directory = param->fmri_directory;
+    if (fmri_directory==NULL) fmri_directory = param->fmri_directory1;
+    const char* fmri_directory2 = param->fmri_directory2;
     const char* fmri_file_type = param->fmri_file_type;
     const char* block_information_file = param->block_information_file;
     const char* block_information_directory = param->block_information_directory;
@@ -365,10 +387,19 @@ void run_fcma(Param* param)
     int nSubs = 0;
 
     RawMatrix** r_matrices = NULL;
+    RawMatrix** r_matrices2 = NULL;
 #ifndef __MIC__
     if (me==0)
     {
       r_matrices = ReadGzDirectory(fmri_directory, fmri_file_type, nSubs);  // set nSubs here
+      if (fmri_directory2)
+      {
+        r_matrices2 = ReadGzDirectory(fmri_directory2, fmri_file_type, nSubs);  // set nSubs here
+      }
+      else
+      {
+        r_matrices2 = r_matrices;
+      }
     }
 #endif
     MPI_Bcast((void*)&nSubs, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -448,10 +479,10 @@ void run_fcma(Param* param)
             case 1:
             case 2:
             case 3:
-                SVMPredict(r_matrices, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1, is_quiet_mode);
+                SVMPredict(r_matrices, r_matrices2, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1, is_quiet_mode);
                 break;
             case 4:
-                result = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
+                result = SVMPredictCorrelationWithMasks(r_matrices, r_matrices2, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
                 cout<<"accuracy: "<<result<<"/"<<nHolds<<"="<<result*1.0/nHolds<<endl;
                 break;
             case 5:
@@ -459,7 +490,7 @@ void run_fcma(Param* param)
                 while (l<=nTrials-nHolds) //assume that nHolds*an integer==nTrials
                 {
                     leaveSomeTrialsOut(trials, nTrials, 0, nHolds); // the setting of third parameter is tricky here
-                    int curResult = SVMPredictCorrelationWithMasks(r_matrices, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
+                    int curResult = SVMPredictCorrelationWithMasks(r_matrices, r_matrices2, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
                     f++;
                     cout<<"fold "<<f<<": "<<curResult<<"/"<<nHolds<<"="<<curResult*1.0/nHolds<<endl;
                     result += curResult;
@@ -510,7 +541,7 @@ void run_fcma(Param* param)
                     if (taskType==1) cout<<"distance ratio selecting..."<<endl;
                     if (taskType==3) cout<<"correlation sum..."<<endl;
                 }
-                Scheduler(me, nprocs, step, r_matrices, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1, mask_file2, shuffle, permute_book_file);
+                Scheduler(me, nprocs, step, r_matrices, r_matrices2, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1, mask_file2, shuffle, permute_book_file);
                 break;
             case 2:
                 cout<<"Searchlight selecting..."<<endl;

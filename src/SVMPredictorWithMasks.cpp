@@ -15,10 +15,10 @@
 
 /***************************************
 Get two parts of the brain to compute the correlation and then use the correlation vectors to predict
-input: the raw activation matrix array, the number of subjects, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples
+input: the raw activation matrix arrays, the number of subjects, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
-int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
+int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1, RawMatrix** r_matrices2, int nSubs, const char* maskFile1, const char* maskFile2, int nTrials, Trial* trials, int nTests, int is_quiet_mode)
 {
 #ifndef __MIC__
   int i, j;
@@ -26,13 +26,13 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices, int nSubs, const char
   RawMatrix** masked_matrices1=NULL;
   RawMatrix** masked_matrices2=NULL;
   if (maskFile1!=NULL)
-    masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, maskFile1);
+    masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1);
   else
-    masked_matrices1 = r_matrices;
+    masked_matrices1 = r_matrices1;
   if (maskFile2!=NULL)
-    masked_matrices2 = GetMaskedMatrices(r_matrices, nSubs, maskFile2);
+    masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, maskFile2);
   else
-    masked_matrices2 = r_matrices;
+    masked_matrices2 = r_matrices2;
   cout<<"masked matrices generating done!"<<endl;
   cout<<"#voxels for mask1: "<<masked_matrices1[0]->row<<" #voxels for mask2: "<<masked_matrices2[0]->row<<endl;
   float* simMatrix = new float[nTrials*nTrials];
