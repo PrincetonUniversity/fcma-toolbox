@@ -865,18 +865,22 @@ int Solver::select_working_set(int &out_i, int &out_j)
 
 	for(int j=0;j<active_size;j++)
 	{
-    double grad_diff=Gmax+G[j]*y[j];
 		if(y[j]==+1)
 		{
 			if (!is_lower_bound(j))
 			{
+				double grad_diff=Gmax+G[j];
 				if (G[j] >= Gmax2)
 					Gmax2 = G[j];
 				if (grad_diff > 0)
 				{
-          assert(Q_i);
+					double obj_diff;
+                    assert(Q_i);
 					double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
-					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
+					if (quad_coef > 0)
+						obj_diff = -(grad_diff*grad_diff)/quad_coef;
+					else
+						obj_diff = -(grad_diff*grad_diff)/TAU;
 
 					if (obj_diff <= obj_diff_min)
 					{
@@ -890,13 +894,18 @@ int Solver::select_working_set(int &out_i, int &out_j)
 		{
 			if (!is_upper_bound(j))
 			{
+				double grad_diff= Gmax-G[j];
 				if (-G[j] >= Gmax2)
 					Gmax2 = -G[j];
 				if (grad_diff > 0)
 				{
-          assert(Q_i);
+					double obj_diff;
+                    assert(Q_i);
 					double quad_coef = QD[i]+QD[j]+2.0*y[i]*Q_i[j];
-					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
+					if (quad_coef > 0)
+						obj_diff = -(grad_diff*grad_diff)/quad_coef;
+					else
+						obj_diff = -(grad_diff*grad_diff)/TAU;
 
 					if (obj_diff <= obj_diff_min)
 					{
@@ -907,51 +916,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
 			}
 		}
 	}
-/*
-  double grad_diff[active_size];
-  double obj_diff[active_size];
-  #pragma loop count(200)
-  for(int j=0;j<active_size;j++)
-  {
-    grad_diff[j]=Gmax+G[j]*y[j];
-    double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
-    obj_diff[j] = quad_coef>0?-(grad_diff[j]*grad_diff[j])/quad_coef:-(grad_diff[j]*grad_diff[j])/TAU;
-  }
-  for(int j=0;j<active_size;j++)
-	{
-		if(y[j]==+1)
-		{
-			if (!is_lower_bound(j))
-			{
-				if (G[j] >= Gmax2)
-					Gmax2 = G[j];
-				if (grad_diff[j] > 0)
-				{
-					if (obj_diff[j] <= obj_diff_min)
-					{
-						Gmin_idx=j;
-						obj_diff_min = obj_diff[j];
-					}
-				}
-			}
-		}
-		else
-		{
-			if (!is_upper_bound(j))
-			{
-				if (-G[j] >= Gmax2)
-					Gmax2 = -G[j];
-				if (grad_diff[j] > 0)
-				{
-					if (obj_diff[j] <= obj_diff_min)
-					{
-						Gmin_idx=j;
-						obj_diff_min = obj_diff[j];
-					}
-				}
-			}
-		}
-	}*/
+
 	if(Gmax+Gmax2 < eps)
 		return 1;
 

@@ -43,3 +43,4 @@ void z_score(float* v, int n);
 RawMatrix** rawMatPreprocessing(RawMatrix** r_matrices, int n, int nTrials, Trial* trials);
 float getAverage(RawMatrix* r_matrix, Trial trial, int vid);
 void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, const char* permute_book_file);
+void PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials);

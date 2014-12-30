@@ -76,3 +76,13 @@ add VoxelwiseAnalysis.cpp/h for better performance (3x faster) of correlation-ba
 provide a flag option __MEASURE_TIME__ for printing the matrix multiply, normalization and SVM classification time info for correlation-based voxel selection
 1.4.5
 replace the intensively used malloc in Phi version with kmp_malloc to release locking issue
+1.4.6
+add -1 -2 to accept different fmri files as input, now FCMA can take either -d (one directory, correlation within file) or -1 -2 (two directories, correlation between files)
+update voxel selection and classification parts accordingly
+1.4.7
+update voxelwise correlation computing for better data locality
+add "#pragma loop count" for better vectorization
+update select_working_set in svm.cpp, vectorization is on the way
+speedup marginal screening by changing variables from double to float and adding "#pragma simd reduction"
+some of the tasks running on Xeon Phi may be slower due to data contention, if happened, decrease the number of voxels handled at once
+only voxel selection (task 0) and marginal screening (task 9) is runnable on Xeon Phi now

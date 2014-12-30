@@ -226,11 +226,13 @@ void z_score(float* v, int n)
   int i;
   ALIGNED(64) double mean=0, sd=0;  // float here is not precise enough to handle
   ALIGNED(64) double dv[n];
+  #pragma loop count(12)
   #pragma simd
   for (i=0; i<n; i++)
   {
     dv[i] = (double)v[i];
   }
+  #pragma loop count(12)
   for (i=0; i<n; i++)
   {
     mean += dv[i];
@@ -247,6 +249,7 @@ void z_score(float* v, int n)
   }
   ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
   ALIGNED(64) float mean_f=mean;  // for vecterization
+  #pragma loop count(12)
   #pragma simd
   for (i=0; i<n; i++)
   {
@@ -304,6 +307,11 @@ float getAverage(RawMatrix* r_matrix, Trial trial, int vid)
   return result;
 }
 
+/****************************************
+permute voxels within subject based on an input file or a given seed randomization
+input: the raw matrix array, the length of this array (the number of subjects), the randomization seed, the permuting file
+output: voxels have been randomly permuted
+*****************************************/
 void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, const char* permute_book_file)
 {
   int row = r_matrices[0]->row;
@@ -347,5 +355,68 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, con
   if (permute_book_file)
   {
     ifile.close();
+  }
+}
+
+/****************************************
+use the trials information to filter the given raw matrices and normalize it for correlation computation
+input: the raw matrix array, the trial array, the length of raw matrix array (the number of subjects), the length of trials array (the number of trials)
+output: the matrix array is rewritten and the trial array is modified accordingly
+*****************************************/
+void PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials)
+{
+  int new_cols[nSubs];
+  memset((void*)new_cols, 0, sizeof(int)*nSubs);
+  for (int i=0; i<nTrials; i++)
+  {
+    int sid=trials[i].sid;
+    new_cols[sid]+=trials[i].ec-trials[i].sc+1;
+  }
+  #pragma omp parallel for
+  for (int i=0; i<nSubs; i++)
+  {
+    int new_col=0;
+    int row = matrices[i]->row;
+    int col = matrices[i]->col;
+    matrices[i]->col = new_cols[i];
+    float* buf=new float[row*new_cols[i]];
+    float* matrix = matrices[i]->matrix;
+    for (int j=0; j<nTrials; j++)
+    {
+      if (trials[j].sid==i)
+      {
+        int sc= trials[j].sc;
+        int ec= trials[j].ec;
+        int delta_col = ec-sc+1;
+        for (int r=0; r<row; r++)
+        {
+          double mean=0, sd=0;  // float here is not precise enough to handle
+          for (int c=sc; c<=ec; c++)
+          {
+            mean += (double)matrix[r*col+c];
+            sd += (double)matrix[r*col+c] * matrix[r*col+c]; // convert to double to avoid overflow
+          }
+          mean /= delta_col;
+          sd = sd - delta_col * mean * mean;
+          sd = sqrt(sd);
+          if (sd == 0)  // leave the numbers as they are
+          {
+            continue;
+          }
+          ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
+          ALIGNED(64) float mean_f=mean;  // for vecterization
+          #pragma simd
+          for (int c=sc; c<=ec; c++)
+          {
+            buf[r*new_cols[i]+trials[j].sc+c-sc] = (matrix[r*col+c] - mean_f) * inv_sd_f; // if sd is zero, a "nan" appears
+          }
+        }
+        trials[j].ec = new_col+trials[j].ec-trials[j].sc+1;
+        trials[j].sc = new_col;
+        new_col = trials[j].ec+1;
+      }
+    }
+    delete matrix;
+    matrices[i]->matrix = buf;
   }
 }

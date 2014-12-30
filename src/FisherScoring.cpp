@@ -2,22 +2,22 @@
 #include "common.h"
 
 // data only cotains one row, i.e. one voxel's data
-void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, int rank, double* S, double* H, int v1, int v2, int n)
+void GetSAndH(float* data, float* data2, float* beta, int length, int* labels, int rank, float* S, float* H, int v1, int v2, int n)
 {
   int i;
-  memset((void*)S, 0, rank*sizeof(double));
-  memset((void*)H, 0, rank*rank*sizeof(double));
+  memset((void*)S, 0, rank*sizeof(float));
+  memset((void*)H, 0, rank*rank*sizeof(float));
   if (rank==2)
   {
     data2=NULL;  // pretend to use this variable
     for (i=0; i<length; i++)
     {
       int y = labels[i];
-      double X[] = {1.0, data[i]};
-      double exponent = X[0]*beta[0]+X[1]*beta[1];
-      double e = exp(exponent);
-      double coef = e/(1+e);
-      double coef2 = e/((1+e)*(1+e));
+      float X[] = {1.0, data[i]};
+      float exponent = X[0]*beta[0]+X[1]*beta[1];
+      float e = exp(exponent);
+      float coef = e/(1+e);
+      float coef2 = e/((1+e)*(1+e));
       S[0] += y*X[0]-coef*X[0];
       S[1] += y*X[1]-coef*X[1];
       H[0] -= coef2*X[0]*X[0];
@@ -29,24 +29,24 @@ void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, 
   else if (rank==3)
   {
     //if (n>1000) {cout<<n<<endl; exit(0);}
-    ALIGNED(64) double s0[length];
-    ALIGNED(64) double s1[length];
-    ALIGNED(64) double s2[length];
-    ALIGNED(64) double h0[length];
-    ALIGNED(64) double h1[length];
-    ALIGNED(64) double h2[length];
-    ALIGNED(64) double h4[length];
-    ALIGNED(64) double h5[length];
-    ALIGNED(64) double h8[length];
+    ALIGNED(64) float s0[length];
+    ALIGNED(64) float s1[length];
+    ALIGNED(64) float s2[length];
+    ALIGNED(64) float h0[length];
+    ALIGNED(64) float h1[length];
+    ALIGNED(64) float h2[length];
+    ALIGNED(64) float h4[length];
+    ALIGNED(64) float h5[length];
+    ALIGNED(64) float h8[length];
     #pragma simd
     for (i=0; i<length; i++)
     {
       int y = labels[i];
-      //double X[] = {1.0, data[i], data2[i]};
-      double exponent = beta[0]+data[i]*beta[1]+data2[i]*beta[2];
-      double e = exp(exponent);
-      double coef = e/(1+e);
-      double coef2 = coef/(1+e);
+      //float X[] = {1.0, data[i], data2[i]};
+      float exponent = beta[0]+data[i]*beta[1]+data2[i]*beta[2];
+      float e = exp(exponent);
+      float coef = e/(1+e);
+      float coef2 = coef/(1+e);
       //if (isinf(e)) {coef=1.0; coef2=0.0;}  // this branch harms the performance of MIC more than host
       s0[i] = y-coef;
       s1[i] = y*data[i]-coef*data[i];
@@ -83,18 +83,18 @@ void GetSAndH(float* data, float* data2, double* beta, int length, int* labels, 
   }
 }
 
-double* GetInverseMat(double* mat, int rank)
+float* GetInverseMat(float* mat, int rank)
 {
   int lwork = 102;
-  double work[lwork];
+  float work[lwork];
   int info;
-  double wr[rank], wi[rank];
-  double tempMat[rank*rank];
-  memcpy((void*)tempMat, (const void*)mat, rank*rank*sizeof(double));
+  float wr[rank], wi[rank];
+  float tempMat[rank*rank];
+  memcpy((void*)tempMat, (const void*)mat, rank*rank*sizeof(float));
   //for (int i=0; i<rank*rank; i++) tempMat[i] = -tempMat[i];
-  dgeev( "N", "N", &rank, tempMat, &rank, wr, wi, NULL, &rank, NULL, &rank, work, &lwork, &info );
+  //dgeev( "N", "N", &rank, tempMat, &rank, wr, wi, NULL, &rank, NULL, &rank, work, &lwork, &info );
   // ridge regularization
-  float delta=-0.1;
+  /*float delta=-0.1;
   for (int i=0; i<rank; i++)
   {
     if (wr[i]>delta)
@@ -104,16 +104,16 @@ double* GetInverseMat(double* mat, int rank)
       if (rank==3) mat[8] += delta;
       break;
     }
-  }
+  }*/
   /*if (rank==3){
   cout<<mat[0]<<" "<<mat[1]<<" "<<mat[2]<<endl;
   cout<<mat[3]<<" "<<mat[4]<<" "<<mat[5]<<endl;
   cout<<mat[6]<<" "<<mat[7]<<" "<<mat[8]<<endl;
   cout<<wr[0]<<" "<<wr[1]<<" "<<wr[2]<<endl;exit(1);}*/
-  double* iMat = new double[rank*rank];
+  float* iMat = new float[rank*rank];
   if (rank==2)
   {
-    double det = mat[0*rank+0]*mat[1*rank+1]-mat[0*rank+1]*mat[1*rank+0];
+    float det = mat[0*rank+0]*mat[1*rank+1]-mat[0*rank+1]*mat[1*rank+0];
     if (det==0)
     {
       cerr<<mat[0*rank+0]<<" "<<mat[0*rank+1]<<endl;
@@ -128,13 +128,13 @@ double* GetInverseMat(double* mat, int rank)
   }
   else if (rank==3)
   {
-    double a=mat[0];
-    double b=mat[1];
-    double c=mat[2];
-    double d=mat[4];
-    double e=mat[5];
-    double f=mat[8];
-    double det = -1/(a*d*f-a*e*e-b*b*f+2*b*c*e-c*c*d);
+    float a=mat[0];
+    float b=mat[1];
+    float c=mat[2];
+    float d=mat[4];
+    float e=mat[5];
+    float f=mat[8];
+    float det = -1/(a*d*f-a*e*e-b*b*f+2*b*c*e-c*c*d);
     if (det==0)
     {
       cerr<<a<<" "<<b<<" "<<c<<" "<<d<<endl;
@@ -155,20 +155,20 @@ double* GetInverseMat(double* mat, int rank)
   return iMat;
 }
 
-double DoIteration(float* data, float* data2, int length, int* labels, double epsilon, int rank, int v1, int v2)
+float DoIteration(float* data, float* data2, int length, int* labels, float epsilon, int rank, int v1, int v2)
 {
-  //double* beta=new double[rank];
-  double* beta = (double*)_mm_malloc(sizeof(double)*rank, 64);
-  memset((void*)beta, 0, rank*sizeof(double));
-  //double* S=new double[rank];
-  double* S = (double*)_mm_malloc(sizeof(double)*rank, 64);
-  //double* H=new double[rank*rank];
-  double* H = (double*)_mm_malloc(sizeof(double)*rank*rank, 64);
-  double loglikelihood = 0.0;
+  //float* beta=new float[rank];
+  float* beta = (float*)_mm_malloc(sizeof(float)*rank, 64);
+  memset((void*)beta, 0, rank*sizeof(float));
+  //float* S=new float[rank];
+  float* S = (float*)_mm_malloc(sizeof(float)*rank, 64);
+  //float* H=new float[rank*rank];
+  float* H = (float*)_mm_malloc(sizeof(float)*rank*rank, 64);
+  float loglikelihood = 0.0;
   if (rank==2)
   {
-    double lambda = epsilon+1;
-    double* iH;
+    float lambda = epsilon+1;
+    float* iH;
     while (lambda>epsilon)
     {
       GetSAndH(data, data2, beta, length, labels, rank, S, H, v1, v2, -1);
@@ -181,16 +181,16 @@ double DoIteration(float* data, float* data2, int length, int* labels, double ep
     for (int i=0; i<length; i++)
     {
       int y = labels[i];
-      double X[] = {1.0, data[i]};
-      double exponent = X[0]*beta[0]+X[1]*beta[1];
-      double e = exp(exponent);
+      float X[] = {1.0, data[i]};
+      float exponent = X[0]*beta[0]+X[1]*beta[1];
+      float e = exp(exponent);
       loglikelihood += y*exponent-log(1+e);
     }
   }
   else if (rank==3)
   {
-    double lambda = epsilon+1;
-    double* iH;
+    float lambda = epsilon+1;
+    float* iH;
     int n=0;
     while (lambda>epsilon)
     {
@@ -207,13 +207,13 @@ double DoIteration(float* data, float* data2, int length, int* labels, double ep
       delete [] iH; // bds
       n++;
     }
-    //#pragma simd
+    #pragma simd reduction(+:loglikelihood)
     for (int i=0; i<length; i++)
     {
       int y = labels[i];
-      double X[] = {1.0, data[i], data2[i]};
-      double exponent = X[0]*beta[0]+X[1]*beta[1]+X[2]*beta[2];
-      double e = exp(exponent);
+      float X[] = {1.0, data[i], data2[i]};
+      float exponent = X[0]*beta[0]+X[1]*beta[1]+X[2]*beta[2];
+      float e = exp(exponent);
       loglikelihood += y*exponent-log(1+e);
     }
   }
@@ -226,19 +226,19 @@ double DoIteration(float* data, float* data2, int length, int* labels, double ep
   return loglikelihood;
 }
 
-double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2, int length, int* labels, double epsilon, int rank)
+float DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2, int length, int* labels, float epsilon, int rank)
 {
   float* data = dataHead+offset1;
   float* data2 = dataHead2+offset2;
-  double* beta=new double[rank];
-  memset((void*)beta, 0, rank*sizeof(double));
-  double* S=new double[rank];
-  double* H=new double[rank*rank];
-  double loglikelihood = 0.0;
+  float* beta=new float[rank];
+  memset((void*)beta, 0, rank*sizeof(float));
+  float* S=new float[rank];
+  float* H=new float[rank*rank];
+  float loglikelihood = 0.0;
   if (rank==2)
   {
-    double lambda = epsilon+1;
-    double* iH;
+    float lambda = epsilon+1;
+    float* iH;
     while (lambda>epsilon)
     {
       GetSAndH(data, data2, beta, length, labels, rank, S, H, -1, -1, -1);
@@ -253,16 +253,16 @@ double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2,
     for (int i=0; i<length; i++)
     {
       int y = labels[i];
-      double X[] = {1.0, data[i]};
-      double exponent = X[0]*beta[0]+X[1]*beta[1];
-      double e = exp(exponent);
+      float X[] = {1.0, data[i]};
+      float exponent = X[0]*beta[0]+X[1]*beta[1];
+      float e = exp(exponent);
       loglikelihood += y*exponent-log(1+e);
     }
   }
   else if (rank==3)
   {
-    double lambda = epsilon+1;
-    double* iH;
+    float lambda = epsilon+1;
+    float* iH;
     while (lambda>epsilon)
     {
       GetSAndH(data, data2, beta, length, labels, rank, S, H, -1, -1, -1);
@@ -275,13 +275,13 @@ double DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2,
       beta[2] = beta[2]-(iH[6]*S[0]+iH[7]*S[1]+iH[8]*S[2]);
       delete [] iH; // bds []
     }
-    #pragma simd
+    #pragma simd reduction(+:loglikelihood)
     for (int i=0; i<length; i++)
     {
       int y = labels[i];
-      double X[] = {1.0, data[i], data2[i]};
-      double exponent = X[0]*beta[0]+X[1]*beta[1]+X[2]*beta[2];
-      double e = exp(exponent);
+      float X[] = {1.0, data[i], data2[i]};
+      float exponent = X[0]*beta[0]+X[1]*beta[1]+X[2]*beta[2];
+      float e = exp(exponent);
       loglikelihood += y*exponent-log(1+e);
     }
   }

@@ -19,8 +19,11 @@ Voxel** ComputeAllVoxelsAnalysisData(Trial* trials, int nTrials, int sr, int ste
 {
   int i;
   Voxel** voxels = new Voxel*[step];
-  float* buf_data1[nTrials];
-  float* buf_data2[nTrials];
+  for (i=0; i<step; i++)
+  {
+    voxels[i] = new Voxel(sr+i, nTrials, matrices2[0]->row);  // assume the number of voxels (row) is the same accross blocks
+    voxels[i]->corr_vecs = new float[nTrials*matrices2[0]->row];
+  }
   #pragma omp parallel for
   for (i=0; i<nTrials; i++)
   {
@@ -29,23 +32,16 @@ Voxel** ComputeAllVoxelsAnalysisData(Trial* trials, int nTrials, int sr, int ste
     int sid = trials[i].sid;
     int row = matrices2[sid]->row;
     int col = matrices2[sid]->col;
-    float* buf1 = new float[row*(ec-sc+1)];
-    getBuf(sc, ec, row, col, matrices1[sid]->matrix, buf1);
-    buf_data1[i] = buf1;
-    float* buf2 = new float[row*(ec-sc+1)];
+    float* buf1 = (float*)_mm_malloc(sizeof(float)*row*(ec-sc+1), 64);
+    int ml = getBuf(sc, ec, row, col, matrices1[sid]->matrix, buf1);
+    float* buf2 = (float*)_mm_malloc(sizeof(float)*row*(ec-sc+1), 64);
     getBuf(sc, ec, row, col, matrices2[sid]->matrix, buf2);
-    buf_data2[i] = buf2;
-  }
-  #pragma omp parallel for private(i)
-  for (i=0; i<step; i++)
-  {
-    voxels[i] = ComputeOneVoxelAnalysisData(trials, sr+i, nTrials, buf_data1, buf_data2, matrices2[0]->row, trials[0].ec-trials[0].sc+1);  // assume that the block length are the same across all blocks
-  }
-  #pragma omp parallel for
-  for (i=0; i<nTrials; i++)
-  {
-    delete buf_data1[i];
-    delete buf_data2[i];
+    for (int j=0; j<step; j++)
+    {
+      vectorMatMultiply(buf2, sizeof(float)*row*ml, buf1+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row, sizeof(float)*row);
+    }
+    _mm_free(buf1);
+    _mm_free(buf2);
   }
   return voxels;
 }
@@ -106,13 +102,14 @@ void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs)
   {
     for (j=0; j<row; j++)
     {
-      #pragma simd
+      #pragma simd  // simd and prefetch and simd+preftech got similar performance
       for (k=0; k<nPerSub; k++)
       {
         buf[k] = fisherTransformation(voxel->corr_vecs[i*nPerSub*row+j+k*row]);
       }
       if (nPerSub>1)  // nPerSub==1 results in 0
         z_score(buf, nPerSub);
+      #pragma vector aligned nontemporal  // stream storing helps a little
       for (k=0; k<nPerSub; k++)
       {
         voxel->corr_vecs[i*nPerSub*row+j+k*row] = buf[k];
@@ -127,22 +124,19 @@ Perform vector matrix multiply for fine-grained threads
 input: matrix data, matrix data size, vector data, vector data size, output data location, output data size (all sizes are in bytes)
 output: update values to the output data
 *****************************************/
-void vectorMatMultiply(void* data, int mat_size, void* aux_data, int vec_size, void* output_data, int output_size)
+void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size)
 {
-  memset(output_data, 0, output_size);
-  float* mat=(float*)data;
-  float* vec=(float*)aux_data;
-  float* output=(float*)output_data;
   int col = vec_size/sizeof(float);
   int row = mat_size/sizeof(float)/col;
-  int output_length = output_size/sizeof(float);
-  for (int i=0; i<output_length; i++)
+  for (int i=0; i<row; i++)
   {
-    #pragma ivdep
+    float sum=0.0;  // use an additional variable for reduction in the following vectorization
+    #pragma loop count(12)
     for (int j=0; j<col; j++)
     {
-      output[i] += mat[i*col+j]*vec[j];
+      sum += mat[i*col+j]*vec[j];
     }
+    output[i]=sum;
   }
   return;
 }

@@ -352,7 +352,10 @@ void run_fcma(Param* param)
     int me, nprocs;
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    //cout<<me<<" "<<nprocs<<endl;
+    if (me==0)
+    {
+      cout<<"The program runs "<<nprocs<<"in total"<<endl;
+    }
     /* initialization done */
     /* ---------------------------------------------- */
     /* set a series of input arguments */
@@ -563,7 +566,7 @@ void run_fcma(Param* param)
     if (me == 0)
     {
         cout.precision(6);
-        cout<<"it takes "<<tstop-tstart<<" s to compute the whole task (exclude data reading and transferring)"<<endl;
+        cout<<"it takes "<<tstop-tstart<<" s to compute the whole task (exclude data reading but include data transferring using MPI)"<<endl;
     }
     /* main program ends */
     /* -------------------------------- */

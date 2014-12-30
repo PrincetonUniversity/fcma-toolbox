@@ -19,4 +19,4 @@ Voxel** ComputeAllVoxelsAnalysisData(Trial* trials, int nTrials, int sr, int ste
 void PreprocessAllVoxelsAnalysisData(Voxel** voxels, int step, int nSubs);
 void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs);
 Voxel* ComputeOneVoxelAnalysisData(Trial* trials, int vid, int nTrials, float** data_buf1, float** data_buf2, int row, int col);
-void vectorMatMultiply(void* data, int mat_size, void* aux_data, int vec_size, void* output_data, int output_size);
+void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size);

@@ -45,9 +45,13 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
       MatrixPermutation(masked_matrices2, nSubs, seed, permute_book_file);
     }
+    //PreprocessMatrices(masked_matrices1, trials, nSubs, nTrials);
+    //PreprocessMatrices(masked_matrices2, trials, nSubs, nTrials);
   }
 #endif
   double tstart = MPI_Wtime();
+  // resend trials because it may change in PreprocessMatrices  
+  //MPI_Bcast((void*)trials, sizeof(Trial)*nTrials, MPI_CHAR, 0, MPI_COMM_WORLD);
   if (me != 0)
   {
     masked_matrices1 = new RawMatrix*[nSubs];
