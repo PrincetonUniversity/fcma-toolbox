@@ -354,7 +354,7 @@ void run_fcma(Param* param)
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     if (me==0)
     {
-      cout<<"The program runs "<<nprocs<<"in total"<<endl;
+      cout<<"The program runs "<<nprocs<<" process(es) in total"<<endl;
     }
     /* initialization done */
     /* ---------------------------------------------- */
