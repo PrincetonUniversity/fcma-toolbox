@@ -86,3 +86,6 @@ update select_working_set in svm.cpp, vectorization is on the way
 speedup marginal screening by changing variables from double to float and adding "#pragma simd reduction"
 some of the tasks running on Xeon Phi may be slower due to data contention, if happened, decrease the number of voxels handled at once
 only voxel selection (task 0) and marginal screening (task 9) is runnable on Xeon Phi now
+1.4.8
+vectorize select_working_set function in svm.cpp. the number of threads needs to be 60 in svm iteration for exclusive usage of vector process unit
+fix a bug in voxelwise voxel selection code

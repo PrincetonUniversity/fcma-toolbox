@@ -158,23 +158,35 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   int row = voxels[0]->nVoxels; // assume all elements in voxels array have the same #voxels
   //int length = row * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
   VoxelScore* scores = new VoxelScore[step];  // get step voxels classification accuracy here
+  SVMProblem* prob[step];
+  SVMParameter* param[step];
   int i;
   #pragma omp parallel for private(i)
   for (i=0; i<step; i++)
   {
-    SVMProblem* prob = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
-    SVMParameter* param = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
+    prob[i] = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
+    param[i] = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
+  }
+#ifdef __MIC__
+  omp_set_num_threads(60);      //to use VPU exclusively
+#endif
+  #pragma omp parallel for private(i)
+  for (i=0; i<step; i++)
+  {
     (scores+i)->vid = voxels[i]->vid;
-    (scores+i)->score = DoSVM(nFolds, prob, param);
-    delete param;
-    delete[] prob->y;
+    (scores+i)->score = DoSVM(nFolds, prob[i], param[i]);
+    delete param[i];
+    delete[] prob[i]->y;
     for (int j=0; j<nTrainings; j++)
     {
-      kmp_free(prob->x[j]);
+      kmp_free(prob[i]->x[j]);
     }
-    delete[] prob->x;
-    delete prob;
+    delete[] prob[i]->x;
+    delete prob[i];
   }
+#ifdef __MIC__
+  omp_set_num_threads(240);
+#endif
   return scores;
 }
 

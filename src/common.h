@@ -107,7 +107,7 @@ typedef struct voxelxyz_t
   int x, y, z;
 }VoxelXYZ;
 
-extern unsigned long long counter;
+extern unsigned long long total_count;
 
 // MPI communication tags
 #define COMPUTATIONTAG 1

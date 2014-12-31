@@ -48,6 +48,7 @@
 #include <stdarg.h>
 #include <iostream>
 #include "svm.h"
+extern unsigned long long total_count;
 
 int libsvm_version = LIBSVM_VERSION;
 typedef float Qfloat;
@@ -863,7 +864,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
 	if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
 		Q_i = Q->get_Q(i,active_size);
 
-	for(int j=0;j<active_size;j++)
+	/*for(int j=0;j<active_size;j++)
 	{
     double grad_diff=Gmax+G[j]*y[j];
 		if(y[j]==+1)
@@ -906,11 +907,12 @@ int Solver::select_working_set(int &out_i, int &out_j)
 				}
 			}
 		}
-	}
-/*
+	}*/
+
   double grad_diff[active_size];
   double obj_diff[active_size];
-  #pragma loop count(200)
+  //total_count++;
+  //#pragma loop count(200)
   for(int j=0;j<active_size;j++)
   {
     grad_diff[j]=Gmax+G[j]*y[j];
@@ -951,7 +953,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
 				}
 			}
 		}
-	}*/
+	}
 	if(Gmax+Gmax2 < eps)
 		return 1;
 

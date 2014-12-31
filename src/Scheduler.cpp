@@ -325,6 +325,8 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
         cout<<"prerocessing: "<<t2-t1<<"s"<<endl;
 #endif
         scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
+        //cout<<total_count<<endl;
+        //total_count=0;
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();
         cout<<"svm processing: "<<t1-t2<<"s"<<endl;

@@ -20,7 +20,7 @@
 #include "ErrorHandling.h"
 
 Param Parameters;
-//extern unsigned long long counter;
+unsigned long long total_count;
 
 static void params_from_keyvalues(char** keys_and_values,const int& num_elements);
 
@@ -574,17 +574,14 @@ void run_fcma(Param* param)
     int finalized;
     MPI_Finalized(&finalized);
     if (!finalized) MPI_Finalize();
-
-    //cout<<counter<<endl;
 }
 
 #ifndef NOMAIN
 
 int main(int argc, char** argv)
 {
-    //counter=0;
+    //total_count=0;
     //raise(SIGSTOP); //xcode attach to process
-    
     parse_command_line(argc, argv);
     run_fcma(&Parameters);
     return 0;

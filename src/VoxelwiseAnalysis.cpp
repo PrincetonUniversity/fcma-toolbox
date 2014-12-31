@@ -30,15 +30,17 @@ Voxel** ComputeAllVoxelsAnalysisData(Trial* trials, int nTrials, int sr, int ste
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int sid = trials[i].sid;
-    int row = matrices2[sid]->row;
-    int col = matrices2[sid]->col;
-    float* buf1 = (float*)_mm_malloc(sizeof(float)*row*(ec-sc+1), 64);
-    int ml = getBuf(sc, ec, row, col, matrices1[sid]->matrix, buf1);
-    float* buf2 = (float*)_mm_malloc(sizeof(float)*row*(ec-sc+1), 64);
-    getBuf(sc, ec, row, col, matrices2[sid]->matrix, buf2);
+    int row1 = matrices1[sid]->row;
+    int col1 = matrices1[sid]->col;
+    int row2 = matrices2[sid]->row;
+    int col2 = matrices2[sid]->col;
+    float* buf1 = (float*)_mm_malloc(sizeof(float)*row1*(ec-sc+1), 64);
+    int ml = getBuf(sc, ec, row1, col1, matrices1[sid]->matrix, buf1);
+    float* buf2 = (float*)_mm_malloc(sizeof(float)*row2*(ec-sc+1), 64);
+    getBuf(sc, ec, row2, col2, matrices2[sid]->matrix, buf2);
     for (int j=0; j<step; j++)
     {
-      vectorMatMultiply(buf2, sizeof(float)*row*ml, buf1+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row, sizeof(float)*row);
+      vectorMatMultiply(buf2, sizeof(float)*row2*ml, buf1+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row2, sizeof(float)*row2);
     }
     _mm_free(buf1);
     _mm_free(buf2);
