@@ -1,0 +1,91 @@
+1.0
+the very beginning version using command line and ad-hoc input.
+
+1.1
+the input data and mask are in nifti format, the selectors and regressors are in a text file.
+the RT regression part is removed
+the flexibility of dealing with different data types is still needed.
+the location.bin is not supposed to be there any more, since we have nifti files.
+
+1.2
+a huge progress and a lot of changes
+add four tasks to use masks to do correlation and activation tasks.
+incorporate libsvm code in the toolbox, no more -lsvm.
+rewrite part of the svm code, use blas dot product instead of its own, and compute the length of a vector in libsvm before hand, by assuming that all vectors are with the same length. this accelerates the code by about 25%.
+rewrite the voxel selection cross validation part, now if using linear svm, the code will use precomputed kernel instead of computing the kernel every fold. this accelerates the code quite a lot, say, from 10 hours to 20 minutes. but if using other kernel, currently the redundant computing is still needed.
+add -Wextra -Werror to Makefile to eliminate a lot warnings, most of which are unused variables, unnecessarily passed from the function's input arguments.
+add MPI_Barrier to make sure all nodes finish reading and progress together.
+put all mask files in a sub directory.
+nifti files are in two categories: 1) data, must be in short; 2) mask, can be in short or int.
+
+1.2.1
+redesigned the shared memory parallelization
+fixed some minor bugs
+allowed mask file data type to be float
+
+1.2.2
+allow data type of data/mask file to be float
+add a new input argument -e to specify the block file directory
+
+1.2.3
+fix a bug in SVMPredictorWithMasks.cpp. When computing the correlation matrices in GetPartialInnerSimMatrixWithMasks(), we need to be aware that different subjects may have different TRs, so the col information should be specified in every loop.
+
+1.3
+separate the file related functions into a new file FileProcessing.cpp/h.
+write voxel selection results in nifti format, produce two files, one stores the voxel sequences, the other stores the voxel scores. a nifti file should be provided as the reference (will copy its nifti_image and only replace nbyter, datatype and data of the struct). the previous voxel list output in txt format is also kept for now. users provide a file prefix of output files, '_list.txt', '_seq.nii.gz', '_score.nii.gz' will be added for three output files.
+the previous change also applied to searchlight voxel selection. fixed a bug in searchlight, the voxel location array also needs to be masked when a mask file is applied.
+
+1.3.1
+output real values for each test item in test tasks
+fix minor bugs in SVMPredictor.cpp
+
+1.3.2
+add correlation visualization task (type 8) to generate a 4D nifti file for visualizing the correlation between some voxels in a certain block.
+
+1.3.3
+use float instead of double to store the raw data to save memory
+
+1.3.4
+bug fixed, don't do zscore when there's only one value
+
+1.3.5
+tune the z-score function, add quiet mode in predict
+
+1.3.6
+modify the svm prediction function in test mode to be consistent with the one in voxel selection mode --May 8 2014
+
+1.4
+modify the data reading procedure to be master reading then broadcasting
+be Xeon Phi runnable
+add marginal screening as task 9
+
+1.4.1
+add matmul function in MatComputation.cpp/h to replace cblas_sgemm for skinny matrix multiplication
+rearrange data access sequence in Preprocessing.cpp/h to make better cache usage
+
+1.4.2
+add -f and -p to randomly shuffle the data for non-parametric statistical test
+add ridge regularization and change the data normalization method in marginal screening task
+
+1.4.3
+improve the performance of activity-based searchligt voxel selection (-k 2)
+add shuffling to activity-based voxel selection, works as for correlation-based voxel selection
+
+1.4.4
+add VoxelwiseAnalysis.cpp/h for better performance (3x faster) of correlation-based voxel selection (-k 0) running on Phi
+provide a flag option __MEASURE_TIME__ for printing the matrix multiply, normalization and SVM classification time info for correlation-based voxel selection
+1.4.5
+replace the intensively used malloc in Phi version with kmp_malloc to release locking issue
+1.4.6
+add -1 -2 to accept different fmri files as input, now FCMA can take either -d (one directory, correlation within file) or -1 -2 (two directories, correlation between files)
+update voxel selection and classification parts accordingly
+1.4.7
+update voxelwise correlation computing for better data locality
+add "#pragma loop count" for better vectorization
+update select_working_set in svm.cpp, vectorization is on the way
+speedup marginal screening by changing variables from double to float and adding "#pragma simd reduction"
+some of the tasks running on Xeon Phi may be slower due to data contention, if happened, decrease the number of voxels handled at once
+only voxel selection (task 0) and marginal screening (task 9) is runnable on Xeon Phi now
+1.4.8
+vectorize select_working_set function in svm.cpp. the number of threads needs to be 60 in svm iteration for exclusive usage of vector process unit
+fix a bug in voxelwise voxel selection code

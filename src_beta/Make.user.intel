@@ -1,0 +1,22 @@
+# if you want to use this file then edit Makefile to include it
+# at the top
+#
+# set location of your MPI and BLAS development install here
+#  (assumes subdirs include and lib for each)
+BLASINCLUDE = -I/opt/intel/mkl/include
+BLASCFLAGS = -DUSE_MKL -vec-report=1
+BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64 -L$(HOME)/tools/nifticlib-2.0.0/lib
+BLASLDFLAGS = -mkl=parallel
+OTHER_INCLUDES = -I/opt/intel/include -I$(HOME)/tools/nifticlib-2.0.0/include
+MPICC = mpiicpc
+
+# to build for other supported architectures
+# (right now MIC is the only one)
+# set/add it to OTHER_TARGETS below.
+# Then, in the Makefile create a target with
+# that name (usually pni_fcma.$suffix for arch)
+# "make all" will build it
+
+# MIC example:
+OTHER_TARGETS = pni_fcma.MIC
+
