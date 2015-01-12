@@ -89,3 +89,10 @@ only voxel selection (task 0) and marginal screening (task 9) is runnable on Xeo
 1.4.8
 vectorize select_working_set function in svm.cpp. the number of threads needs to be 60 in svm iteration for exclusive usage of vector process unit
 fix a bug in voxelwise voxel selection code
+
+1.5 in BETA version now
+focus on optimizing code of correlation-based voxel selection (-k 0) for xeon phi
+in this version, xeon and xeon phi mixed voxel selection task is NOT supported yet
+do getBuf to normalize the activity matrices in master node to save bandwidth and computing time on xeon phi
+use predefined space instead of dynamically allocated space to store corelation values to help the compilor's optimization. by doing this, the data contention in 1.4.7 is fixed as well
+rewrite z-score function for better vectorization, also eliminate double-float conversion in z-score function
