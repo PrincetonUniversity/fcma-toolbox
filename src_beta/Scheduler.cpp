@@ -45,7 +45,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
       MatrixPermutation(masked_matrices2, nSubs, seed, permute_book_file);
     }
-#ifdef __MIC__  // currently, only for MIC jobs we preprocess the activity matrices to save bandwidth and onboard normalization time
+#ifdef __USE_MIC__  // currently, only for MIC jobs we preprocess the activity matrices to save bandwidth and onboard normalization time
     if (taskType==0)
     {
       Trial* buf_trials = new Trial[nTrials];
@@ -58,7 +58,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   }
 #endif
   double tstart = MPI_Wtime();
-#ifdef __MIC__
+#ifdef __USE_MIC__
   // resend trials because it may change in PreprocessMatrices  
   if (taskType==0)
   {
