@@ -85,7 +85,7 @@ VoxelScore* GetSearchlightSVMPerformance(RawMatrix** avg_matrices, Trial* trials
     SVMProblem* prob = GetSearchlightSVMProblem(avg_matrices, trials, i, nTrials-nTests, pts);
     if (i%1000==0) cout<<i<<" "<<flush;
     //if (me==0) PrintSVMProblem(prob);
-    SVMParameter* param = SetSVMParameter(0); // 2 for RBF kernel
+    SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
     (score+i)->vid = i;
     (score+i)->score = DoSVM(nFolds, prob, param);
     delete param;
@@ -114,7 +114,7 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int nVoxels = avg_matrices[0]->row;
   int* voxels = GetSphere(curVoxel, nVoxels, pts);

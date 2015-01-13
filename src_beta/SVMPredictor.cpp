@@ -7,7 +7,7 @@
 #include "common.h"
 #include "SVMPredictor.h"
 #include "MatComputation.h"
-#include "LibSVM.h"
+//#include "LibSVM.h"
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "ErrorHandling.h"
@@ -117,7 +117,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
       delete[] tempSimMatrix;
       sr += rowLength;
     }
-    SVMParameter* param = SetSVMParameter(4); // precomputed
+    SVMParameter* param = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
     SVMProblem* prob = GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials-nTests);
     struct svm_model *model = svm_train(prob, param);
     int nTrainings = nTrials-nTests;
@@ -190,10 +190,10 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
 {
   int i, j, k;
   int nTrainings = nTrials-nTests;
-  SVMParameter* param = SetSVMParameter(0); // linear
+  SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   for (i=0; i<ntops; i++)
   {
@@ -430,7 +430,7 @@ SVMProblem* GetSVMTrainingSet(float* simMatrix, int nTrials, Trial* trials, int 
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   for (i=0; i<nTrainings; i++)

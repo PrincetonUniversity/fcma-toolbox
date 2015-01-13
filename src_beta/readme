@@ -97,3 +97,6 @@ the default setting is for running on xeon phi, __USE_MIC__ needs to be commente
 do getBuf to normalize the activity matrices in master node to save bandwidth and computing time on xeon phi
 use predefined space instead of dynamically allocated space to store corelation values to help the compilor's optimization. by doing this, the data contention in 1.4.7 is fixed as well
 rewrite z-score function for better vectorization, also eliminate double-float conversion in z-score function
+
+1.5.1 BETA version
+clean svm related code for further optimization

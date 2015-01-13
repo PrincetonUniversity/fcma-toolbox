@@ -6,7 +6,7 @@
 
 #include "SVMClassification.h"
 #include "MatComputation.h"
-#include "LibSVM.h"
+//#include "LibSVM.h"
 #include "common.h"
 #include "ErrorHandling.h"
 
@@ -34,7 +34,7 @@ VoxelScore* GetSVMPerformance(int me, CorrMatrix** c_matrices, int nTrainings, i
     int count = i / row;
     //SVMProblem* prob = GetSVMProblem(c_matrices, row, i, nTrainings);
     SVMProblem* prob = GetSVMProblemWithPreKernel(c_matrices, row, i, nTrainings);
-    SVMParameter* param = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
+    SVMParameter* param = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
     (scores+count)->vid = rowBase+i/row;
     (scores+count)->score = DoSVM(nFolds, prob, param);
     //if (me == 0)
@@ -66,7 +66,7 @@ SVMProblem* GetSVMProblem(CorrMatrix** c_matrices, int row, int startIndex, int 
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   for (i=0; i<nTrainings; i++)
@@ -92,7 +92,7 @@ SVMProblem* GetSVMProblemWithPreKernel(CorrMatrix** c_matrices, int row, int sta
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
@@ -170,7 +170,7 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   for (i=0; i<step; i++)
   {
     prob[i] = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
-    param[i] = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
+    param[i] = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
   }
 #if __MEASURE_TIME__
   gettimeofday(&end, 0);
@@ -217,7 +217,7 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, in
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new signed char[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
