@@ -25,7 +25,7 @@ HEADERS = common.h $(SOURCES:.cpp=.h)
 CFLAGS_MIC = -mmic $(CFLAGS)
 OBJECTS_MIC = $(SOURCES:.cpp=.o.MIC)
 BLASLIBINC_MIC = $(BLASLIBINC:intel64=mic)
-LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC) -L$(HOME)/code/fcma-toolbox/src_th/multi_depend_th -lmulth.MIC
+LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC)
 
 TARGETS ?= pni_fcma $(OTHER_TARGETS)
 
