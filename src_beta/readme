@@ -100,3 +100,6 @@ rewrite z-score function for better vectorization, also eliminate double-float c
 
 1.5.1 BETA version
 clean svm related code for further optimization
+
+1.5.2 BETA version
+remove unnecessary OMP parallelization in get_Q function of svm.cpp to eliminate __kmp_wait_yield_4

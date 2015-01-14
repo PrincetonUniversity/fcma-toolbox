@@ -178,9 +178,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   cout<<"computing time: "<<t<<endl;
   gettimeofday(&start, 0);
 #endif
-#ifdef __MIC__
-  omp_set_num_threads(60);      //to use VPU exclusively
-#endif
 //unsigned long long ft[120];
 #pragma omp parallel
 {
@@ -207,9 +204,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   cout<<"svm time: "<<t<<endl;
 #endif
 //printf("%lld % lld\n", *std::max_element(ft, ft+120), *std::min_element(ft, ft+120));
-#ifdef __MIC__
-  omp_set_num_threads(240);
-#endif
   return scores;
 }
 

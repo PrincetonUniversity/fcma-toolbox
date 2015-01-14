@@ -917,7 +917,6 @@ public:
     int start, j;
     if((start = cache->get_data(i,&data,len)) < len)
     {
-      #pragma omp parallel for private(j)
       for(j=start;j<len;j++)
         data[j] = (Qfloat)(y[i]*y[j]*(this->*kernel_function)(i,j));
     }
