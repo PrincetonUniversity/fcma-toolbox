@@ -172,7 +172,7 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
   SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   svm_set_print_string_function(&print_null);
   

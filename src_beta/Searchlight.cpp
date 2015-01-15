@@ -114,7 +114,7 @@ SVMProblem* GetSearchlightSVMProblem(RawMatrix** avg_matrices, Trial* trials, in
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int nVoxels = avg_matrices[0]->row;
   int* voxels = GetSphere(curVoxel, nVoxels, pts);

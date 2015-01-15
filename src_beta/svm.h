@@ -45,6 +45,14 @@
 
 #define LIBSVM_VERSION 310
 
+#if defined(__GNUC__)
+    // gcc supports this syntax
+#   define ALIGNED(x) __attribute__ ((aligned(x)))
+#else
+    // visual c++, clang, icc
+#   define ALIGNED(x) __declspec(align(x))
+#endif
+
 #ifdef USE_MKL
 #include <mkl_cblas.h>
 #elif defined __APPLE__

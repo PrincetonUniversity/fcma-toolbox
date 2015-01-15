@@ -66,7 +66,7 @@ SVMProblem* GetSVMProblem(CorrMatrix** c_matrices, int row, int startIndex, int 
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   for (i=0; i<nTrainings; i++)
@@ -92,7 +92,7 @@ SVMProblem* GetSVMProblemWithPreKernel(CorrMatrix** c_matrices, int row, int sta
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
@@ -211,12 +211,12 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, in
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, voxel->corr_vecs, row, voxel->corr_vecs, row, 0.0, simMatrix, nTrainings);
-  //matmul(corrMatrix, corrMatrix, simMatrix, nTrainings, row, nTrainings);
+  //matmul(voxel->corr_vecs, voxel->corr_vecs, simMatrix, nTrainings, row, nTrainings);
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = trials[i].label;

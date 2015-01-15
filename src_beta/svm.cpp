@@ -221,12 +221,12 @@ public:
   {
     swap(x[i],x[j]);
   }
+  const svm_node **x;
 protected:
 
   double (Kernel::*kernel_function)(int i, int j) const;
 
 private:
-  const svm_node **x;
   int length;
 
   // svm_parameter
@@ -398,18 +398,22 @@ void Solver::reconstruct_gradient()
   for(j=active_size;j<l;j++)
     G[j] = G_bar[j] + p[j];
 
+  #pragma simd reduction(+:nr_free)
   for(j=0;j<active_size;j++)
-    if(is_free(j))
-      nr_free++;
+    nr_free+=alpha_status[j]==FREE?1:0;
+    //if(is_free(j))
+      //nr_free++;
 
   if (nr_free*l > 2*active_size*(l-active_size))
   {
     for(i=active_size;i<l;i++)
     {
       const Qfloat *Q_i = Q->get_Q(i,active_size);
+      #pragma simd reduction(+:G[i])
       for(j=0;j<active_size;j++)
-        if(is_free(j))
-          G[i] += alpha[j] * Q_i[j];
+        G[i]+=alpha_status[j]==FREE?alpha[j] * Q_i[j]:0;
+        //if(is_free(j))
+          //G[i] += alpha[j] * Q_i[j];
     }
   }
   else
@@ -419,6 +423,7 @@ void Solver::reconstruct_gradient()
       {
         const Qfloat *Q_i = Q->get_Q(i,l);
         double alpha_i = alpha[i];
+        #pragma simd reduction(+:G[j])
         for(j=active_size;j<l;j++)
           G[j] += alpha_i * Q_i[j];
       }
@@ -690,8 +695,8 @@ int Solver::select_working_set(int &out_i, int &out_j)
   //    (if quadratic coefficeint <= 0, replace it with tau)
   //    -y_j*grad(f)_j < -y_i*grad(f)_i, j in I_low(\alpha)
 	
-  double Gmax = -INF;
-  double Gmax2 = -INF;
+  ALIGNED(64) double Gmax = -INF;
+  ALIGNED(64) double Gmax2 = -INF;
   int Gmax_idx = -1;
   int Gmin_idx = -1;
   double obj_diff_min = INF;
@@ -699,7 +704,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
   for(int t=0;t<active_size;t++)
     if(y[t]==+1)	
     {
-      if(!is_upper_bound(t))
+      if(alpha_status[t] != UPPER_BOUND)//(!is_upper_bound(t))
         if(-G[t] >= Gmax)
         {
           Gmax = -G[t];
@@ -708,7 +713,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
     }
     else
     {
-      if(!is_lower_bound(t))
+      if(alpha_status[t] != LOWER_BOUND)//(!is_lower_bound(t))
         if(G[t] >= Gmax)
         {
           Gmax = G[t];
@@ -718,55 +723,34 @@ int Solver::select_working_set(int &out_i, int &out_j)
 
   int i = Gmax_idx;
   const Qfloat *Q_i = NULL;
+  //printf("%d ", active_size);
   if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
     Q_i = Q->get_Q(i,active_size);
 
-  double grad_diff[active_size];
-  double obj_diff[active_size];
-  //double g[active_size];
+  ALIGNED(64) double grad_diff[active_size];
+  ALIGNED(64) double obj_diff[active_size];
+  ALIGNED(64) double g[active_size];
   //total_count++;
   //#pragma loop count(200)
-  //#pragma simd
+  #pragma simd
   for(int j=0;j<active_size;j++)
   {
-    grad_diff[j]=Gmax+G[j]*y[j];
-    double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
+    //grad_diff[j]=Gmax+G[j]*y[j];
+    grad_diff[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?Gmax+G[j]*y[j]:-1.0;
+    g[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?G[j]*y[j]:-INF;
+    ALIGNED(64) double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
     obj_diff[j] = quad_coef>0?-(grad_diff[j]*grad_diff[j])/quad_coef:-(grad_diff[j]*grad_diff[j])/TAU;
-    //g[j] = (y[j]==+1&&is_lower_bound(j))||(y[j]==-1&&is_upper_bound(j))?-INF:G[j]*y[j];
-    //grad_diff[j] = (y[j]==+1&&is_lower_bound(j))||(y[j]==-1&&is_upper_bound(j))?-1:grad_diff[j];
   }
   for(int j=0;j<active_size;j++)
   {
-    if(y[j]==+1)
+    if (g[j] >= Gmax2)
+      Gmax2 = g[j];
+    if (grad_diff[j] > 0)
     {
-      if (!is_lower_bound(j))
+      if (obj_diff[j] <= obj_diff_min)
       {
-        if (G[j]*y[j] >= Gmax2)
-          Gmax2 = G[j]*y[j];
-        if (grad_diff[j] > 0)
-        {
-          if (obj_diff[j] <= obj_diff_min)
-          {
-            Gmin_idx=j;
-            obj_diff_min = obj_diff[j];
-          }
-        }
-      }
-    }
-    else
-    {
-      if (!is_upper_bound(j))
-      {
-        if (-G[j] >= Gmax2)
-          Gmax2 = -G[j];
-        if (grad_diff[j] > 0)
-        {
-          if (obj_diff[j] <= obj_diff_min)
-          {
-            Gmin_idx=j;
-            obj_diff_min = obj_diff[j];
-          }
-        }
+        Gmin_idx=j;
+        obj_diff_min = obj_diff[j];
       }
     }
   }
@@ -905,7 +889,7 @@ public:
     :Kernel(prob.l, prob.x, param)
   {
     clone(y,y_,prob.l);
-    cache = new Cache(prob.l,(long int)(param.cache_size*(1<<20)));
+    cache = new Cache(prob.l,(long int)(param.cache_size*(1<<20)));  // 1<<20->1MB
     QD = new double[prob.l];
     for(int i=0;i<prob.l;i++)
       QD[i] = (this->*kernel_function)(i,i);
@@ -1019,12 +1003,12 @@ static decision_function svm_train_one(
       if(prob->y[i] > 0)
       {
         if(fabs(alpha[i]) >= si.upper_bound_p)
-        ++nBSV;
+          ++nBSV;
       }
       else
       {
         if(fabs(alpha[i]) >= si.upper_bound_n)
-	++nBSV;
+          ++nBSV;
       }
     }
   }

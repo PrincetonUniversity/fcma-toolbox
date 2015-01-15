@@ -193,7 +193,7 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
   SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   for (i=0; i<ntops; i++)
   {
@@ -430,7 +430,7 @@ SVMProblem* GetSVMTrainingSet(float* simMatrix, int nTrials, Trial* trials, int 
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new signed char[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   for (i=0; i<nTrainings; i++)
