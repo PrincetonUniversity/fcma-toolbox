@@ -699,27 +699,65 @@ int Solver::select_working_set(int &out_i, int &out_j)
   ALIGNED(64) double Gmax2 = -INF;
   int Gmax_idx = -1;
   int Gmin_idx = -1;
-  double obj_diff_min = INF;
+  ALIGNED(64) double obj_diff_min = INF;
 
+  ALIGNED(64) double g1[active_size+8];
+  for (int t=0; t<active_size; t++)
+  {
+    g1[t] = (y[t]==+1&&alpha_status[t]!=UPPER_BOUND)||(y[t]==-1&&alpha_status[t]!=LOWER_BOUND)?-y[t]*G[t]:-INF;
+  }
+#ifdef __MIC__
+  ALIGNED(64) double Gmax_arr[] = {Gmax, Gmax, Gmax, Gmax, Gmax, Gmax, Gmax, Gmax};
+  __m512d cur_max = _mm512_load_pd((void const*)Gmax_arr);
+  int t;
+  for (t=active_size; t<active_size+8; t++) // padding
+  {
+    g1[t] = -INF;
+  }
+  for (t=0; t<active_size; t+=8)
+  {
+    __m512d value = _mm512_load_pd((void const*)(g1+t));
+    cur_max = _mm512_gmax_pd(cur_max, value);
+  }
+  _mm512_store_pd((void*)Gmax_arr, cur_max);
+  #pragma loop count (8)
+  for (t=0; t<8; t++)
+  {
+    if (Gmax<Gmax_arr[t]) Gmax=Gmax_arr[t];
+  }
+  #pragma loop count (8)
+  for (t=0; t<8; t++)
+  {
+    Gmax_arr[t] = Gmax;
+  }
+  cur_max = _mm512_load_pd((void const*)Gmax_arr);
+  for(t=0;t<active_size;t+=8)
+  {
+    __m512d value=_mm512_load_pd((void const*)(g1+t));
+    __mmask8 mask8 = _mm512_cmpeq_pd_mask(cur_max, value);
+    int mask = _mm512_mask2int(mask8);
+    if (mask)
+    {
+      int offset=0;
+      while ((mask&0x1)==0)
+      {
+        offset++;
+        mask = mask>>1;
+      }
+      Gmax_idx=t+offset;
+      break;
+    }
+  }
+#else
   for(int t=0;t<active_size;t++)
-    if(y[t]==+1)	
+  {
+    if (g1[t]>=Gmax)
     {
-      if(alpha_status[t] != UPPER_BOUND)//(!is_upper_bound(t))
-        if(-G[t] >= Gmax)
-        {
-          Gmax = -G[t];
-          Gmax_idx = t;
-        }
+      Gmax = g1[t];
+      Gmax_idx = t;
     }
-    else
-    {
-      if(alpha_status[t] != LOWER_BOUND)//(!is_lower_bound(t))
-        if(G[t] >= Gmax)
-        {
-          Gmax = G[t];
-          Gmax_idx = t;
-        }
-    }
+  }
+#endif
 
   int i = Gmax_idx;
   const Qfloat *Q_i = NULL;
@@ -728,8 +766,8 @@ int Solver::select_working_set(int &out_i, int &out_j)
     Q_i = Q->get_Q(i,active_size);
 
   ALIGNED(64) double grad_diff[active_size];
-  ALIGNED(64) double obj_diff[active_size];
-  ALIGNED(64) double g[active_size];
+  ALIGNED(64) double obj_diff[active_size+8];
+  ALIGNED(64) double g[active_size+8];
   //total_count++;
   //#pragma loop count(200)
   #pragma simd
@@ -740,20 +778,89 @@ int Solver::select_working_set(int &out_i, int &out_j)
     g[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?G[j]*y[j]:-INF;
     ALIGNED(64) double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
     obj_diff[j] = quad_coef>0?-(grad_diff[j]*grad_diff[j])/quad_coef:-(grad_diff[j]*grad_diff[j])/TAU;
+    obj_diff[j] = grad_diff[j]>0?obj_diff[j]:INF;
   }
+  for(int j=active_size;j<active_size+8;j++)  //padding
+  {
+    g[j] = -INF;
+    obj_diff[j] = INF;
+  }
+#ifdef __MIC__
+  ALIGNED(64) double Gmax2_arr[] = {Gmax2, Gmax2, Gmax2, Gmax2, Gmax2, Gmax2, Gmax2, Gmax2};
+  cur_max = _mm512_load_pd((void const*)Gmax2_arr);
+
+  ALIGNED(64) double obj_diff_min_arr[] = {obj_diff_min, obj_diff_min, obj_diff_min, obj_diff_min, obj_diff_min, obj_diff_min, obj_diff_min, obj_diff_min};
+  __m512d cur_min = _mm512_load_pd((void const*)obj_diff_min_arr);
+  int j;
+  for(j=0;j<active_size;j+=8)
+  {
+    __m512d value = _mm512_load_pd((void const*)(g+j));
+    cur_max = _mm512_gmax_pd(cur_max, value);
+
+    value=_mm512_load_pd((void const*)(obj_diff+j));
+    cur_min = _mm512_gmin_pd(cur_min, value);
+  }
+/*
+  __m512d temp = _mm512_swizzle_pd(cur_max, _MM_SWIZ_REG_CDAB);
+  cur_max = _mm512_gmax_pd(cur_max, temp);
+  temp = _mm512_swizzle_pd(cur_max, _MM_SWIZ_REG_BADC);
+  cur_max = _mm512_gmax_pd(cur_max, temp);
+  _mm512_store_pd((void*)Gmax2_arr, cur_max);
+  Gmax2 = Gmax2_arr[0]>Gmax2_arr[1]?Gmax2_arr[0]:Gmax2_arr[1];
+
+  temp = _mm512_swizzle_pd(cur_min, _MM_SWIZ_REG_CDAB);
+  cur_min = _mm512_gmin_pd(cur_min, temp);
+  temp = _mm512_swizzle_pd(cur_min, _MM_SWIZ_REG_BADC);
+  cur_min = _mm512_gmin_pd(cur_min, temp);
+  _mm512_store_pd((void*)obj_diff_min_arr, cur_min);
+  obj_diff_min = obj_diff_min_arr[0]<obj_diff_min_arr[1]?obj_diff_min_arr[0]:obj_diff_min_arr[1];*/
+  _mm512_store_pd((void*)Gmax2_arr, cur_max);
+  _mm512_store_pd((void*)obj_diff_min_arr, cur_min);
+  #pragma loop count (8)
+  for (j=0; j<8; j++)
+  {
+    if (Gmax2<Gmax2_arr[j]) Gmax2=Gmax2_arr[j];
+    if (obj_diff_min>obj_diff_min_arr[j]) obj_diff_min=obj_diff_min_arr[j];
+  }
+  #pragma loop count (8)
+  for (j=0; j<8; j++)
+  {
+    obj_diff_min_arr[j] = obj_diff_min;
+  }
+  cur_min = _mm512_load_pd((void const*)obj_diff_min_arr);
+  for(j=0;j<active_size;j+=8)
+  {
+    __m512d value=_mm512_load_pd((void const*)(obj_diff+j));
+    __mmask8 mask8 = _mm512_cmpeq_pd_mask(cur_min, value);
+    int mask = _mm512_mask2int(mask8);
+    if (mask)
+    {
+      int offset=0;
+      while ((mask&0x1)==0)
+      {
+        offset++;
+        mask = mask>>1;
+      }
+      Gmin_idx=j+offset;
+      break;
+    }
+  }
+#else
   for(int j=0;j<active_size;j++)
   {
     if (g[j] >= Gmax2)
       Gmax2 = g[j];
-    if (grad_diff[j] > 0)
+    if (obj_diff[j] <= obj_diff_min)
     {
-      if (obj_diff[j] <= obj_diff_min)
-      {
-        Gmin_idx=j;
-        obj_diff_min = obj_diff[j];
-      }
+      Gmin_idx=j;
+      obj_diff_min = obj_diff[j];
     }
   }
+#endif
+//  for(int j=0;j<active_size;j++)
+//  {
+//
+//  }
   if(Gmax+Gmax2 < eps)
     return 1;
 

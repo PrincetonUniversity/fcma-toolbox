@@ -103,3 +103,6 @@ clean svm related code for further optimization
 
 1.5.2 BETA version
 remove unnecessary OMP parallelization in get_Q function of svm.cpp to eliminate __kmp_wait_yield_4
+
+1.5.3 BETA version
+vectorize getting max/min of arrays in select_working_set for MIC using Intel intrinsics

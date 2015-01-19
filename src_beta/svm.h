@@ -45,6 +45,9 @@
 
 #define LIBSVM_VERSION 310
 
+#include <immintrin.h>
+#include <zmmintrin.h>
+
 #if defined(__GNUC__)
     // gcc supports this syntax
 #   define ALIGNED(x) __attribute__ ((aligned(x)))
