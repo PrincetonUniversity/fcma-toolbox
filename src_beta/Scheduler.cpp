@@ -295,11 +295,6 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   voxels->nVoxels = nVoxels;
   voxels->vid=new int[preset_step];
   voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
-  /*for (int i=0; i<preset_step; i++)
-  {
-    voxels[i] = new Voxel(i, nTrials, nVoxels);  // assume the number of voxels (row) is the same accross blocks
-    voxels[i]->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels, 64);
-  }*/
   float* bufs1[nTrials];
   float* bufs2[nTrials];
   /*for (int i=0; i<nTrials; i++)
@@ -359,7 +354,8 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();
 #endif
-        PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
+        //PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
+        PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
 #if __MEASURE_TIME__
         t2 = MPI_Wtime();
         cout<<"prerocessing: "<<t2-t1<<"s"<<endl;
