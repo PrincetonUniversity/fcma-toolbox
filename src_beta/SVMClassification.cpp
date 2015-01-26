@@ -148,14 +148,14 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
   return 1.0*total_correct/prob->l;
 }
 
-VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
+VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
 {
   if (me==0)  //sanity check
   {
     FATAL("the master node isn't supposed to do classification jobs");
   }
   svm_set_print_string_function(&print_null);
-  int row = voxels[0]->nVoxels; // assume all elements in voxels array have the same #voxels
+  int row = voxels->nVoxels; // assume all elements in voxels array have the same #voxels
   //int length = row * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
   VoxelScore* scores = new VoxelScore[step];  // get step voxels classification accuracy here
   SVMProblem* prob[step];
@@ -169,7 +169,7 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   #pragma omp parallel for private(i)
   for (i=0; i<step; i++)
   {
-    prob[i] = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
+    prob[i] = GetSVMProblemWithPreKernel2(trials, voxels, i, row, nTrainings);
     param[i] = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
   }
 #if __MEASURE_TIME__
@@ -179,13 +179,10 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   gettimeofday(&start, 0);
 #endif
 //unsigned long long ft[120];
-#pragma omp parallel
-{
-  //ft[omp_get_thread_num()] = __rdtsc();
-  #pragma omp for
+  #pragma omp parallel for
   for (i=0; i<step; i++)
   {
-    (scores+i)->vid = voxels[i]->vid;
+    (scores+i)->vid = voxels->vid[i];
     (scores+i)->score = DoSVM(nFolds, prob[i], param[i]);
     delete param[i];
     delete[] prob[i]->y;
@@ -196,8 +193,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
     delete[] prob[i]->x;
     delete prob[i];
   }
-  //ft[omp_get_thread_num()] = __rdtsc() - ft[omp_get_thread_num()];
-}
 #if __MEASURE_TIME__
   gettimeofday(&end, 0);
   t=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
@@ -207,7 +202,7 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
   return scores;
 }
 
-SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, int nTrainings)  //for voxelwise
+SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id, int row, int nTrainings)  //for voxelwise
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
@@ -215,7 +210,10 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, in
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, voxel->corr_vecs, row, voxel->corr_vecs, row, 0.0, simMatrix, nTrainings);
+  float* corr_vecs = voxel->corr_vecs+step_id*voxel->nTrials*voxel->nVoxels;
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corr_vecs, row, corr_vecs, row, 0.0, simMatrix, nTrainings);
+  //cblas_ssyrk(CblasRowMajor, CblasUpper, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
+  //ComputeSimMatrix(corr_vecs, nTrainings, row, simMatrix);
   //matmul(voxel->corr_vecs, voxel->corr_vecs, simMatrix, nTrainings, row, nTrainings);
   for (i=0; i<nTrainings; i++)
   {
@@ -226,10 +224,29 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int row, in
     for (j=0; j<nTrainings; j++)
     {
       prob->x[i][j+1].index = j+1;
+      //prob->x[i][j+1].value = i<=j?simMatrix[i*nTrainings+j]:simMatrix[j*nTrainings+i];
       prob->x[i][j+1].value = simMatrix[i*nTrainings+j];
     }
     prob->x[i][j+1].index = -1;
   }
   delete[] simMatrix;
   return prob;
+}
+
+void ComputeSimMatrix(float* corr_vec, int row, int col, float* simMatrix)  // not efficient
+{
+  __assume_aligned(corr_vec, 64);
+  __assume_aligned(simMatrix, 64);
+  for (int i=0; i<row; i++)
+  {
+    for (int j=0; j<=i; j++)
+    {
+      float sum=0.0;
+      for (int k=0; k<col; k++)
+      {
+        sum += corr_vec[i*col+k]*corr_vec[j*col+k];
+      }
+      simMatrix[i*row+j] = sum;
+    }
+  }
 }

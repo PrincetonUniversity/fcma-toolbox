@@ -106,3 +106,8 @@ remove unnecessary OMP parallelization in get_Q function of svm.cpp to eliminate
 
 1.5.3 BETA version
 vectorize getting max/min of arrays in select_working_set for MIC using Intel intrinsics
+
+1.5.4
+change the data layout of correlation vectors in voxelwise analysis to be continuous across voxels
+use cblas_sgemm to compute correlation vectors instead of VecMatMultiply function
+parallelize and do SIMD across voxels in the normalization step

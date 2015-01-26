@@ -15,9 +15,10 @@ extern "C" {
 }
 #endif
 
-Voxel** ComputeAllVoxelsAnalysisData(Voxel** voxels, Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1[], float* bufs2[]);
-void PreprocessAllVoxelsAnalysisData(Voxel** voxels, int step, int nSubs);
-void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs);
+Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1[], float* bufs2[]);
+void PreprocessAllVoxelsAnalysisData(Voxel* voxels, int step, int nSubs);
+void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs);
+void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int step_id, int nSubs);
 Voxel* ComputeOneVoxelAnalysisData(Trial* trials, int vid, int nTrials, float** data_buf1, float** data_buf2, int row, int col);
 void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size);
 void vectorMatMultiply2(float* mat, int mat_size, float* vec, int vec_size, Voxel** voxels, int step, int trialId);

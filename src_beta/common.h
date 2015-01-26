@@ -25,6 +25,7 @@
 #include <nifti1_io.h>
 #include <cassert>
 #include <immintrin.h>
+#include <zmmintrin.h>
 /*#include <array>
 #include <chrono>
 #include <random>*/
@@ -89,11 +90,11 @@ typedef struct trial_t
 
 typedef struct voxel_t
 {
-  int vid;
+  int* vid;
   float* corr_vecs;
   int nTrials;  //row
   int nVoxels;  //col
-  voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
+  //voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
 }Voxel;
 
 typedef struct voxel_Score_t

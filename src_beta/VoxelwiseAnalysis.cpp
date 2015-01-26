@@ -15,13 +15,13 @@ one voxel struct contains the correlation between a voxel of matrices1 and all v
 input: the trial struct array, number of trials, the starting row (since distributing to multi-nodes), step, the raw matrix struct arrays
 output: the voxel struct array
 *********************************/
-Voxel** ComputeAllVoxelsAnalysisData(Voxel** voxels, Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1[], float* bufs2[])
+Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1[], float* bufs2[])
 {
   int i;
   //Voxel** voxels = new Voxel*[step];
   for (i=0; i<step; i++)
   {
-    voxels[i]->vid=sr+i;
+    voxels->vid[i]=sr+i;
     //voxels[i] = new Voxel(sr+i, nTrials, matrices2[0]->row);  // assume the number of voxels (row) is the same accross blocks
     //voxels[i]->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*matrices2[0]->row, 64);
   }
@@ -57,11 +57,14 @@ Voxel** ComputeAllVoxelsAnalysisData(Voxel** voxels, Trial* trials, int nTrials,
     int col1 = matrices1[sid]->col;
     int row2 = matrices2[sid]->row;
     int col2 = matrices2[sid]->col;
-    for (int j=0; j<step; j++)
+    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, bufs1[i]+sr*ml, ml, bufs2[i], ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2, ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    /*for (int j=0; j<step; j++)
     {
-      //vectorMatMultiply(matrices2[sid]->matrix+cur_col*row2, sizeof(float)*row2*ml, matrices1[sid]->matrix+cur_col*row1+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row2, sizeof(float)*row2);
-      vectorMatMultiply(bufs2[i], sizeof(float)*row2*ml, bufs1[i]+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row2, sizeof(float)*row2);
-    }
+      //vectorMatMultiply(matrices2[sid]->matrix+cur_col*row2, sizeof(float)*row2*ml, matrices1[sid]->matrix+cur_col*row1+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
+      vectorMatMultiply(bufs2[i], sizeof(float)*row2*ml, bufs1[i]+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
+      //cblas_sgemv(CblasRowMajor, CblasNoTrans, row2, ml, 1.0, bufs2[i], ml, bufs1[i]+(sr+j)*ml, 1, 0.0, (voxels[j]->corr_vecs)+i*row2, 1);
+    }*/
   }
 /*
   for (i=0; i<nTrials; i++)
@@ -97,6 +100,7 @@ Voxel** ComputeAllVoxelsAnalysisData(Voxel** voxels, Trial* trials, int nTrials,
   return voxels;
 }
 
+#if 0
 /******************************
 compute a voxel of id "vid", across all trials
 input: a trial struct, voxel id, number of trials, normalized data, number of voxels (row), number of TRs (col)
@@ -120,29 +124,9 @@ Voxel* ComputeOneVoxelAnalysisData(Trial* trials, int vid, int nTrials, float** 
   }
   return voxel;
 }
+#endif
 
-/****************************************
-Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for all voxels' correlation data
-input: the voxel array, the length of this array (the number of voxels, "step"), the number of subjects
-output: update values to the voxels' correlation data
-*****************************************/
-void PreprocessAllVoxelsAnalysisData(Voxel** voxels, int step, int nSubs)
-{    
-  int i;
-  #pragma omp parallel for private(i)
-  for (i=0; i<step; i++)
-  {
-    PreprocessOneVoxelsAnalysisData(voxels[i], nSubs);
-  }
-  return;
-}
-
-/****************************************
-Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for one voxel's correlation data
-input: the voxel, the number of subjects
-output: update values to the voxel's correlation data
-*****************************************/
-void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs)
+void PreprocessOneVoxelsAnalysisData2(Voxel* voxel, int step_id, int nSubs)
 {
   int i, j, k;
   int nTrials = voxel->nTrials;
@@ -150,24 +134,133 @@ void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs)
   int nPerSub=nTrials/nSubs;
   for (i=0; i<nSubs; i++)
   {
-    //#pragma simd
     for (j=0; j<row; j++)
     {
       ALIGNED(64) float buf[nPerSub];
+      #pragma simd
+      #pragma loop count (12)
+      for (k=0; k<nPerSub; k++)
+      {
+        buf[k] = fisherTransformation(voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j]);
+      }
+      z_score(buf, nPerSub); // assume nPerSub>1
+      #pragma vector aligned nontemporal  // stream storing helps a little
+      for (k=0; k<nPerSub; k++)
+      {
+        voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j] = buf[k];
+      }
+    }
+  }
+  return;
+}
+
+/****************************************
+Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for all voxels' correlation data
+input: the voxel array, the length of this array (the number of voxels, "step"), the number of subjects
+output: update values to the voxels' correlation data
+*****************************************/
+void PreprocessAllVoxelsAnalysisData(Voxel* voxels, int step, int nSubs)
+{    
+  int i;
+  #pragma omp parallel for private(i)
+  for (i=0; i<step; i++)
+  {
+    PreprocessOneVoxelsAnalysisData(voxels, i, nSubs);
+  }
+  return;
+}
+
+void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
+{
+  int nTrials = voxels->nTrials;
+  int row = voxels->nVoxels;
+  int nPerSub=nTrials/nSubs;
+  for(int i = 0 ; i < step ; i++)
+  {
+    float (*mat)[row] = (float(*)[row])&(voxels->corr_vecs[i*nTrials*row]);
+    #pragma omp parallel for
+    #pragma simd
+    for(int j = 0 ; j < row ; j++)
+    {
+      for(int s = 0 ; s < nSubs ; s++)
+      {
+        float mean = 0.0f;
+      	float std_dev = 0.0f;
+      	for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
+      	{
+      	  float num = 1.0f + mat[b][j]; 
+      	  float den = 1.0f - mat[b][j];
+      	  num = (num <= 0.0f) ? TINYNUM : num;
+      	  den = (den <= 0.0f) ? TINYNUM : den;
+      	  mat[b][j] = 0.5f * logf(num/den);
+      	  mean += mat[b][j];
+      	  std_dev += mat[b][j] * mat[b][j];
+      	}
+        mean = mean / (float)nPerSub;
+      	std_dev = std_dev / (float)nPerSub - mean*mean;
+        float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
+      	for(int b = s*nPerSub ; b < (s+1)*nPerSub ; b++)
+      	{
+      	  mat[b][j] = (mat[b][j] - mean) * inv_std_dev;
+      	}
+      }
+    }
+  }
+}
+
+/****************************************
+Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for one voxel's correlation data
+input: the voxel, the number of subjects
+output: update values to the voxel's correlation data
+*****************************************/
+void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int step_id, int nSubs)
+{
+  int i, j, k, l;
+  int nTrials = voxel->nTrials;
+  int row = voxel->nVoxels;
+  int nPerSub=nTrials/nSubs;
+  for (i=0; i<nSubs; i++)
+  {
+    //#pragma simd
+    for (j=0; j<row-8; j+=8)
+    {
+      ALIGNED(64) float buf[8][nPerSub];
+      //_mm_prefetch((const char *)&(voxel->corr_vecs[i*nPerSub*row+j]), _MM_HINT_T1);
       //#pragma noprefetch
       //#pragma simd  // simd and prefetch and simd+preftech got similar performance
       for (k=0; k<nPerSub; k++)
       {
-        buf[k] = fisherTransformation(voxel->corr_vecs[i*nPerSub*row+k*row+j]);
+        //_mm_prefetch((const char *)&(voxel->corr_vecs[i*nPerSub*row+(k+1)*row+j]), _MM_HINT_T1);
+        for (l=0; l<8; l++)
+        {
+          buf[l][k] = fisherTransformation(voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j+l]);
+        }
       }
-      //if (nPerSub>1)  // nPerSub==1 results in 0
-      //{
-        z_score(buf, nPerSub);
-      //}
-      #pragma vector aligned nontemporal  // stream storing helps a little
+      for (l=0; l<8; l++)
+      {
+        z_score(buf[l], nPerSub); // assume nPerSub>1
+        #pragma vector nontemporal  // stream storing helps a little
+        for (k=0; k<nPerSub; k++)
+        {
+          voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j+l] = buf[l][k];
+        }
+      }
+    }
+    ALIGNED(64) float buf[row-j][nPerSub];
+    for (k=0; k<nPerSub; k++)
+    {
+      for (l=0; l<row-j; l++)
+      {
+        buf[l][k] = fisherTransformation(voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j+l]);
+      }
+    }
+    for (l=0; l<row-j; l++)
+    {
+      z_score(buf[l], nPerSub); // assume nPerSub>1
+      #pragma vector nontemporal  // stream storing helps a little
       for (k=0; k<nPerSub; k++)
       {
-        voxel->corr_vecs[i*nPerSub*row+k*row+j] = buf[k];
+        voxel->corr_vecs[step_id*nTrials*row+i*nPerSub*row+k*row+j+l] = buf[l][k];
       }
     }
   }

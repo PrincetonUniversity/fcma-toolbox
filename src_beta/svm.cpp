@@ -776,7 +776,7 @@ int Solver::select_working_set(int &out_i, int &out_j)
     //grad_diff[j]=Gmax+G[j]*y[j];
     grad_diff[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?Gmax+G[j]*y[j]:-1.0;
     g[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?G[j]*y[j]:-INF;
-    ALIGNED(64) double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
+    ALIGNED(64) double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];  // y[i], but not y[j], is intended
     obj_diff[j] = quad_coef>0?-(grad_diff[j]*grad_diff[j])/quad_coef:-(grad_diff[j]*grad_diff[j])/TAU;
     obj_diff[j] = grad_diff[j]>0?obj_diff[j]:INF;
   }

@@ -290,15 +290,19 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   MPI_Status status;
   int nVoxels = matrices2[0]->row;
 #ifdef __MIC__
-  Voxel** voxels = new Voxel*[preset_step];
-  for (int i=0; i<preset_step; i++)
+  Voxel* voxels = new Voxel();
+  voxels->nTrials = nTrials;
+  voxels->nVoxels = nVoxels;
+  voxels->vid=new int[preset_step];
+  voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
+  /*for (int i=0; i<preset_step; i++)
   {
     voxels[i] = new Voxel(i, nTrials, nVoxels);  // assume the number of voxels (row) is the same accross blocks
     voxels[i]->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels, 64);
-  }
+  }*/
   float* bufs1[nTrials];
   float* bufs2[nTrials];
-  for (int i=0; i<nTrials; i++)
+  /*for (int i=0; i<nTrials; i++)
   {
     int cur_col = trials[i].sc;
     int ml = trials[i].ec;
@@ -309,7 +313,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     bufs2[i]=new float[ml*row2];
     memcpy((void*)bufs1[i], (const void*)(matrices1[sid]->matrix+cur_col*row1), sizeof(float)*ml*row1);
     memcpy((void*)bufs2[i], (const void*)(matrices2[sid]->matrix+cur_col*row2), sizeof(float)*ml*row2);
-  }
+  }*/
 #endif
   while (true)
   {
@@ -355,7 +359,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();
 #endif
-        PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
+        PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
 #if __MEASURE_TIME__
         t2 = MPI_Wtime();
         cout<<"prerocessing: "<<t2-t1<<"s"<<endl;
@@ -435,10 +439,12 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #endif
   }
 #ifdef __MIC__
-  for (int i=0; i<preset_step; i++)
+  /*for (int i=0; i<preset_step; i++)
   {
     _mm_free(voxels[i]->corr_vecs);
-  }
+  }*/
+  _mm_free(voxels->corr_vecs);
+  delete voxels->vid;
   delete voxels;
 #endif
 }
