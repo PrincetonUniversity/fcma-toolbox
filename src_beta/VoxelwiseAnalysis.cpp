@@ -183,39 +183,49 @@ void PreprocessAllVoxelsAnalysisData(Voxel* voxels, int step, int nSubs)
   return;
 }
 
+//#define TR_PER_SUBJECT (12)
 void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
 {
   int nTrials = voxels->nTrials;
   int row = voxels->nVoxels;
   int nPerSub=nTrials/nSubs;
-  for(int i = 0 ; i < step ; i++)
+  #pragma omp parallel for
+  for(int v = 0 ; v < step*nSubs ; v++)
   {
+    int s = v % nSubs;  // subject id
+    int i = v / nSubs;  // voxel id
     float (*mat)[row] = (float(*)[row])&(voxels->corr_vecs[i*nTrials*row]);
-    #pragma omp parallel for
     #pragma simd
     for(int j = 0 ; j < row ; j++)
     {
-      for(int s = 0 ; s < nSubs ; s++)
+      float mean = 0.0f;
+    	float std_dev = 0.0f;
+#ifdef TR_PER_SUBJECT
+    	for(int b = s*TR_PER_SUBJECT; b < (s+1)*TR_PER_SUBJECT ; b++)
+    	{
+#else
+      for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
       {
-        float mean = 0.0f;
-      	float std_dev = 0.0f;
-      	for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
-      	{
-      	  float num = 1.0f + mat[b][j]; 
-      	  float den = 1.0f - mat[b][j];
-      	  num = (num <= 0.0f) ? TINYNUM : num;
-      	  den = (den <= 0.0f) ? TINYNUM : den;
-      	  mat[b][j] = 0.5f * logf(num/den);
-      	  mean += mat[b][j];
-      	  std_dev += mat[b][j] * mat[b][j];
-      	}
-        mean = mean / (float)nPerSub;
-      	std_dev = std_dev / (float)nPerSub - mean*mean;
-        float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
-      	for(int b = s*nPerSub ; b < (s+1)*nPerSub ; b++)
-      	{
-      	  mat[b][j] = (mat[b][j] - mean) * inv_std_dev;
-      	}
+#endif
+        float num = 1.0f + mat[b][j]; 
+      	float den = 1.0f - mat[b][j];
+      	num = (num <= 0.0f) ? 1e-4 : num;
+      	den = (den <= 0.0f) ? 1e-4 : den;
+      	mat[b][j] = 0.5f * logf(num/den);
+      	mean += mat[b][j];
+      	std_dev += mat[b][j] * mat[b][j];
+      }
+      mean = mean / (float)nPerSub;
+      std_dev = std_dev / (float)nPerSub - mean*mean;
+      float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
+#ifdef TR_PER_SUBJECT
+      for(int b = s*TR_PER_SUBJECT; b < (s+1)*TR_PER_SUBJECT ; b++)
+      {
+#else
+      for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
+      {
+#endif
+        mat[b][j] = (mat[b][j] - mean) * inv_std_dev;
       }
     }
   }

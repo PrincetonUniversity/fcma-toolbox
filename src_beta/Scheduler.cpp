@@ -354,8 +354,8 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();
 #endif
-        //PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
-        PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
+        PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
+        //PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
 #if __MEASURE_TIME__
         t2 = MPI_Wtime();
         cout<<"prerocessing: "<<t2-t1<<"s"<<endl;
