@@ -13,7 +13,7 @@ WARNFLAGS ?= -Wall -Wextra
 OPTIMFLAGS ?= -O3 -fopenmp -pthread -ansi_alias
 EXECUTABLE ?= pni_fcma
 
-LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -L$(HOME)/code/fcma-toolbox/src_th/multi_depend_th -lniftiio -lznz -lz
+LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -lniftiio -lznz -lz
 INCLUDES = $(BLASINCLUDE) $(OTHER_INCLUDES) -I$(NIFTILOC)/include
 CFLAGS = -std=c++0x -c -fPIC -g $(WARNFLAGS) $(OPTIMFLAGS) $(INCLUDES) $(BLASCFLAGS)# -D__MEASURE_TIME__# -D__MIIC__
 
