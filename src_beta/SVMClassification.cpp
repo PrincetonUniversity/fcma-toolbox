@@ -178,7 +178,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int
   cout<<"computing time: "<<t<<endl;
   gettimeofday(&start, 0);
 #endif
-//unsigned long long ft[120];
   #pragma omp parallel for
   for (i=0; i<step; i++)
   {
@@ -198,7 +197,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int
   t=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
   cout<<"svm time: "<<t<<endl;
 #endif
-//printf("%lld % lld\n", *std::max_element(ft, ft+120), *std::min_element(ft, ft+120));
   return scores;
 }
 
@@ -210,11 +208,15 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   float* simMatrix = new float[nTrainings*nTrainings];
+  for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
   float* corr_vecs = voxel->corr_vecs+step_id*voxel->nTrials*voxel->nVoxels;
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corr_vecs, row, corr_vecs, row, 0.0, simMatrix, nTrainings);
-  //cblas_ssyrk(CblasRowMajor, CblasUpper, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
-  //ComputeSimMatrix(corr_vecs, nTrainings, row, simMatrix);
-  //matmul(voxel->corr_vecs, voxel->corr_vecs, simMatrix, nTrainings, row, nTrainings);
+  //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corr_vecs, row, corr_vecs, row, 0.0, simMatrix, nTrainings);
+#ifdef __MIC__
+  custom_ssyrk((const int)nTrainings, (const int)row, corr_vecs, (const int)row, simMatrix, (const int)nTrainings); // lower triangle matrix
+#else
+  cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
+#endif
+
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = trials[i].label;
@@ -224,8 +226,7 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
     for (j=0; j<nTrainings; j++)
     {
       prob->x[i][j+1].index = j+1;
-      //prob->x[i][j+1].value = i<=j?simMatrix[i*nTrainings+j]:simMatrix[j*nTrainings+i];
-      prob->x[i][j+1].value = simMatrix[i*nTrainings+j];
+      prob->x[i][j+1].value = i>=j?simMatrix[i*nTrainings+j]:simMatrix[j*nTrainings+i];
     }
     prob->x[i][j+1].index = -1;
   }
@@ -233,20 +234,278 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
   return prob;
 }
 
-void ComputeSimMatrix(float* corr_vec, int row, int col, float* simMatrix)  // not efficient
+void custom_ssyrk(
+                 const MKL_INT M, 
+                 const MKL_INT K, float *A,
+                 const MKL_INT lda, 
+                 float *C, const MKL_INT ldc)
 {
-  __assume_aligned(corr_vec, 64);
-  __assume_aligned(simMatrix, 64);
-  for (int i=0; i<row; i++)
+  int m_max = (M / MBLK) * MBLK;
+  int n_max = (M / NBLK) * NBLK;
+  int k_max = (K / KBLK) * KBLK;
+
+  // Round ldc to nearest 16
+  const MKL_INT ldcc = ((ldc + 15)/16)*16;
+  const int n_row_blks = (M + (MBLK-1)) / MBLK;
+
+  float A_T[MBLK*KBLK];
+  float * A_local = (float*)_mm_malloc(M*KBLK*sizeof(float), 64);
+  float * C_local = (float*)_mm_malloc(n_row_blks*MBLK*M*sizeof(float), 64);
+
+  #pragma simd
+  for(int i = 0 ; i < n_row_blks*MBLK*M ; i++)
   {
-    for (int j=0; j<=i; j++)
+    C_local[i] = 0.0f;
+  }
+
+  for(int k = 0 ; k < K ; k+=KBLK)
+  {
+    // Load tile into local buffer
+    if(k < k_max)
     {
-      float sum=0.0;
-      for (int k=0; k<col; k++)
+      for(int jj = 0 ; jj < M ; jj++)
       {
-        sum += corr_vec[i*col+k]*corr_vec[j*col+k];
+        for(int kk = 0 ; kk < KBLK ; kk++)
+        {
+          A_local[kk + jj*KBLK] = A[(k + kk) + (jj) * lda];
+        }
       }
-      simMatrix[i*row+j] = sum;
+    }
+    else  // zero-pad last block
+    {
+      int k_left = K-k_max;
+      for(int jj = 0 ; jj < M ; jj++)
+      {
+        for(int kk = 0 ; kk < k_left; kk++)
+        {
+          A_local[kk + jj*KBLK] = A[(k + kk) + (jj) * lda];
+        }
+      }
+      for(int jj = 0 ; jj < M ; jj++)
+      {
+        for(int kk = k_left ; kk < KBLK ; kk++)
+        {
+          A_local[kk + jj*KBLK] = 0.0f;
+        }
+      }
+    }
+    for(int i = 0 ; i < m_max ; i+=MBLK)
+    {
+      // Local transpose of block (left matrix)
+      for(int kk = 0 ; kk < KBLK ; kk++)
+      {
+        for(int ii = 0 ; ii < MBLK ; ii++)
+        {
+          A_T[ii + kk*MBLK] = A_local[kk + (i+ii)*KBLK];
+        }
+      }
+      // Multiply blocks
+      for(int j = (i/NBLK)*NBLK ; j < n_max ; j+=NBLK)
+      {
+        sgemm_assembly(&(A_T[0]), &(A_local[j*KBLK]), &C_local[i*M + j*MBLK],NULL,NULL,NULL);
+      }
+
+      // Fill in remaining columns of C by looping over i,k,j (vectorize over i)
+      for(int jj = n_max ; jj < M ; jj++)
+      {
+        for(int kk = 0 ; kk < KBLK ; kk++)
+        {
+          #pragma simd
+          for(int ii = 0  ; ii < MBLK; ii++)
+          {
+            C_local[(ii+i*M)+jj*MBLK] += A_T[ii + kk*MBLK] * A_local[kk + jj*KBLK];
+          }
+        }
+      }
+    }
+    // Fill in bottom right corner of the matrix by looping over i,j,k (no vectorization)
+    for(int ii = m_max ; ii < M ; ii++)
+    {
+      int iii = ii % m_max;
+      for(int jj = ii ; jj < M ; jj++)
+      {
+        for(int kk = 0 ; kk < KBLK ; kk++)
+        {
+          C_local[(iii)+m_max*M+jj*MBLK] += A_local[kk + ii*KBLK] * A_local[kk + jj*KBLK];
+        }
+      }
     }
   }
+
+  // Copy upper triangle into output array
+  for(int i = 0 ; i < M ; i++)
+  {
+    int iblk = (i / MBLK)*MBLK;
+    int ii = i % MBLK;
+    for(int j = i ; j < M ; j++)
+    {
+      C[i + j*ldc] += C_local[ii+iblk*M + j*MBLK];
+    }
+  }
+  _mm_free(A_local);
+  _mm_free(C_local);
+}
+
+void sgemm_assembly(float* A, float* B, float* C, float* A_prefetch, float* B_prefetch, float* C_prefetch)
+{
+#ifdef __MIC__
+float mic_zero = 0.0;
+float* Z = &mic_zero;
+    __asm__ __volatile__("movq %0, %%r8\n\t"
+                         "movq %1, %%r9\n\t"
+                         "movq %2, %%r10\n\t"
+                         "movq %3, %%r15\n\t"
+                         "movq $0, %%r14\n\t"
+                         "movq $0, %%r13\n\t"
+                         "10016:\n\t"
+                         "addq $16, %%r14\n\t"
+                         "vmovaps (%%r10), %%zmm23\n\t"
+                         "vprefetch1 64(%%r10)\n\t"
+                         "vmovaps 64(%%r10), %%zmm24\n\t"
+                         "vprefetch1 128(%%r10)\n\t"
+                         "vmovaps 128(%%r10), %%zmm25\n\t"
+                         "vprefetch1 192(%%r10)\n\t"
+                         "vmovaps 192(%%r10), %%zmm26\n\t"
+                         "vprefetch1 256(%%r10)\n\t"
+                         "vmovaps 256(%%r10), %%zmm27\n\t"
+                         "vprefetch1 320(%%r10)\n\t"
+                         "vmovaps 320(%%r10), %%zmm28\n\t"
+                         "vprefetch1 384(%%r10)\n\t"
+                         "vmovaps 384(%%r10), %%zmm29\n\t"
+                         "vprefetch1 448(%%r10)\n\t"
+                         "vmovaps 448(%%r10), %%zmm30\n\t"
+                         "vprefetch1 512(%%r10)\n\t"
+                         "vmovaps 512(%%r10), %%zmm31\n\t"
+                         "vprefetch1 576(%%r10)\n\t"
+                         "movq $0, %%r13\n\t"
+                         "216:\n\t"
+                         "addq $8, %%r13\n\t"
+                         "vmovaps 0(%%r9), %%zmm0\n\t"
+                         "vprefetch0 64(%%r9)\n\t"
+                         "vfmadd231ps 0(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch0 128(%%r9)\n\t"
+                         "vfmadd231ps 384(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch0 192(%%r9)\n\t"
+                         "vfmadd231ps 768(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch0 256(%%r9)\n\t"
+                         "vfmadd231ps 1152(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1536(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1920(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2304(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2688(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3072(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 64(%%r9), %%zmm0\n\t"
+                         "vprefetch0 320(%%r9)\n\t"
+                         "vfmadd231ps 4(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch0 384(%%r9)\n\t"
+                         "vfmadd231ps 388(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch0 448(%%r9)\n\t"
+                         "vfmadd231ps 772(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch0 512(%%r9)\n\t"
+                         "vfmadd231ps 1156(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1540(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1924(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2308(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2692(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3076(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 128(%%r9), %%zmm0\n\t"
+                         "vprefetch1 64(%%r9)\n\t"
+                         "vfmadd231ps 8(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch1 128(%%r9)\n\t"
+                         "vfmadd231ps 392(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch1 192(%%r9)\n\t"
+                         "vfmadd231ps 776(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch1 256(%%r9)\n\t"
+                         "vfmadd231ps 1160(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1544(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1928(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2312(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2696(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3080(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 192(%%r9), %%zmm0\n\t"
+                         "vprefetch1 320(%%r9)\n\t"
+                         "vfmadd231ps 12(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch1 384(%%r9)\n\t"
+                         "vfmadd231ps 396(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch1 448(%%r9)\n\t"
+                         "vfmadd231ps 780(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch1 512(%%r9)\n\t"
+                         "vfmadd231ps 1164(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1548(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1932(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2316(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2700(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3084(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 256(%%r9), %%zmm0\n\t"
+                         "vprefetch0 64(%%r8)\n\t"
+                         "vfmadd231ps 16(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch0 448(%%r8)\n\t"
+                         "vfmadd231ps 400(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch0 832(%%r8)\n\t"
+                         "vfmadd231ps 784(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch0 1216(%%r8)\n\t"
+                         "vfmadd231ps 1168(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1552(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1936(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2320(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2704(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3088(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 320(%%r9), %%zmm0\n\t"
+                         "vprefetch0 1600(%%r8)\n\t"
+                         "vfmadd231ps 20(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vprefetch0 1984(%%r8)\n\t"
+                         "vfmadd231ps 404(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vprefetch0 2368(%%r8)\n\t"
+                         "vfmadd231ps 788(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vprefetch0 2752(%%r8)\n\t"
+                         "vfmadd231ps 1172(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1556(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1940(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2324(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2708(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3092(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 384(%%r9), %%zmm0\n\t"
+                         "vprefetch0 3136(%%r8)\n\t"
+                         "vfmadd231ps 24(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vfmadd231ps 408(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vfmadd231ps 792(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vfmadd231ps 1176(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1560(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1944(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2328(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2712(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3096(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "vmovaps 448(%%r9), %%zmm0\n\t"
+                         "vfmadd231ps 28(%%r8){{1to16}}, %%zmm0, %%zmm23\n\t"
+                         "vfmadd231ps 412(%%r8){{1to16}}, %%zmm0, %%zmm24\n\t"
+                         "vfmadd231ps 796(%%r8){{1to16}}, %%zmm0, %%zmm25\n\t"
+                         "vfmadd231ps 1180(%%r8){{1to16}}, %%zmm0, %%zmm26\n\t"
+                         "vfmadd231ps 1564(%%r8){{1to16}}, %%zmm0, %%zmm27\n\t"
+                         "vfmadd231ps 1948(%%r8){{1to16}}, %%zmm0, %%zmm28\n\t"
+                         "vfmadd231ps 2332(%%r8){{1to16}}, %%zmm0, %%zmm29\n\t"
+                         "vfmadd231ps 2716(%%r8){{1to16}}, %%zmm0, %%zmm30\n\t"
+                         "vfmadd231ps 3100(%%r8){{1to16}}, %%zmm0, %%zmm31\n\t"
+                         "addq $32, %%r8\n\t"
+                         "addq $512, %%r9\n\t"
+                         "cmpq $96, %%r13\n\t"
+                         "jl 216b\n\t"
+                         "subq $384, %%r8\n\t"
+                         "vmovaps %%zmm23, (%%r10)\n\t"
+                         "vmovaps %%zmm24, 64(%%r10)\n\t"
+                         "vmovaps %%zmm25, 128(%%r10)\n\t"
+                         "vmovaps %%zmm26, 192(%%r10)\n\t"
+                         "vmovaps %%zmm27, 256(%%r10)\n\t"
+                         "vmovaps %%zmm28, 320(%%r10)\n\t"
+                         "vmovaps %%zmm29, 384(%%r10)\n\t"
+                         "vmovaps %%zmm30, 448(%%r10)\n\t"
+                         "vmovaps %%zmm31, 512(%%r10)\n\t"
+                         "addq $64, %%r10\n\t"
+                         "subq $6080, %%r9\n\t"
+                         "cmpq $16, %%r14\n\t"
+                         "jl 10016b\n\t"
+                        : : "m"(B), "m"(A), "m"(C), "m"(Z) : "r8","r9","r10","r13","r14","r15","zmm0","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
+//#else
+//#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)
+//#error No kernel was compiled, lacking support for current architecture?
+#endif
 }
