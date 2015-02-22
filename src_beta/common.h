@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <map>
+#include <list>
 #include <algorithm>
 #include <sys/types.h>
 #include <sys/stat.h>

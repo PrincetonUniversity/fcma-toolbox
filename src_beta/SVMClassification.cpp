@@ -234,6 +234,77 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
   return prob;
 }
 
+VoxelScore* GetVoxelwiseNewSVMPerformance(int me, Trial* trials, Voxel* voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
+{
+  if (me==0)  //sanity check
+  {
+    FATAL("the master node isn't supposed to do classification jobs");
+  }
+  int row = voxels->nVoxels; // assume all elements in voxels array have the same #voxels
+  //int length = row * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
+  VoxelScore* scores = new VoxelScore[step];  // get step voxels classification accuracy here
+  int i;
+  #pragma omp parallel for private(i)
+  for (i=0; i<step; i++)
+  {
+    float* data=NULL;
+    float* labels=NULL;
+    GetNewSVMProblemWithPreKernel(trials, voxels, i, row, nTrainings, &data, &labels);
+    (scores+i)->vid = voxels->vid[i];
+    (scores+i)->score = DOSVMNew(data, nTrainings, nTrainings, nFolds, labels, voxels->vid[i]);
+    delete[] data;
+    delete[] labels;
+  }
+  return scores;
+}
+
+void GetNewSVMProblemWithPreKernel(Trial* trials, Voxel* voxel, int step_id, int row, int nTrainings, float** p_data, float** p_labels)  //for voxelwise
+{
+  int i, j;
+  float* simMatrix = new float[nTrainings*nTrainings];
+  float* labels = new float[nTrainings];
+  for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
+  float* corr_vecs = voxel->corr_vecs+step_id*voxel->nTrials*voxel->nVoxels;
+#ifdef __MIC__
+  custom_ssyrk((const int)nTrainings, (const int)row, corr_vecs, (const int)row, simMatrix, (const int)nTrainings); // lower triangle matrix
+#else
+  cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
+#endif
+  for (i=0; i<nTrainings; i++)
+  {
+    for (j=0; j<i; j++)
+    {
+      simMatrix[j*nTrainings+i] = simMatrix[i*nTrainings+j];
+    }
+  }
+  for (i=0; i<nTrainings*nTrainings; i++)
+  {
+    simMatrix[i] *= .001f;
+  }
+  for (i=0; i<nTrainings; i++)
+  {
+    labels[i] = trials[i].label;
+  }  
+  *p_data = simMatrix;
+  *p_labels = labels;
+}
+
+float DOSVMNew(float* data, int nPoints, int nDimension, int nFolds, float* labels, int vid)
+{
+  Kernel_params kp;
+  kp.gamma = 0;
+	kp.coef0 = 0;
+	kp.degree = 3;
+	//kp.b doesn't need to be preset
+	kp.kernel_type = "precomputed";
+  float cost = 10.0f;
+  SelectionHeuristic heuristicMethod = ADAPTIVE;
+  float tolerance = 1e-3f;
+  float epsilon = 1e-5f;
+  float accuracy = crossValidationNoShuffle(data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod, epsilon, tolerance, NULL); //transposedData is not used here
+  return accuracy;
+}
+
 void custom_ssyrk(
                  const MKL_INT M, 
                  const MKL_INT K, float *A,
@@ -245,12 +316,12 @@ void custom_ssyrk(
   int k_max = (K / KBLK) * KBLK;
 
   // Round ldc to nearest 16
-  const MKL_INT ldcc = ((ldc + 15)/16)*16;
+  //const MKL_INT ldcc = ((ldc + 15)/16)*16;
   const int n_row_blks = (M + (MBLK-1)) / MBLK;
 
-  float A_T[MBLK*KBLK];
-  float * A_local = (float*)_mm_malloc(M*KBLK*sizeof(float), 64);
-  float * C_local = (float*)_mm_malloc(n_row_blks*MBLK*M*sizeof(float), 64);
+  float A_T[MBLK*KBLK]; // 6KB
+  float * A_local = (float*)_mm_malloc(M*KBLK*sizeof(float), 64); //204*96*4=76.5KB
+  float * C_local = (float*)_mm_malloc(n_row_blks*MBLK*M*sizeof(float), 64);  // 208*204*4=165.75KB
 
   #pragma simd
   for(int i = 0 ; i < n_row_blks*MBLK*M ; i++)
@@ -296,16 +367,16 @@ void custom_ssyrk(
       {
         for(int ii = 0 ; ii < MBLK ; ii++)
         {
-          A_T[ii + kk*MBLK] = A_local[kk + (i+ii)*KBLK];
+          A_T[ii + kk*MBLK] = A_local[kk + (i+ii)*KBLK];  // time consuming
         }
       }
       // Multiply blocks
-      for(int j = (i/NBLK)*NBLK ; j < n_max ; j+=NBLK)
+      for(int j = (i/NBLK)*NBLK ; j < n_max ; j+=NBLK)  // compute the lower triangle
       {
         sgemm_assembly(&(A_T[0]), &(A_local[j*KBLK]), &C_local[i*M + j*MBLK],NULL,NULL,NULL);
       }
 
-      // Fill in remaining columns of C by looping over i,k,j (vectorize over i)
+      // Fill in remaining rows of C by looping over i,k,j (vectorize over i)
       for(int jj = n_max ; jj < M ; jj++)
       {
         for(int kk = 0 ; kk < KBLK ; kk++)
@@ -313,7 +384,7 @@ void custom_ssyrk(
           #pragma simd
           for(int ii = 0  ; ii < MBLK; ii++)
           {
-            C_local[(ii+i*M)+jj*MBLK] += A_T[ii + kk*MBLK] * A_local[kk + jj*KBLK];
+            C_local[(ii+i*M)+jj*MBLK] += A_T[ii + kk*MBLK] * A_local[kk + jj*KBLK]; // time consuming
           }
         }
       }
@@ -332,7 +403,7 @@ void custom_ssyrk(
     }
   }
 
-  // Copy upper triangle into output array
+  // Copy lower triangle into output array
   for(int i = 0 ; i < M ; i++)
   {
     int iblk = (i / MBLK)*MBLK;
