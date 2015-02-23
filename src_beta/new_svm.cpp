@@ -547,81 +547,69 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
       }
    }
 
-    const int CL = 16; //64 bytes
+    //const int CL = 16; //64 bytes
     //reduction arrays
-    int* devLocalIndicesRL = new int[nthreads*CL];
-    int* devLocalIndicesRH = new int[nthreads*CL];
-    float* devLocalFsRL = new float[nthreads*CL]; // init to -inf
-    float* devLocalFsRH = new float[nthreads*CL];  //init to inf
+    //int* devLocalIndicesRL = new int[nthreads*CL];
+    //int* devLocalIndicesRH = new int[nthreads*CL];
+    //float* devLocalFsRL = new float[nthreads*CL]; // init to -inf
+    //float* devLocalFsRH = new float[nthreads*CL];  //init to inf
+    int devLocalIndicesRL;
+    int devLocalIndicesRH;
+    float devLocalFsRL = -FLT_MAX; // init to -inf
+    float devLocalFsRH = FLT_MAX;  //init to inf
     
-    for (int tid = 0 ; tid < nthreads; tid++) {
+    /*for (int tid = 0 ; tid < nthreads; tid++) {
       devLocalFsRL[tid*CL] = -FLT_MAX;
       devLocalFsRH[tid*CL] = FLT_MAX;
-    }
+    }*/
 
     //#pragma omp parallel for num_threads(nthreads)
+    bool flag0[nPoints];
+    bool flag1[nPoints];
+    #pragma simd
     for (int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
       int tid = 0;//omp_get_thread_num();
 
       float alpha = devAlpha[globalIndex];
       float f = devF[globalIndex];
       float label = devLabels[globalIndex];
-      int reduceFlag = 0;
-      
-      if (alpha > epsilon) {
-	      if (alpha < cEpsilon) {
-          reduceFlag = REDUCE0 | REDUCE1; //Unbound support vector (I0)
-  	    } else {
-	          if (label > 0) {
-	            reduceFlag = REDUCE0; //Bound positive support vector (I3)
-	          } else {
-	            reduceFlag = REDUCE1; //Bound negative support vector (I2)
-	          }
-	      }
-      } else {
-	        if (label > 0) {
-        	  reduceFlag = REDUCE1; //Positive nonsupport vector (I1)
-        	} else {
-          	  reduceFlag = REDUCE0; //Negative nonsupport vector (I4)
-        	}
-      }
+      f += alpha1Diff * highKernel[globalIndex];
+      f += alpha2Diff * lowKernel[globalIndex];
+      devCache[(devCachePitchInFloats * iLowCacheIndex) + globalIndex]=iLowCompute?lowKernel[globalIndex]:devCache[(devCachePitchInFloats * iLowCacheIndex) + globalIndex];
+      devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex]=iHighCompute?highKernel[globalIndex]:devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex];
 
-      f = f + alpha1Diff * highKernel[globalIndex];
-      f = f + alpha2Diff * lowKernel[globalIndex];
-      if (iLowCompute) {
-      	devCache[(devCachePitchInFloats * iLowCacheIndex) + globalIndex] = lowKernel[globalIndex];
-      }
-      if (iHighCompute) {
-      	devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex] = highKernel[globalIndex];
-      }
+      flag0[globalIndex] = (alpha>epsilon && (alpha<cEpsilon || label>0)) || (alpha<=epsilon && label<=0);
+      flag1[globalIndex] = (alpha>epsilon && (alpha<cEpsilon || label<=0)) || (alpha<=epsilon && label>0);
       devF[globalIndex] = f;
-      
-      if (reduceFlag & REDUCE0) {
-        if (f > devLocalFsRL[tid*CL]) { devLocalFsRL[tid*CL] = f; devLocalIndicesRL[tid*CL] = globalIndex;}
+    }
+    // can be further optimized using intrinsics --Yida
+    for (int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
+      float f = devF[globalIndex];
+      if (flag0[globalIndex]) {
+        if (f > devLocalFsRL) { devLocalFsRL = f; devLocalIndicesRL = globalIndex;}
       }
-
-      if (reduceFlag & REDUCE1) {
-        if (f < devLocalFsRH[tid*CL]) { devLocalFsRH[tid*CL] = f; devLocalIndicesRH[tid*CL] = globalIndex;}
+      if (flag1[globalIndex]) {
+        if (f < devLocalFsRH) { devLocalFsRH = f; devLocalIndicesRH = globalIndex;}
       }
     }
 
-    float maxFsRL = -FLT_MAX;
-    float minFsRH = FLT_MAX;
-    int iLowNew, iHighNew;
+    float maxFsRL = devLocalFsRL;
+    float minFsRH = devLocalFsRH;
+    int iLowNew=devLocalIndicesRL, iHighNew=devLocalIndicesRH;
 
-    for (int tid = 0; tid < nthreads; tid++) {
+    /*for (int tid = 0; tid < nthreads; tid++) {
       if (maxFsRL < devLocalFsRL[tid*CL]) { maxFsRL = devLocalFsRL[tid*CL]; iLowNew = devLocalIndicesRL[tid*CL];}
       if (minFsRH > devLocalFsRH[tid*CL]) { minFsRH = devLocalFsRH[tid*CL]; iHighNew = devLocalIndicesRH[tid*CL];}
-    }
+    }*/
     float bLow = maxFsRL;
     float bHigh = minFsRH;
 
     if(iHighCompute) delete [] highKernel;
     if(iLowCompute) delete [] lowKernel;
-    delete [] devLocalIndicesRL;
-    delete [] devLocalIndicesRH;
-    delete [] devLocalFsRL;
-    delete [] devLocalFsRH;
+    //delete [] devLocalIndicesRL;
+    //delete [] devLocalIndicesRH;
+    //delete [] devLocalFsRL;
+    //delete [] devLocalFsRH;
 
     *((float*)devResult + 2) = bLow;
     *((float*)devResult + 3) = bHigh;
@@ -693,61 +681,52 @@ void	secondOrder(float* devData, int devDataPitchInFloats, float* devTransposedD
 
   float iHighSelfKernel = devKernelDiag[iHigh];
 
-    const int CL = 16; //64 bytes
-    //reduction arrays
-    int* devLocalIndicesRL = new int[nthreads*CL];
-    float* devLocalFsRL = new float[nthreads*CL]; // init to -inf
-    for (int tid = 0 ; tid < nthreads; tid++) {
-      devLocalFsRL[tid*CL] = -FLT_MAX;
-    } 
+  //const int CL = 16; //64 bytes
+  //reduction arrays
+  /*int* devLocalIndicesRL = new int[nthreads*CL];
+  float* devLocalFsRL = new float[nthreads*CL]; // init to -inf
+  for (int tid = 0 ; tid < nthreads; tid++) {
+    devLocalFsRL[tid*CL] = -FLT_MAX;
+  } */
+  int devLocalIndicesRL;
+  float devLocalFsRL = -FLT_MAX;
 
   //#pragma omp parallel for num_threads(nthreads)
-  //#pragma simd
+  float objs[nPoints];
+  #pragma simd
   for(int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
     int tid = 0;//omp_get_thread_num();
     float alpha = devAlpha[globalIndex];
     float label = devLabels[globalIndex];
     float f = devF[globalIndex];
     float beta = bHigh - f;
-    if (iHighCompute) {
-      devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex] = highKernel[globalIndex];
-    }
-
-    if (((label > 0) && (alpha > epsilon)) ||
-        ((label < 0) && (alpha < cEpsilon))) {
-      if (beta <= epsilon) {
-        float kappa = iHighSelfKernel + devKernelDiag[globalIndex] - 2 * highKernel[globalIndex];
-    
-        if (kappa <= 0) {
-          kappa = epsilon;
-        }
-    
-        float obj = beta * beta / kappa;
-
-        if (obj > devLocalFsRL[tid*CL]) { devLocalFsRL[tid*CL] = obj; devLocalIndicesRL[tid*CL] = globalIndex;}
-
-      }         
-    }
-
-    
+    devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex]=iHighCompute?highKernel[globalIndex]:devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex];
+    bool flag=((label>0&&alpha>epsilon)||(label<0&&alpha<cEpsilon))&&beta<=epsilon;
+    float kappa=iHighSelfKernel+devKernelDiag[globalIndex]-2*highKernel[globalIndex];
+    kappa = kappa<=0?epsilon:kappa;
+    objs[globalIndex] = flag?beta * beta / kappa:-FLT_MAX;
   }
+  for(int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
+    if (objs[globalIndex]>devLocalFsRL) {
+      devLocalFsRL=objs[globalIndex];
+      devLocalIndicesRL = globalIndex;
+    }
+  }  
 
   //reduction.. 
   //
-    float maxFsRL = -FLT_MAX;
+    /*float maxFsRL = -FLT_MAX;
     int iLowNew;
 
     for (int tid = 0; tid < nthreads; tid++) {
         if (maxFsRL < devLocalFsRL[tid*CL]) { maxFsRL = devLocalFsRL[tid*CL]; iLowNew = devLocalIndicesRL[tid*CL];}
-    }
-    float bLow = devF[iLowNew];
+    }*/
+    float bLow = devF[devLocalIndicesRL];
 
     if(iHighCompute) delete [] highKernel;
-    delete [] devLocalIndicesRL;
-    delete [] devLocalFsRL;
 
     *((float*)devResult + 2) = bLow;
-    *((int*)devResult + 6) = iLowNew;
+    *((int*)devResult + 6) = devLocalIndicesRL;
 
 }
 

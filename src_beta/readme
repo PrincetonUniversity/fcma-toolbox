@@ -121,3 +121,6 @@ optimize the SVM kernel matrix computing for Phi, using custom_ssryk routine
 1.6 BETA version
 incorporate GPUSVM to replace LibSVM code
 the first try, only for correlation-based voxel selection, works correctly but 5x slower than LibSVM
+
+1.6.1 BETA version
+vectorize hot spots of GPUSVM, now outperform LibSVM by a factor of 2.7
