@@ -311,11 +311,11 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   devTransposedData = transposedData;
   int devTransposedDataPitchInFloats = nDimension;
   float* devLabels = labels;
-  float* devKernelDiag = new float[nPoints];
+  float devKernelDiag[nPoints];
   float* alpha = (float*)malloc(sizeof(float) * nPoints);
   *p_alpha = alpha;
   float* devAlpha = alpha;
-  float* devF = new float[nPoints];
+  float devF[nPoints];
   float* hostResult = (float*)malloc(8*sizeof(float));
   void* devResult = (void*) hostResult;
   int blockWidth = intDivideRoundUp(nPoints, BLOCKSIZE);
@@ -434,6 +434,8 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   //printf("bLow: %f, bHigh: %f\n", bLow, bHigh);
   kp->b = (bLow + bHigh) / 2;
   //kernelCache.printStatistics();
+  free(hostResult);
+  free(devCache);
 }
 
 void QP(float* devKernelDiag, float kernelEval, float* devAlpha, float* devLabels, int iHigh, int iLow, float bHigh, float bLow, float cost, void* devResult) {
@@ -700,6 +702,7 @@ void	secondOrder(float* devData, int devDataPitchInFloats, float* devTransposedD
     } 
 
   //#pragma omp parallel for num_threads(nthreads)
+  //#pragma simd
   for(int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
     int tid = 0;//omp_get_thread_num();
     float alpha = devAlpha[globalIndex];
