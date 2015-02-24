@@ -564,8 +564,10 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
     }*/
 
     //#pragma omp parallel for num_threads(nthreads)
-    bool flag0[nPoints];
-    bool flag1[nPoints];
+    //bool flag0[nPoints];
+    //bool flag1[nPoints];
+    float localFsRL[nPoints];
+    float localFsRH[nPoints];
     #pragma simd
     for (int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
       int tid = 0;//omp_get_thread_num();
@@ -578,19 +580,16 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
       devCache[(devCachePitchInFloats * iLowCacheIndex) + globalIndex]=iLowCompute?lowKernel[globalIndex]:devCache[(devCachePitchInFloats * iLowCacheIndex) + globalIndex];
       devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex]=iHighCompute?highKernel[globalIndex]:devCache[(devCachePitchInFloats * iHighCacheIndex) + globalIndex];
 
-      flag0[globalIndex] = (alpha>epsilon && (alpha<cEpsilon || label>0)) || (alpha<=epsilon && label<=0);
-      flag1[globalIndex] = (alpha>epsilon && (alpha<cEpsilon || label<=0)) || (alpha<=epsilon && label>0);
+      bool flag0 = (alpha>epsilon && (alpha<cEpsilon || label>0)) || (alpha<=epsilon && label<=0);
+      bool flag1 = (alpha>epsilon && (alpha<cEpsilon || label<=0)) || (alpha<=epsilon && label>0);
       devF[globalIndex] = f;
+      localFsRL[globalIndex] = flag0?f:-FLT_MAX;
+      localFsRH[globalIndex] = flag1?f:FLT_MAX;
     }
     // can be further optimized using intrinsics --Yida
     for (int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
-      float f = devF[globalIndex];
-      if (flag0[globalIndex]) {
-        if (f > devLocalFsRL) { devLocalFsRL = f; devLocalIndicesRL = globalIndex;}
-      }
-      if (flag1[globalIndex]) {
-        if (f < devLocalFsRH) { devLocalFsRH = f; devLocalIndicesRH = globalIndex;}
-      }
+      if (localFsRL[globalIndex] > devLocalFsRL) { devLocalFsRL = localFsRL[globalIndex]; devLocalIndicesRL = globalIndex;}
+      if (localFsRH[globalIndex] < devLocalFsRH) { devLocalFsRH = localFsRH[globalIndex]; devLocalIndicesRH = globalIndex;}
     }
 
     float maxFsRL = devLocalFsRL;
