@@ -335,7 +335,6 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
 
   float* devCache;
   size_t cachePitch = rowPitch;
-  devCache = new float[sizeOfCache * nPoints];
   NewCache kernelCache(nPoints, sizeOfCache);
   int devCachePitchInFloats = (int)cachePitch/(sizeof(float));
 
@@ -344,9 +343,13 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
     if(nPoints != nDimension) { 
 	printf("Not a kernel matrix (not square) \n"); exit(1); 
     }
-    memcpy(devCache, devData, nPoints*nPoints*sizeof(float));
+    devCache = devData;
+    //memcpy(devCache, devData, nPoints*nPoints*sizeof(float));
     //for (int i = 0 ;i < nPoints*nPoints; i++) devCache[i] /= 1000.0f;
     //printf("Cache populated\n");
+  }
+  else {
+    devCache = new float[sizeOfCache * nPoints];
   }
   launchInitialization(devData, devDataPitchInFloats, devCache, devCachePitchInFloats, nPoints, nDimension, kType, parameterA, parameterB, parameterC, devKernelDiag, devAlpha, devF, devLabels, nthreads);
   //printf("Initialization complete\n");
@@ -435,7 +438,9 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   kp->b = (bLow + bHigh) / 2;
   //kernelCache.printStatistics();
   free(hostResult);
-  free(devCache);
+  if (kType != NEWPRECOMPUTED) {
+    free(devCache);
+  }
 }
 
 void QP(float* devKernelDiag, float kernelEval, float* devAlpha, float* devLabels, int iHigh, int iLow, float bHigh, float bLow, float cost, void* devResult) {

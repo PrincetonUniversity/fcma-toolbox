@@ -124,3 +124,7 @@ the first try, only for correlation-based voxel selection, works correctly but 5
 
 1.6.1 BETA version
 vectorize hot spots of GPUSVM, now outperform LibSVM by a factor of 2.7
+
+1.6.2 BETA version
+further optimize GPUSVM, by 1) simplifying get max/min loops in first order heuristics; 2) avoiding using devCache in the precomputed kernel
+now outperform LibSVM by a factor of 2.2 on Xeon and a factor of 5.7 on Xeon Phi
