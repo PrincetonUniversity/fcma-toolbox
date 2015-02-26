@@ -244,17 +244,46 @@ VoxelScore* GetVoxelwiseNewSVMPerformance(int me, Trial* trials, Voxel* voxels, 
   //int length = row * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
   VoxelScore* scores = new VoxelScore[step];  // get step voxels classification accuracy here
   int i;
+#ifdef __MEASURE_TIME__
+  float t1=0, t2=0;
+#endif
   #pragma omp parallel for private(i)
   for (i=0; i<step; i++)
   {
+#ifdef __MEASURE_TIME__
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, 0);
+#endif
     float* data=NULL;
     float* labels=NULL;
     GetNewSVMProblemWithPreKernel(trials, voxels, i, row, nTrainings, &data, &labels);
     (scores+i)->vid = voxels->vid[i];
+#ifdef __MEASURE_TIME__
+    gettimeofday(&end_time, 0);
+    if (omp_get_thread_num()==0)
+    {
+      t1 += end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+    }
+    gettimeofday(&start_time, 0);
+#endif
     (scores+i)->score = DOSVMNew(data, nTrainings, nTrainings, nFolds, labels, voxels->vid[i]);
     delete[] data;
     delete[] labels;
+#ifdef __MEASURE_TIME__
+    gettimeofday(&end_time, 0);
+    if (omp_get_thread_num()==0)
+    {
+      t2 += end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+    }
+#endif
   }
+#ifdef __MEASURE_TIME__
+  if (me==1)  // this time is just for omp_thread_0, is not the wall time of omp
+  {
+    printf("kernel matrix computing time: %fs\n", t1);
+    printf("svm cross validation time: %fs\n", t2);
+  }
+#endif
   return scores;
 }
 

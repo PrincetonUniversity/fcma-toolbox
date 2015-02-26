@@ -47,6 +47,7 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
 //float t;
 //struct timeval start, end;
 //gettimeofday(&start, 0);
+#if 1
   #pragma omp parallel for
   for (i=0; i<nTrials; i++)
   {
@@ -66,6 +67,30 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
       //cblas_sgemv(CblasRowMajor, CblasNoTrans, row2, ml, 1.0, bufs2[i], ml, bufs1[i]+(sr+j)*ml, 1, 0.0, (voxels[j]->corr_vecs)+i*row2, 1);
     }*/
   }
+#endif
+/*
+  int tpp = 10;
+  #pragma omp parallel for schedule(dynamic)
+  for (int ii=0; ii<tpp*nTrials; ii++)
+  {
+    int i = ii / tpp;
+    int j = ii % tpp;
+    int cur_col = trials[i].sc;
+    int ml = trials[i].ec;
+    int sid = trials[i].sid;
+    int row1 = matrices1[sid]->row;
+    int col1 = matrices1[sid]->col;
+    int row2 = matrices2[sid]->row;
+    int col2 = matrices2[sid]->col;
+    int blksize = (row2 + tpp - 1) / tpp;
+    int start = blksize * j;
+    int end = blksize * (j+1);
+    if(end > row2) end = row2;
+    int len = end-start;
+    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, bufs1[i]+sr*ml, ml, bufs2[i], ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2, ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, len, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2 + start*ml, ml, 0.0, voxels->corr_vecs+i*row2+start, row2*nTrials);
+  }*/
 /*
   for (i=0; i<nTrials; i++)
   {
@@ -206,6 +231,10 @@ void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
 #else
       for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
       {
+#endif
+#ifdef __MIC__
+        _mm_prefetch((char*)&(mat[b][j+32]), _MM_HINT_ET1);
+        _mm_prefetch((char*)&(mat[b][j+16]), _MM_HINT_T0);
 #endif
         float num = 1.0f + mat[b][j]; 
       	float den = 1.0f - mat[b][j];

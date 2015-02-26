@@ -54,15 +54,19 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   if (kp->kernel_type.compare(0,3,"rbf") == 0) {
     parameterA = -kp->gamma;
     kType = NEWGAUSSIAN;
-    printf("Gaussian kernel: gamma = %f\n", -parameterA);
+    //printf("Gaussian kernel: gamma = %f\n", -parameterA);
   } else if (kp->kernel_type.compare(0,6,"linear") == 0) {
     kType = NEWLINEAR;
-    printf("Linear kernel\n");
+    //printf("Linear kernel\n");
   } else if (kp->kernel_type.compare(0,11,"precomputed") == 0) {
     kType = NEWPRECOMPUTED;
     //printf("Precomputed kernel\n");
   }
-
+#ifdef __SVM_BREAKDOWN__
+  struct timeval start_time, end_time;
+  float t0=0, t1=0, t2=0, t3=0;
+  gettimeofday(&start_time, 0);
+#endif
 /**
   group folds
 **/
@@ -128,8 +132,15 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   float* sub_labels = (float*)malloc(sizeof(float)*nPoints);  // ditto
   float* test_data = (float*)malloc(sizeof(float)*nPoints*nDimension);
   float* test_labels = (float*)malloc(sizeof(float)*nPoints);
+#ifdef __SVM_BREAKDOWN__
+  gettimeofday(&end_time, 0);
+  t0 = end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+#endif
   for(i=0;i<nFolds;i++)
   {
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
     int begin = fold_start[i];
     int end = fold_start[i+1];    
     int j,k,l;
@@ -190,6 +201,11 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
       sub_labels[k] = labels[perm[j]]==0?-1.0f:1.0f;
       ++k;
     }
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t1+=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+    gettimeofday(&start_time, 0);
+#endif
     float* alpha;
     int sub_nDimension = nDimension;
     if (kType==NEWPRECOMPUTED)
@@ -223,10 +239,17 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
         nSV++;
       }
 		}
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t2+=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+#endif
 
 /**
   generate test_data and test_labels
 **/
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
     int nTests = end-begin;
     k=0;
     for (j=begin; j<end; j++)
@@ -263,7 +286,21 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     free(result);
     //kmp_free(sv_alpha);
     //kmp_free(supportVectors);
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t3+=end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
+#endif
   }
+#ifdef __SVM_BREAKDOWN__
+  if (omp_get_thread_num()==0)
+  {
+    printf("SVM time breakdown:\n");
+    printf("preparing folds: %fs\n", t0);
+    printf("generating training/test sets: %fs\n", t1);
+    printf("training: %fs\n", t2);
+    printf("test: %fs\n", t3);
+  }
+#endif
   int nCorrects=0;
   for (i=0; i<nPoints; i++)
   {
