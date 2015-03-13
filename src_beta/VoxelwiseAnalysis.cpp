@@ -59,11 +59,12 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
     int row2 = matrices2[sid]->row;
     int col2 = matrices2[sid]->col;
     //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, bufs1[i]+sr*ml, ml, bufs2[i], ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2, ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2, ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
+    sgemmTranspose(matrices1[sid]->matrix+cur_col*row1+sr*ml, matrices2[sid]->matrix+cur_col*row2, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);
     /*for (int j=0; j<step; j++)
     {
-      //vectorMatMultiply(matrices2[sid]->matrix+cur_col*row2, sizeof(float)*row2*ml, matrices1[sid]->matrix+cur_col*row1+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
-      vectorMatMultiply(bufs2[i], sizeof(float)*row2*ml, bufs1[i]+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
+      vectorMatMultiplyTranspose(matrices2[sid]->matrix+cur_col*row2, sizeof(float)*row2*ml, matrices1[sid]->matrix+cur_col*row1+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
+      //vectorMatMultiply(bufs2[i], sizeof(float)*row2*ml, bufs1[i]+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
       //cblas_sgemv(CblasRowMajor, CblasNoTrans, row2, ml, 1.0, bufs2[i], ml, bufs1[i]+(sr+j)*ml, 1, 0.0, (voxels[j]->corr_vecs)+i*row2, 1);
     }*/
   }
@@ -279,6 +280,131 @@ void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float
       sum += mat[i*col+j]*vec[j];
     }
     output[i]=sum;
+  }
+  return;
+}
+#define BLK 96  // for N
+#define COL 12
+
+void vectorMatMultiplyTranspose(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size)
+{
+  int col = vec_size/sizeof(float);
+  int row = mat_size/sizeof(float)/col;
+  int row_max = (row / BLK) * BLK;
+  float mat_T[COL*BLK];
+  for (int i=0 ;i<row; i++)
+  {
+    output[i] = 0.0f;
+  }
+  for(int r=0; r<row; r+=BLK)
+  {
+    // transpose
+    if(r < row_max)
+    {
+      for(int cc=0; cc<COL; cc++)
+      {
+        for(int rr=0; rr<BLK; rr++)
+        {
+          mat_T[cc*BLK+rr] = mat[cc+(r+rr)*COL];
+        }
+      }
+      for (int i=0; i<COL; i++)
+      {
+        for (int j=0; j<BLK; j++)
+        {
+          output[r+j] += vec[i]*mat_T[i*BLK+j];
+        }
+      }
+    }
+    else  // last block
+    {
+      for(int cc=0; cc<COL; cc++)
+      {
+        for(int rr=0; rr<row-row_max; rr++)
+        {
+          mat_T[cc*BLK+rr] = mat[cc+(r+rr)*COL];
+        }
+      }
+      for (int i=0; i<COL; i++)
+      {
+        for (int j=0; j<row-row_max; j++)
+        {
+          output[r+j] += vec[i]*mat_T[i*BLK+j];
+        }
+      }
+    }
+  }
+  return;
+}
+
+//e.g. M=120, N=34470, K=12, mat1 M*K, mat2 N*K
+void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, const MKL_INT K, float* output, const MKL_INT ldc)
+{
+  //int m_max = (M / BLK2) * BLK2;
+  int n_max = (N / BLK) * BLK;
+  float mat_T[K*BLK];
+  float output_local[M*BLK];
+  for(int r=0; r<N; r+=BLK)
+  {
+    for (int i=0; i<M*BLK; i++)
+    {
+      output_local[i] = 0.0f;
+    }
+    // transpose
+    if(r < n_max)
+    {
+      for(int cc=0; cc<K; cc++)
+      {
+        for(int rr=0; rr<BLK; rr++)
+        {
+          mat_T[cc*BLK+rr] = mat2[cc+(r+rr)*K];
+        }
+      }
+      for (int i=0; i<M; i++)
+      {
+        for (int j=0; j<BLK; j++)
+        {
+          for (int k=0; k<K; k++)
+          {
+            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];  // set output_local!!
+          }
+        }
+      }
+      for (int i=0; i<M; i++)
+      {
+        for (int j=0; j<BLK; j++)
+        {
+          output[i*ldc+r+j] = output_local[i*BLK+j];
+        }
+      }
+    }
+    else  // last block
+    {
+      for(int cc=0; cc<K; cc++)
+      {
+        for(int rr=0; rr<N-n_max; rr++)
+        {
+          mat_T[cc*BLK+rr] = mat2[cc+(r+rr)*K];
+        }
+      }
+      for (int i=0; i<M; i++)
+      {
+        for (int j=0; j<N-n_max; j++)
+        {
+          for (int k=0; k<K; k++)
+          {
+            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];
+          }
+        }
+      }
+      for (int i=0; i<M; i++)
+      {
+        for (int j=0; j<N-n_max; j++)
+        {
+          output[i*ldc+r+j] = output_local[i*BLK+j];
+        }
+      }
+    }
   }
   return;
 }

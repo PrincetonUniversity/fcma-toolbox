@@ -23,3 +23,5 @@ Voxel* ComputeOneVoxelAnalysisData(Trial* trials, int vid, int nTrials, float** 
 void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size);
 void vectorMatMultiply2(float* mat, int mat_size, float* vec, int vec_size, Voxel** voxels, int step, int trialId);
 void vectorMatMultiply3(float* bufs2[], int nTrials, int mat_size, float* bufs1[], int vec_size, float* output, int vid);
+void vectorMatMultiplyTranspose(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size);
+void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, const MKL_INT K, float* output, const MKL_INT ldc);

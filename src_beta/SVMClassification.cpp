@@ -148,6 +148,11 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
   return 1.0*total_correct/prob->l;
 }
 
+void ComputeLinerKernelMatrix(float* data, Trial* trials, Voxel* voxels, int step, int nTrainings)
+{
+  
+}
+
 VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
 {
   if (me==0)  //sanity check
@@ -403,6 +408,18 @@ void custom_ssyrk(
       for(int j = (i/NBLK)*NBLK ; j < n_max ; j+=NBLK)  // compute the lower triangle
       {
         sgemm_assembly(&(A_T[0]), &(A_local[j*KBLK]), &C_local[i*M + j*MBLK],NULL,NULL,NULL);
+        //cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, MBLK, NBLK, KBLK, 1.0, &(A_T[0]), MBLK, &(A_local[j*KBLK]), KBLK, 1.0, &C_local[i*M + j*MBLK], MBLK);
+        /*for (int ii=0; ii<MBLK; ii++)
+        {
+          for (int jj=0; jj<NBLK; jj++)
+          {
+            for (int kk=0; kk<KBLK; kk++)
+            {
+              C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_T[ii+kk*MBLK]*A_local[j*KBLK+kk+jj*KBLK];
+              //C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_local[kk+(i+ii)*KBLK]*A_local[j*KBLK+kk+jj*KBLK];
+            }
+          }
+        }*/
       }
 
       // Fill in remaining rows of C by looping over i,k,j (vectorize over i)
@@ -414,9 +431,21 @@ void custom_ssyrk(
           for(int ii = 0  ; ii < MBLK; ii++)
           {
             C_local[(ii+i*M)+jj*MBLK] += A_T[ii + kk*MBLK] * A_local[kk + jj*KBLK]; // time consuming
+            //C_local[(ii+i*M)+jj*MBLK] += A_local[kk + (i+ii)*KBLK] * A_local[kk + jj*KBLK];
           }
         }
       }
+      /*for (int ii=0; ii<MBLK; ii++) // this doesn't make much difference than the other one, just vectorized in a different way
+      {
+        for (int jj=n_max; jj<M; jj++)
+        {
+          for (int kk=0; kk<KBLK; kk++)
+          {
+            C_local[i*M+jj*MBLK+ii]+=A_T[ii+kk*MBLK]*A_local[kk+jj*KBLK];
+            //C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_local[kk+(i+ii)*KBLK]*A_local[j*KBLK+kk+jj*KBLK];
+          }
+        }
+      }*/
     }
     // Fill in bottom right corner of the matrix by looping over i,j,k (no vectorization)
     for(int ii = m_max ; ii < M ; ii++)
