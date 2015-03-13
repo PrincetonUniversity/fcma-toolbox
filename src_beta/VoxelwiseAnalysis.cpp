@@ -209,7 +209,6 @@ void PreprocessAllVoxelsAnalysisData(Voxel* voxels, int step, int nSubs)
   return;
 }
 
-//#define TR_PER_SUBJECT (12)
 void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
 {
   int nTrials = voxels->nTrials;
@@ -226,13 +225,8 @@ void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
     {
       float mean = 0.0f;
     	float std_dev = 0.0f;
-#ifdef TR_PER_SUBJECT
-    	for(int b = s*TR_PER_SUBJECT; b < (s+1)*TR_PER_SUBJECT ; b++)
-    	{
-#else
       for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
       {
-#endif
 #ifdef __MIC__
         _mm_prefetch((char*)&(mat[b][j+32]), _MM_HINT_ET1);
         _mm_prefetch((char*)&(mat[b][j+16]), _MM_HINT_T0);
@@ -248,13 +242,8 @@ void PreprocessAllVoxelsAnalysisData_flat(Voxel* voxels, int step, int nSubs)
       mean = mean / (float)nPerSub;
       std_dev = std_dev / (float)nPerSub - mean*mean;
       float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
-#ifdef TR_PER_SUBJECT
-      for(int b = s*TR_PER_SUBJECT; b < (s+1)*TR_PER_SUBJECT ; b++)
-      {
-#else
       for(int b = s*nPerSub; b < (s+1)*nPerSub; b++)
       {
-#endif
         mat[b][j] = (mat[b][j] - mean) * inv_std_dev;
       }
     }
@@ -366,12 +355,13 @@ void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, 
         {
           for (int k=0; k<K; k++)
           {
-            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];  // set output_local!!
+            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];
           }
         }
       }
       for (int i=0; i<M; i++)
       {
+        #pragma vector nontemporal
         for (int j=0; j<BLK; j++)
         {
           output[i*ldc+r+j] = output_local[i*BLK+j];

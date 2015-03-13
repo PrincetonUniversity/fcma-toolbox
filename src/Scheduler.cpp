@@ -291,7 +291,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     {
       break;
     }
-#ifdef __MIC__
+#ifdef __MIIC__
 #if __MEASURE_TIME__
     double t1 = MPI_Wtime();
 #endif
@@ -315,7 +315,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     switch (taskType)
     {
       case 0:
-#ifdef __MIC__
+#ifdef __MIIC__
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();
 #endif
@@ -349,7 +349,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #endif
         break;
       case 1:
-#ifdef __MIC__
+#ifdef __MIIC__
 
 #else
         // Fisher transform and z-score (across the blocks) the data here
@@ -358,7 +358,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #endif
         break;
       case 3:
-#ifdef __MIC__
+#ifdef __MIIC__
 
 #else
         scores = GetCorrVecSum(me, c_matrices, nTrials);
@@ -389,7 +389,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
            VOXELCLASSIFIERTAG,                      /* user chosen message tag */
            MPI_COMM_WORLD);                 /* default communicator */
     delete scores;
-#ifdef __MIC__
+#ifdef __MIIC__
     int i;
     for (i=0; i<step; i++)
     {

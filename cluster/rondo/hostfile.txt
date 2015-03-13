@@ -1,8 +1,0 @@
-node14 slots=8
-node15 slots=8
-node16 slots=8
-node17 slots=8
-node18 slots=8
-node19 slots=8
-node20 slots=8
-node21 slots=8
