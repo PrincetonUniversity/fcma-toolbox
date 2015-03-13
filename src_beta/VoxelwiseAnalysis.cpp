@@ -399,6 +399,7 @@ void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, 
       }
       for (int i=0; i<M; i++)
       {
+        #pragma vector nontemporal
         for (int j=0; j<N-n_max; j++)
         {
           output[i*ldc+r+j] = output_local[i*BLK+j];
