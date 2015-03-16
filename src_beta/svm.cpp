@@ -409,7 +409,7 @@ void Solver::reconstruct_gradient()
     for(i=active_size;i<l;i++)
     {
       const Qfloat *Q_i = Q->get_Q(i,active_size);
-      #pragma simd reduction(+:G[i])
+      //#pragma simd reduction(+:G[i])
       for(j=0;j<active_size;j++)
         G[i]+=alpha_status[j]==FREE?alpha[j] * Q_i[j]:0;
         //if(is_free(j))
@@ -423,7 +423,7 @@ void Solver::reconstruct_gradient()
       {
         const Qfloat *Q_i = Q->get_Q(i,l);
         double alpha_i = alpha[i];
-        #pragma simd reduction(+:G[j])
+        //#pragma simd reduction(+:G[j])
         for(j=active_size;j<l;j++)
           G[j] += alpha_i * Q_i[j];
       }

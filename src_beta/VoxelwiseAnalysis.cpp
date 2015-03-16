@@ -15,7 +15,7 @@ one voxel struct contains the correlation between a voxel of matrices1 and all v
 input: the trial struct array, number of trials, the starting row (since distributing to multi-nodes), step, the raw matrix struct arrays
 output: the voxel struct array
 *********************************/
-Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1[], float* bufs2[])
+Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1, float* bufs2)
 {
   int i;
   //Voxel** voxels = new Voxel*[step];
@@ -47,11 +47,11 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
 //float t;
 //struct timeval start, end;
 //gettimeofday(&start, 0);
-#if 1
+#if 0
   #pragma omp parallel for
   for (i=0; i<nTrials; i++)
   {
-    int cur_col = trials[i].sc;
+    int cur_col = trials[i].sc; // cur_col=within_subject_i*ml
     int ml = trials[i].ec;
     int sid = trials[i].sid;
     int row1 = matrices1[sid]->row;
@@ -60,7 +60,7 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
     int col2 = matrices2[sid]->col;
     //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, bufs1[i]+sr*ml, ml, bufs2[i], ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
     //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, step, row2, ml, 1.0, matrices1[sid]->matrix+cur_col*row1+sr*ml, ml, matrices2[sid]->matrix+cur_col*row2, ml, 0.0, voxels->corr_vecs+i*row2, row2*nTrials);
-    sgemmTranspose(matrices1[sid]->matrix+cur_col*row1+sr*ml, matrices2[sid]->matrix+cur_col*row2, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);
+    sgemmTranspose(/*matrices1[sid]->matrix+cur_col*row1+sr*ml*/bufs1+i*row1*ml+sr*ml, /*matrices2[sid]->matrix+cur_col*row2*/bufs2+i*row2*ml, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);
     /*for (int j=0; j<step; j++)
     {
       vectorMatMultiplyTranspose(matrices2[sid]->matrix+cur_col*row2, sizeof(float)*row2*ml, matrices1[sid]->matrix+cur_col*row1+(sr+j)*ml, sizeof(float)*ml, (voxels->corr_vecs)+j*nTrials*row2+i*row2, sizeof(float)*row2);
@@ -69,6 +69,10 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
     }*/
   }
 #endif
+  int row=matrices1[0]->row;    // assuming all matrices have the same size
+  int ml=trials[0].ec;    // assuming all blocks have the same size
+  int nPerSubj=nTrials/nSubs;    // assuming all subjects have the same number of blocks
+  sgemmTransposeMerge(bufs1+sr*ml, bufs2, step, row, ml, nPerSubj, nSubs, voxels->corr_vecs, row*nTrials, trials);
 /*
   int tpp = 10;
   #pragma omp parallel for schedule(dynamic)
@@ -272,7 +276,8 @@ void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float
   }
   return;
 }
-#define BLK 96  // for N
+#define BLK 48  // for N
+#define BLK2 30 // for M
 #define COL 12
 
 void vectorMatMultiplyTranspose(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size)
@@ -329,19 +334,15 @@ void vectorMatMultiplyTranspose(float* mat, int mat_size, float* vec, int vec_si
 //e.g. M=120, N=34470, K=12, mat1 M*K, mat2 N*K
 void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, const MKL_INT K, float* output, const MKL_INT ldc)
 {
-  //int m_max = (M / BLK2) * BLK2;
+  int m_max = (M / BLK2) * BLK2;
   int n_max = (N / BLK) * BLK;
   float mat_T[K*BLK];
-  float output_local[M*BLK];
+  float output_local[BLK2*BLK];
   for(int r=0; r<N; r+=BLK)
   {
-    for (int i=0; i<M*BLK; i++)
-    {
-      output_local[i] = 0.0f;
-    }
-    // transpose
     if(r < n_max)
     {
+      // transpose
       for(int cc=0; cc<K; cc++)
       {
         for(int rr=0; rr<BLK; rr++)
@@ -349,25 +350,56 @@ void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, 
           mat_T[cc*BLK+rr] = mat2[cc+(r+rr)*K];
         }
       }
-      for (int i=0; i<M; i++)
+      for (int m=0; m<M; m+=BLK2)
       {
-        for (int j=0; j<BLK; j++)
+        for (int i=0; i<BLK2*BLK; i++)
         {
-          for (int k=0; k<K; k++)
+          output_local[i] = 0.0f;
+        }
+        if (m < m_max)
+        {
+          for (int i=0; i<BLK2; i++)
           {
-            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];
+            for (int j=0; j<BLK; j++)
+            {
+              for (int k=0; k<K; k++)
+              {
+                output_local[i*BLK+j] += mat1[(m+i)*K+k]*mat_T[k*BLK+j];
+              }
+            }
           }
-        }
-      }
-      for (int i=0; i<M; i++)
-      {
-        #pragma vector nontemporal
-        for (int j=0; j<BLK; j++)
+          for (int i=0; i<BLK2; i++)
+          {
+            #pragma vector nontemporal
+            for (int j=0; j<BLK; j++)
+            {
+              output[(m+i)*ldc+r+j] = output_local[i*BLK+j];
+            }
+          }
+        } //if m
+        else  //last block
         {
-          output[i*ldc+r+j] = output_local[i*BLK+j];
-        }
-      }
-    }
+          for (int i=0; i<M-m_max; i++)
+          {
+            for (int j=0; j<BLK; j++)
+            {
+              for (int k=0; k<K; k++)
+              {
+                output_local[i*BLK+j] += mat1[(m+i)*K+k]*mat_T[k*BLK+j];
+              }
+            }
+          }
+          for (int i=0; i<M-m_max; i++)
+          {
+            #pragma vector nontemporal
+            for (int j=0; j<BLK; j++)
+            {
+              output[(m+i)*ldc+r+j] = output_local[i*BLK+j];
+            }
+          }
+        } //else m
+      } //for m
+    } //if r
     else  // last block
     {
       for(int cc=0; cc<K; cc++)
@@ -377,26 +409,57 @@ void sgemmTranspose(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, 
           mat_T[cc*BLK+rr] = mat2[cc+(r+rr)*K];
         }
       }
-      for (int i=0; i<M; i++)
+      for (int m=0; m<M; m+=BLK2)
       {
-        for (int j=0; j<N-n_max; j++)
+        for (int i=0; i<BLK2*BLK; i++)
         {
-          for (int k=0; k<K; k++)
+          output_local[i] = 0.0f;
+        }
+        if (m < m_max)
+        {
+          for (int i=0; i<BLK2; i++)
           {
-            output_local[i*BLK+j] += mat1[i*K+k]*mat_T[k*BLK+j];
+            for (int j=0; j<N-n_max; j++)
+            {
+              for (int k=0; k<K; k++)
+              {
+                output_local[i*BLK+j] += mat1[(m+i)*K+k]*mat_T[k*BLK+j];
+              }
+            }
           }
-        }
-      }
-      for (int i=0; i<M; i++)
-      {
-        #pragma vector nontemporal
-        for (int j=0; j<N-n_max; j++)
+          for (int i=0; i<BLK2; i++)
+          {
+            #pragma vector nontemporal
+            for (int j=0; j<N-n_max; j++)
+            {
+              output[(m+i)*ldc+r+j] = output_local[i*BLK+j];
+            }
+          }
+        } //if m
+        else  //last block
         {
-          output[i*ldc+r+j] = output_local[i*BLK+j];
-        }
-      }
-    }
-  }
+          for (int i=0; i<M-m_max; i++)
+          {
+            for (int j=0; j<N-n_max; j++)
+            {
+              for (int k=0; k<K; k++)
+              {
+                output_local[i*BLK+j] += mat1[(m+i)*K+k]*mat_T[k*BLK+j];
+              }
+            }
+          }
+          for (int i=0; i<M-m_max; i++)
+          {
+            #pragma vector nontemporal
+            for (int j=0; j<N-n_max; j++)
+            {
+              output[(m+i)*ldc+r+j] = output_local[i*BLK+j];
+            }
+          }
+        } //else m
+      } //for m
+    } //else r
+  } //for r
   return;
 }
 
@@ -449,4 +512,222 @@ void vectorMatMultiply3(float* bufs2[], int nTrials, int mat_size, float* bufs1[
     }
   }
   return;
+}
+
+// merge correlation computing and normalization together
+void sgemmTransposeMerge(float* mat1, float* mat2, const MKL_INT M, const MKL_INT N, const MKL_INT K, const int nPerSubj, const int nSubjs, float* output, const MKL_INT ldc, Trial* trials)
+{
+  int m_max = (M / BLK2) * BLK2;
+  int n_max = (N / BLK) * BLK;
+  #pragma omp parallel for collapse(2) schedule(dynamic)
+  for (int s=0; s<nSubjs; s++)
+  {
+    for(int n=0; n<N; n+=BLK)
+    {
+      float mat_T[K*BLK*nPerSubj];
+      float output_local[BLK2*BLK*nPerSubj];
+      if(n < n_max)
+      {
+        // transpose
+        for (int ss=0; ss<nPerSubj; ss++)
+        {
+          int cur_col = trials[s*nPerSubj+ss].sc;
+          for(int cc=0; cc<K; cc++)
+          {
+            for(int rr=0; rr<BLK; rr++)
+            {
+              mat_T[ss*BLK*K+cc*BLK+rr] = mat2[s*nPerSubj*K*N+cur_col*N+cc+(n+rr)*K];
+            }
+          }
+        }
+        for (int m=0; m<M; m+=BLK2)
+        {
+          for (int ss=0; ss<nPerSubj; ss++)
+          {
+            for (int i=0; i<BLK2*BLK; i++)
+            {
+              output_local[ss*BLK2*BLK+i] = 0.0f;
+            }
+            int cur_col = trials[s*nPerSubj+ss].sc;
+            if (m < m_max)
+            {
+              for (int i=0; i<BLK2; i++)
+              {
+                for (int j=0; j<BLK; j++)
+                {
+                  for (int k=0; k<K; k++)
+                  {
+                    output_local[ss*BLK2*BLK+i*BLK+j] += mat1[s*nPerSubj*K*N+cur_col*N+(m+i)*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                  }
+                }
+              }
+            } //if m
+            else  //last block
+            {
+              for (int i=0; i<M-m_max; i++)
+              {
+                for (int j=0; j<BLK; j++)
+                {
+                  for (int k=0; k<K; k++)
+                  {
+                    output_local[ss*BLK2*BLK+i*BLK+j] += mat1[s*nPerSubj*K*N+cur_col*N+(m+i)*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                  }
+                }
+              } //else m
+            } // for ss
+          } //for m
+          if (m < m_max)
+          {
+            // z-scoring etc.
+            NormalizeBlkData(output_local, nPerSubj);
+            for (int ss=0; ss<nPerSubj; ss++)
+            {
+              for (int i=0; i<BLK2; i++)
+              {
+                #pragma vector nontemporal
+                for (int j=0; j<BLK; j++)
+                {
+                  output[s*nPerSubj*N+ss*N+(m+i)*ldc+n+j] = output_local[ss*BLK2*BLK+i*BLK+j];  //m+i is vid
+                }
+              }
+            }
+          } //if m
+          else
+          {
+            // z-scoring etc.
+            NormalizeBlkData(output_local, nPerSubj);
+            for (int ss=0; ss<nPerSubj; ss++)
+            {
+              for (int i=0; i<M-m_max; i++)
+              {
+                #pragma vector nontemporal
+                for (int j=0; j<BLK; j++)
+                {
+                  output[s*nPerSubj*N+ss*N+(m+i)*ldc+n+j] = output_local[ss*BLK2*BLK+i*BLK+j];  //m+i is vid
+                }
+              }
+            }
+          } //else m
+        } //for m
+      }// if n
+      else
+      {
+        // transpose
+        for (int ss=0; ss<nPerSubj; ss++)
+        {
+          int cur_col = trials[s*nPerSubj+ss].sc;
+          for(int cc=0; cc<K; cc++)
+          {
+            for(int rr=0; rr<N-n_max; rr++)
+            {
+              mat_T[ss*BLK*K+cc*BLK+rr] = mat2[s*nPerSubj*K*N+cur_col*N+cc+(n+rr)*K];
+            }
+          }
+        }
+        for (int m=0; m<M; m+=BLK2)
+        {
+          for (int ss=0; ss<nPerSubj; ss++)
+          {
+            for (int i=0; i<BLK2*BLK; i++)
+            {
+              output_local[ss*BLK2*BLK+i] = 0.0f;
+            }
+            int cur_col = trials[s*nPerSubj+ss].sc;
+            if (m < m_max)
+            {
+              for (int i=0; i<BLK2; i++)
+              {
+                for (int j=0; j<N-n_max; j++)
+                {
+                  for (int k=0; k<K; k++)
+                  {
+                    output_local[ss*BLK2*BLK+i*BLK+j] += mat1[s*nPerSubj*K*N+cur_col*N+(m+i)*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                  }
+                }
+              }
+            } //if m
+            else  //last block
+            {
+              for (int i=0; i<M-m_max; i++)
+              {
+                for (int j=0; j<N-n_max; j++)
+                {
+                  for (int k=0; k<K; k++)
+                  {
+                    output_local[ss*BLK2*BLK+i*BLK+j] += mat1[s*nPerSubj*K*N+cur_col*N+(m+i)*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                  }
+                }
+              }
+            } //else m
+          } //for ss
+          if (m < m_max)
+          {
+            // z-scoring etc.
+            NormalizeBlkData(output_local, nPerSubj);
+            for (int ss=0; ss<nPerSubj; ss++)
+            {
+              for (int i=0; i<BLK2; i++)
+              {
+                #pragma vector nontemporal
+                for (int j=0; j<N-n_max; j++)
+                {
+                  output[s*nPerSubj*N+ss*N+(m+i)*ldc+n+j] = output_local[ss*BLK2*BLK+i*BLK+j];  //m+i is vid
+                }
+              }
+            }
+          } //if m
+          else
+          {
+            // z-scoring etc.
+            NormalizeBlkData(output_local, nPerSubj);
+            for (int ss=0; ss<nPerSubj; ss++)
+            {
+              for (int i=0; i<M-m_max; i++)
+              {
+                #pragma vector nontemporal
+                for (int j=0; j<N-n_max; j++)
+                {
+                  output[s*nPerSubj*N+ss*N+(m+i)*ldc+n+j] = output_local[ss*BLK2*BLK+i*BLK+j];  //m+i is vid
+                }
+              }
+            }
+          } //else m
+        } //for m
+      }// else n
+    }
+  } // for s
+  return;
+}
+
+// data contains nPerSubj number of BLK2*BLK matrices
+// normalization contains two steps
+// 1. Fisher-transform each value
+// 2. z-score across every entry of BLK2*BLK matrices
+// or one can treat data as a nPerSubj-row, BLK2*BLK-column matrix
+// z-scoring goes across columns
+void NormalizeBlkData(float* data, const int nPerSubj)
+{
+  #pragma simd
+  for(int j=0; j<BLK2*BLK; j++)
+  {
+    float mean = 0.0f;
+  	float std_dev = 0.0f;
+    for(int b=0; b<nPerSubj; b++)
+    {
+      float num = 1.0f + data[b*BLK2*BLK+j];
+    	float den = 1.0f - data[b*BLK2*BLK+j];
+    	num = (num <= 0.0f) ? 1e-4 : num;
+     	den = (den <= 0.0f) ? 1e-4 : den;
+     	data[b*BLK2*BLK+j] = 0.5f * logf(num/den);
+     	mean += data[b*BLK2*BLK+j];
+     	std_dev += data[b*BLK2*BLK+j] * data[b*BLK2*BLK+j];
+    }
+    mean = mean / (float)nPerSubj;
+    std_dev = std_dev / (float)nPerSubj - mean*mean;
+    float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
+    for(int b=0; b<nPerSubj; b++)
+    {
+      data[b*BLK2*BLK+j] = (data[b*BLK2*BLK+j] - mean) * inv_std_dev;
+    }
+  }
 }

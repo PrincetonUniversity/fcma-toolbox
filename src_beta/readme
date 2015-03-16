@@ -131,3 +131,6 @@ now outperform LibSVM by a factor of 2.2 on Xeon and a factor of 5.7 on Xeon Phi
 
 1.6.3 BETA version
 replace sgemm in correlation computing with customized blocking code
+
+1.6.4 BETA version
+merging correlation computing and normalization together to deal with data piece by piece in L2 cache

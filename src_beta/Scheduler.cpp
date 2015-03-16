@@ -109,6 +109,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   }
   else
   {
+    //int preset_step=30;
     DoSlave(me, 0, masked_matrices1, masked_matrices2, taskType, trials, nTrials, nHolds, nSubs, nFolds, step);  // 0 for master id
   }
 }
@@ -295,20 +296,31 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   voxels->nVoxels = nVoxels;
   voxels->vid=new int[preset_step];
   voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
-  float* bufs1[nTrials];
-  float* bufs2[nTrials];
-  /*for (int i=0; i<nTrials; i++)
+  int ml = trials[0].ec;
+  int row1=matrices1[0]->row;
+  int row2=matrices2[0]->row;
+  float* bufs1=new float[ml*row1*nTrials];
+  float* bufs2=new float[ml*row2*nTrials];
+  /*if (taskType==0)
+  {
+    float* svm_data[240];
+    for (int i=0; i<240; i++)
+    {
+      svm_data[i] = new float[nTrials-nHolds];
+    }
+  }*/
+  for (int i=0; i<nTrials; i++)
   {
     int cur_col = trials[i].sc;
-    int ml = trials[i].ec;
     int sid = trials[i].sid;
-    int row1=matrices1[0]->row;
-    int row2=matrices2[0]->row;
-    bufs1[i]=new float[ml*row1];
-    bufs2[i]=new float[ml*row2];
-    memcpy((void*)bufs1[i], (const void*)(matrices1[sid]->matrix+cur_col*row1), sizeof(float)*ml*row1);
-    memcpy((void*)bufs2[i], (const void*)(matrices2[sid]->matrix+cur_col*row2), sizeof(float)*ml*row2);
-  }*/
+    memcpy((void*)(bufs1+i*ml*row1), (const void*)(matrices1[sid]->matrix+cur_col*row1), sizeof(float)*ml*row1);
+    memcpy((void*)(bufs2+i*ml*row2), (const void*)(matrices2[sid]->matrix+cur_col*row2), sizeof(float)*ml*row2);
+  }
+  for (int i=0; i<nSubs; i++)
+  {
+    delete matrices1[i]->matrix;
+    delete matrices2[i]->matrix;
+  }
 #endif
   while (true)
   {
@@ -326,84 +338,92 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     {
       break;
     }
-#ifdef __MIC__
-#if __MEASURE_TIME__
-    double t1 = MPI_Wtime();
-#endif
-    voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, sr, step, matrices1, matrices2, bufs1, bufs2);
-#if __MEASURE_TIME__
-    double t2 = MPI_Wtime();
-    cout<<"voxel computing: "<<t2-t1<<"s"<<endl<<flush;
-#endif
-#else
-    CorrMatrix** c_matrices;
-#if __MEASURE_TIME__
-    double t1 = MPI_Wtime();
-#endif
-    c_matrices = ComputeAllTrialsCorrMatrices(trials, nTrials, sr, step, matrices1, matrices2);
-#if __MEASURE_TIME__
-    double t2 = MPI_Wtime();
-    cout<<"matrix computing: "<<t2-t1<<"s"<<endl;
-#endif
-#endif
-    VoxelScore* scores = NULL;
-    switch (taskType)
+    int unit_step = preset_step;
+    int cur_step = 0;
+    /*while (cur_step < step)
     {
-      case 0:
+      int cur_sr = sr+cur_step;
+      unit_step = step-cur_step>unit_step?unit_step:step-cur_step;
+      cur_step += unit_step;*/
 #ifdef __MIC__
 #if __MEASURE_TIME__
-        t1 = MPI_Wtime();
+      double t1 = MPI_Wtime();
 #endif
-        PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
-        //PreprocessAllVoxelsAnalysisData(voxels, step, nSubs);
+      voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs, sr, step, matrices1, matrices2, bufs1, bufs2);
 #if __MEASURE_TIME__
-        t2 = MPI_Wtime();
-        cout<<"preprocessing: "<<t2-t1<<"s"<<endl;
-#endif
-        //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
-        scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
-        //cout<<total_count<<endl;
-        //total_count=0;
-#if __MEASURE_TIME__
-        t1 = MPI_Wtime();
-        cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+      double t2 = MPI_Wtime();
+      cout<<"voxel computing and normalization: "<<t2-t1<<"s"<<endl<<flush;
 #endif
 #else
-        // Fisher transform and z-score (across the blocks) the data here
+      CorrMatrix** c_matrices;
 #if __MEASURE_TIME__
-        t1 = MPI_Wtime();
+      double t1 = MPI_Wtime();
 #endif
-        corrMatPreprocessing(c_matrices, nTrials, nSubs);
+      c_matrices = ComputeAllTrialsCorrMatrices(trials, nTrials, sr, step, matrices1, matrices2);
 #if __MEASURE_TIME__
-        t2 = MPI_Wtime();
-        cout<<"matrix normalization: "<<t2-t1<<"s"<<endl;
-#endif
-        scores = GetSVMPerformance(me, c_matrices, nTrials-nHolds, nFolds);
-#if __MEASURE_TIME__
-        t1 = MPI_Wtime();
-        cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+      double t2 = MPI_Wtime();
+      cout<<"matrix computing: "<<t2-t1<<"s"<<endl;
 #endif
 #endif
-        break;
-      case 1:
+      VoxelScore* scores = NULL;
+      switch (taskType)
+      {
+        case 0:
 #ifdef __MIC__
-
-#else
-        // Fisher transform and z-score (across the blocks) the data here
-        corrMatPreprocessing(c_matrices, nTrials, nSubs);
-        scores = GetDistanceRatio(me, c_matrices, nTrials-nHolds);
+#if __MEASURE_TIME__
+          //t1 = MPI_Wtime();
 #endif
-        break;
-      case 3:
+          //PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
+          //PreprocessAllVoxelsAnalysisData(voxels, unit_step, nSubs);
+#if __MEASURE_TIME__
+          t2 = MPI_Wtime();
+          //cout<<"preprocessing: "<<t2-t1<<"s"<<endl;
+#endif
+          //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
+          scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
+          //cout<<total_count<<endl;
+          //total_count=0;
+#if __MEASURE_TIME__
+          t1 = MPI_Wtime();
+          cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+#endif
+#else
+          // Fisher transform and z-score (across the blocks) the data here
+#if __MEASURE_TIME__
+          t1 = MPI_Wtime();
+#endif
+          corrMatPreprocessing(c_matrices, nTrials, nSubs);
+#if __MEASURE_TIME__
+          t2 = MPI_Wtime();
+          cout<<"matrix normalization: "<<t2-t1<<"s"<<endl;
+#endif
+          scores = GetSVMPerformance(me, c_matrices, nTrials-nHolds, nFolds);
+#if __MEASURE_TIME__
+          t1 = MPI_Wtime();
+          cout<<"svm processing: "<<t1-t2<<"s"<<endl;
+#endif
+#endif
+          break;
+        case 1:
 #ifdef __MIC__
-
+          // TODO
 #else
-        scores = GetCorrVecSum(me, c_matrices, nTrials);
+          // Fisher transform and z-score (across the blocks) the data here
+          corrMatPreprocessing(c_matrices, nTrials, nSubs);
+          scores = GetDistanceRatio(me, c_matrices, nTrials-nHolds);
 #endif
-        break;
-      default:
-        FATAL("unknown task type");
-    }
+          break;
+        case 3:
+#ifdef __MIC__
+          //TODO
+#else
+          scores = GetCorrVecSum(me, c_matrices, nTrials);
+#endif
+          break;
+        default:
+          FATAL("unknown task type");
+      }
+    //}
     double tstop = MPI_Wtime();
     float elapse = float(tstop-tstart);
     //cout<<elapse<<endl<<flush;
@@ -443,5 +463,9 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   _mm_free(voxels->corr_vecs);
   delete voxels->vid;
   delete voxels;
+  /*for (int i=0; i<240; i++)
+  {
+    delete svm_data[i];
+  }*/
 #endif
 }
