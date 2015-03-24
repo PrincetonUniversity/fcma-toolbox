@@ -8,6 +8,7 @@
 #include "Scheduler.h"
 #include "common.h"
 #include "MatComputation.h"
+#include "CustomizedMatrixMultiply.h"
 #include "CorrMatAnalysis.h"
 #include "Classification.h"
 #include "Preprocessing.h"
@@ -109,7 +110,6 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   }
   else
   {
-    //int preset_step=30;
     DoSlave(me, 0, masked_matrices1, masked_matrices2, taskType, trials, nTrials, nHolds, nSubs, nFolds, step);  // 0 for master id
   }
 }
@@ -295,20 +295,15 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   voxels->nTrials = nTrials;
   voxels->nVoxels = nVoxels;
   voxels->vid=new int[preset_step];
-  voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
+  //voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
+  voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nTrials*preset_step, 64);
+  voxels->corr_output = (float*)_mm_malloc(sizeof(float)*nVoxels*BLK2*nTrials, 64);
   int ml = trials[0].ec;
   int row1=matrices1[0]->row;
   int row2=matrices2[0]->row;
+  // collect all activity matrices into continuous space
   float* bufs1=new float[ml*row1*nTrials];
   float* bufs2=new float[ml*row2*nTrials];
-  /*if (taskType==0)
-  {
-    float* svm_data[240];
-    for (int i=0; i<240; i++)
-    {
-      svm_data[i] = new float[nTrials-nHolds];
-    }
-  }*/
   for (int i=0; i<nTrials; i++)
   {
     int cur_col = trials[i].sc;
@@ -316,6 +311,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     memcpy((void*)(bufs1+i*ml*row1), (const void*)(matrices1[sid]->matrix+cur_col*row1), sizeof(float)*ml*row1);
     memcpy((void*)(bufs2+i*ml*row2), (const void*)(matrices2[sid]->matrix+cur_col*row2), sizeof(float)*ml*row2);
   }
+  // after collecting, delete space in raw matrix for space saving
   for (int i=0; i<nSubs; i++)
   {
     delete matrices1[i]->matrix;
@@ -338,21 +334,15 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     {
       break;
     }
-    int unit_step = preset_step;
-    int cur_step = 0;
-    /*while (cur_step < step)
-    {
-      int cur_sr = sr+cur_step;
-      unit_step = step-cur_step>unit_step?unit_step:step-cur_step;
-      cur_step += unit_step;*/
+    int unit_step = step;
 #ifdef __MIC__
 #if __MEASURE_TIME__
       double t1 = MPI_Wtime();
 #endif
-      voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs, sr, step, matrices1, matrices2, bufs1, bufs2);
+      voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs, nTrials-nHolds, sr, step, matrices1, matrices2, bufs1, bufs2);
 #if __MEASURE_TIME__
-      double t2 = MPI_Wtime();
-      cout<<"voxel computing and normalization: "<<t2-t1<<"s"<<endl<<flush;
+      //double t2 = MPI_Wtime();
+      //cout<<"voxel computing and normalization: "<<t2-t1<<"s"<<endl<<flush;
 #endif
 #else
       CorrMatrix** c_matrices;
@@ -374,15 +364,13 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
           //t1 = MPI_Wtime();
 #endif
           //PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
-          //PreprocessAllVoxelsAnalysisData(voxels, unit_step, nSubs);
 #if __MEASURE_TIME__
-          t2 = MPI_Wtime();
-          //cout<<"preprocessing: "<<t2-t1<<"s"<<endl;
+          double t2 = MPI_Wtime();
+          cout<<"voxel computing and normalization: "<<t2-t1<<"s"<<endl<<flush;
 #endif
           //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
           scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
-          //cout<<total_count<<endl;
-          //total_count=0;
+          //scores = new VoxelScore[step];
 #if __MEASURE_TIME__
           t1 = MPI_Wtime();
           cout<<"svm processing: "<<t1-t2<<"s"<<endl;
@@ -456,16 +444,9 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
 #endif
   }
 #ifdef __MIC__
-  /*for (int i=0; i<preset_step; i++)
-  {
-    _mm_free(voxels[i]->corr_vecs);
-  }*/
   _mm_free(voxels->corr_vecs);
+  _mm_free(voxels->corr_output);
   delete voxels->vid;
   delete voxels;
-  /*for (int i=0; i<240; i++)
-  {
-    delete svm_data[i];
-  }*/
 #endif
 }

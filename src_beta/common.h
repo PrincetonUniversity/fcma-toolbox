@@ -27,6 +27,7 @@
 #include <cassert>
 #include <immintrin.h>
 #include <zmmintrin.h>
+#include <omp.h>
 /*#include <array>
 #include <chrono>
 #include <random>*/
@@ -93,6 +94,7 @@ typedef struct voxel_t
 {
   int* vid;
   float* corr_vecs;
+  float* corr_output;
   int nTrials;  //row
   int nVoxels;  //col
   //voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
@@ -109,6 +111,11 @@ typedef struct voxelxyz_t
 {
   int x, y, z;
 }VoxelXYZ;
+
+typedef __declspec(align(64)) struct WIDELOCK_T
+{
+  omp_lock_t lock;
+} widelock_t;
 
 extern unsigned long long total_count;
 

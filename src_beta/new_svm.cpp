@@ -132,6 +132,13 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   float* sub_labels = (float*)malloc(sizeof(float)*nPoints);  // ditto
   float* test_data = (float*)malloc(sizeof(float)*nPoints*nDimension);
   float* test_labels = (float*)malloc(sizeof(float)*nPoints);
+  bool *bit_map;
+  float sv_alpha[nPoints];  // normally nSV<<sub_nPoints
+  float supportVectors[nPoints*nDimension];
+  if (kType==NEWPRECOMPUTED)
+  {
+    bit_map = Calloc(bool,nPoints);
+  }
 #ifdef __SVM_BREAKDOWN__
   gettimeofday(&end_time, 0);
   t0 = end_time.tv_sec-start_time.tv_sec+(end_time.tv_usec-start_time.tv_usec)*0.000001;
@@ -145,13 +152,15 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     int end = fold_start[i+1];    
     int j,k,l;
     int sub_nPoints = nPoints - (end-begin);
-    bool *bit_map;
     if (kType==NEWPRECOMPUTED)
     {
-      bit_map = Calloc(bool,nPoints); //initialize to be all 0s
       for (j=0; j<begin; j++)
       {
         bit_map[perm[j]]=true;
+      }
+      for (j=begin; j<end; j++)
+      {
+        bit_map[perm[j]]=false;
       }
       for (j=end; j<nPoints; j++)
       {
@@ -220,8 +229,6 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     int nSV=0;
     //float* sv_alpha=(float*)kmp_malloc(sizeof(float)*sub_nPoints);  // normally nSV<<sub_nPoints
     //float* supportVectors=(float*)kmp_malloc(sizeof(float)*sub_nPoints*sub_nDimension);
-    float sv_alpha[sub_nPoints];  // normally nSV<<sub_nPoints
-    float supportVectors[sub_nPoints*sub_nDimension];
     int SV_index=0;
     for (j=0; j<sub_nPoints;j++)
     {
@@ -280,8 +287,6 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     {
       target[perm[j]] = result[j-begin];
     }
-    if (kType==NEWPRECOMPUTED)
-      free(bit_map);
     free(alpha);
     free(result);
     //kmp_free(sv_alpha);
@@ -310,6 +315,10 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   free(sub_labels);
   free(test_data);
   free(test_labels);
+  if (kType==NEWPRECOMPUTED)
+  {
+    free(bit_map);
+  }
   return 1.0*nCorrects/nPoints;
 }
 

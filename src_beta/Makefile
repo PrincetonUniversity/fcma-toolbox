@@ -15,9 +15,9 @@ EXECUTABLE ?= pni_fcma
 
 LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -lniftiio -lznz -lz
 INCLUDES = $(BLASINCLUDE) $(OTHER_INCLUDES) -I$(NIFTILOC)/include
-CFLAGS = -std=c++0x -c -fPIC -g $(WARNFLAGS) $(OPTIMFLAGS) $(INCLUDES) $(BLASCFLAGS) -D__USE_MIC__# -D__MIIC__ -D__MEASURE_TIME__ -D__SVM_BREAKDOWN__
+CFLAGS = -std=c++11 -c -fPIC -g $(WARNFLAGS) $(OPTIMFLAGS) $(INCLUDES) $(BLASCFLAGS) -D__USE_MIC__ -D__MIIC__# -D__MEASURE_TIME__# -D__SVM_BREAKDOWN__
 
-SOURCES = main.cpp svm.cpp Preprocessing.cpp FileProcessing.cpp MatComputation.cpp CorrMatAnalysis.cpp Classification.cpp LibSVM.cpp SVMClassification.cpp SVMPredictor.cpp Scheduler.cpp SVMPredictorWithMasks.cpp Searchlight.cpp CorrelationVisualization.cpp ErrorHandling.cpp FisherScoring.cpp Marginal_Scheduler.cpp VoxelwiseAnalysis.cpp new_svm.cpp
+SOURCES = main.cpp svm.cpp Preprocessing.cpp FileProcessing.cpp MatComputation.cpp CustomizedMatrixMultiply.cpp CorrMatAnalysis.cpp Classification.cpp LibSVM.cpp SVMClassification.cpp SVMPredictor.cpp Scheduler.cpp SVMPredictorWithMasks.cpp Searchlight.cpp CorrelationVisualization.cpp ErrorHandling.cpp FisherScoring.cpp Marginal_Scheduler.cpp VoxelwiseAnalysis.cpp new_svm.cpp
 
 OBJECTS = $(SOURCES:.cpp=.o)
 HEADERS = common.h $(SOURCES:.cpp=.h)
