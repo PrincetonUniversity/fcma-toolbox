@@ -4,12 +4,12 @@ include Make.user
 
 # the above included Makefile should supply:
 # BLASINCLUDE, BLASLIBINC, BLASLDFLAGS, BLASCFLAGS
-# and optionally OTHER_IsNCLUDES
+# and optionally OTHER_INCLUDES
 
 # can override anything with ?= as well
 MPICC ?= mpic++
 NIFTILOC ?= ../deps/nifticlib-2.0.0
-WARNFLAGS ?= -Wall -Wextras
+WARNFLAGS ?= -Wall -Wextra
 OPTIMFLAGS ?= -O3 -fopenmp -pthread -ansi_alias
 EXECUTABLE ?= pni_fcma
 
