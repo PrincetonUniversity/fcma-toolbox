@@ -222,7 +222,7 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
       sub_nDimension = sub_nPoints;
     }
     performTraining(sub_data, sub_nPoints, sub_nDimension, sub_labels, &alpha, kp, cost, heuristicMethod, epsilon, tolerance, transposedData);
-
+//cout<<i<<" ";
 /**
    generate support vectors
 **/

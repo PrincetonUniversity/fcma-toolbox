@@ -20,6 +20,10 @@ output: the voxel struct array
 Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int nTrainings, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2, float* bufs1, float* bufs2)
 {
   int i;
+#if __MEASURE_TIME__
+  float t=0.0f, t_corr=0.0f;
+  struct timeval start, end;
+#endif
   //Voxel** voxels = new Voxel*[step];
   for (i=0; i<step; i++)
   {
@@ -63,8 +67,18 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
   {
     if (m<m_max)
     {
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       sgemmTransposeMerge(bufs1+(sr+m)*ml, bufs2, BLK2, row, ml, nPerSubj, nSubs, voxels->corr_output, row*nTrials, trials);
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t_corr+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
 #ifdef __MIC__
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       int np = BLK2;
       int threads_per_prob = MICTH/np;
       #pragma omp parallel for
@@ -81,6 +95,10 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
            (const int)k_range, voxels->corr_output+prob_ID*row*nTrials + start_k,
            (const int)row, voxels->corr_vecs+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
       }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
       /*#pragma omp parallel for
       for (int mm=m; mm<m+BLK2; mm++)
       {
@@ -88,18 +106,35 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
         //cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, temp+mm*nTrainings*nTrainings, nTrainings);
       }*/
 #else
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       #pragma omp parallel for
       for (int mm=m; mm<m+BLK2; mm++)
       {
         //custom_ssyrk_old((const int)nTrainings, (const int)row, voxels->corr_output+(mm-m)*row*nTrials, (const int)row, voxels->corr_vecs+mm*nTrainings*nTrainings, (const int)nTrainings);
         cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, voxels->corr_vecs+mm*nTrainings*nTrainings, nTrainings);
       }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
 #endif
     }
     else
     {
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       sgemmTransposeMerge(bufs1+(sr+m)*ml, bufs2, step-m_max, row, ml, nPerSubj, nSubs, voxels->corr_output, row*nTrials, trials);
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t_corr+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
 #ifdef __MIC__
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       int np = step-m_max;
       int threads_per_prob = MICTH/np;
       #pragma omp parallel for
@@ -116,6 +151,10 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
            (const int)k_range, voxels->corr_output+prob_ID*row*nTrials + start_k,
            (const int)row, voxels->corr_vecs+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
       }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
       /*#pragma omp parallel for
       for (int mm=m; mm<step; mm++)
       {
@@ -123,12 +162,19 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
         //cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, temp+mm*nTrainings*nTrainings, nTrainings);
       }*/
 #else
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
       #pragma omp parallel for
       for (int mm=m; mm<step; mm++)
       {
         //custom_ssyrk_old((const int)nTrainings, (const int)row, voxels->corr_output+(mm-m)*row*nTrials, (const int)row, voxels->corr_vecs+mm*nTrainings*nTrainings, (const int)nTrainings);
         cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, voxels->corr_vecs+mm*nTrainings*nTrainings, nTrainings);
       }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
 #endif
     } // else m
   } //for m
@@ -142,6 +188,10 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
     }
   }
   delete temp;*/
+#if __MEASURE_TIME__
+  cout<<"correlation computing and normalization time: "<<t_corr<<"s"<<endl;
+  cout<<"kernel computing time: "<<t<<"s"<<endl;
+#endif
   return voxels;
 }
 

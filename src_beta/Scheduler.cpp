@@ -81,20 +81,24 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
     MPI_Bcast((void*)masked_matrices1[i], sizeof(RawMatrix), MPI_CHAR, 0, MPI_COMM_WORLD);
     MPI_Bcast((void*)masked_matrices2[i], sizeof(RawMatrix), MPI_CHAR, 0, MPI_COMM_WORLD);
   }
-  int r1 = masked_matrices1[0]->row;
-  int c1 = masked_matrices1[0]->col;
-  int r2 = masked_matrices2[0]->row;
-  int c2 = masked_matrices2[0]->col;
   if (me != 0)
   {
     for (i=0; i<nSubs; i++)
     {
+      int r1 = masked_matrices1[i]->row;
+      int c1 = masked_matrices1[i]->col;
+      int r2 = masked_matrices2[i]->row;
+      int c2 = masked_matrices2[i]->col;
       masked_matrices1[i]->matrix = new float[r1*c1];
       masked_matrices2[i]->matrix = new float[r2*c2];
     }
   }
   for (i=0; i<nSubs; i++)
   {
+    int r1 = masked_matrices1[i]->row;
+    int c1 = masked_matrices1[i]->col;
+    int r2 = masked_matrices2[i]->row;
+    int c2 = masked_matrices2[i]->col;
     MPI_Bcast((void*)(masked_matrices1[i]->matrix), r1*c1, MPI_FLOAT, 0, MPI_COMM_WORLD);
     MPI_Bcast((void*)(masked_matrices2[i]->matrix), r2*c2, MPI_FLOAT, 0, MPI_COMM_WORLD);
   }
@@ -104,9 +108,9 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   {
     cout.precision(6);
     cout<<"data transferring time: "<<tstop-tstart<<"s"<<endl;
-    cout<<"#voxels for mask 1: "<<r1<<endl;
-    cout<<"#voxels for mask 2: "<<r2<<endl;
-    DoMaster(nprocs, step, r1, output_file, mask_file1);
+    cout<<"#voxels for mask 1: "<<masked_matrices1[0]->row<<endl;
+    cout<<"#voxels for mask 2: "<<masked_matrices2[0]->row<<endl;
+    DoMaster(nprocs, step, masked_matrices1[0]->row, output_file, mask_file1);
   }
   else
   {
@@ -298,7 +302,7 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
   //voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nVoxels*preset_step, 64);  // close to the uint limit
   voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nTrials*nTrials*preset_step, 64);
   voxels->corr_output = (float*)_mm_malloc(sizeof(float)*nVoxels*BLK2*nTrials, 64);
-  int ml = trials[0].ec;
+  int ml = trials[0].ec;  // assuming all blocks have the same length
   int row1=matrices1[0]->row;
   int row2=matrices2[0]->row;
   // collect all activity matrices into continuous space
@@ -334,7 +338,6 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
     {
       break;
     }
-    int unit_step = step;
 #ifdef __MIC__
 #if __MEASURE_TIME__
       double t1 = MPI_Wtime();
@@ -366,10 +369,10 @@ void DoSlave(int me, int masterId, RawMatrix** matrices1, RawMatrix** matrices2,
           //PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
 #if __MEASURE_TIME__
           double t2 = MPI_Wtime();
-          cout<<"voxel computing and normalization: "<<t2-t1<<"s"<<endl<<flush;
+          cout<<"computing: "<<t2-t1<<"s"<<endl<<flush;
 #endif
-          //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
-          scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, unit_step, nTrials-nHolds, nFolds);
+          //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
+          scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
           //scores = new VoxelScore[step];
 #if __MEASURE_TIME__
           t1 = MPI_Wtime();

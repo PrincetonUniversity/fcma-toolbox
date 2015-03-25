@@ -203,7 +203,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
 {
   RawMatrix** masked_matrices = new RawMatrix*[nSubs];
   nifti_image* nim = nifti_image_read(maskFile, 1);
-  int i, j;
+  int i;
   if (nim == NULL)
   {
     FATAL("file not found: ");
@@ -235,6 +235,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
     default:
       FATAL("wrong data type of mask file!");
   }
+  #pragma omp parallel for
   for (i=0; i<nSubs; i++) // get only the masked voxels
   {
     RawMatrix* masked_matrix = new RawMatrix();
@@ -250,7 +251,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* mas
     float* src_mat = r_matrices[i]->matrix;
     float* dest_mat = masked_matrix->matrix;
     int count = 0;
-    for (j=0; j<row; j++)
+    for (int j=0; j<row; j++)
     {
       if (data_int!=NULL && data_int[j])
       {

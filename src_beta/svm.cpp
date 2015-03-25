@@ -65,7 +65,9 @@ template <class S, class T> static inline void clone(T*& dst, S* src, int n)
 #define INF HUGE_VAL
 #define TAU 1e-12
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
+#ifndef Calloc
 #define Calloc(type,n) (type *)calloc(n,sizeof(type))
+#endif
 
 //
 // Kernel Cache
@@ -677,6 +679,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
   si->upper_bound_p = Cp;
   si->upper_bound_n = Cn;
 
+  //printf("iteration: %d\n", iter);
   delete[] p;
   delete[] y;
   delete[] alpha;
@@ -768,12 +771,9 @@ int Solver::select_working_set(int &out_i, int &out_j)
   ALIGNED(64) double grad_diff[active_size];
   ALIGNED(64) double obj_diff[active_size+8];
   ALIGNED(64) double g[active_size+8];
-  //total_count++;
-  //#pragma loop count(200)
   #pragma simd
   for(int j=0;j<active_size;j++)
   {
-    //grad_diff[j]=Gmax+G[j]*y[j];
     grad_diff[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?Gmax+G[j]*y[j]:-1.0;
     g[j] = (y[j]==+1&&alpha_status[j]!=LOWER_BOUND)||(y[j]==-1&&alpha_status[j]!=UPPER_BOUND)?G[j]*y[j]:-INF;
     ALIGNED(64) double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];  // y[i], but not y[j], is intended
@@ -857,10 +857,6 @@ int Solver::select_working_set(int &out_i, int &out_j)
     }
   }
 #endif
-//  for(int j=0;j<active_size;j++)
-//  {
-//
-//  }
   if(Gmax+Gmax2 < eps)
     return 1;
 
@@ -868,6 +864,101 @@ int Solver::select_working_set(int &out_i, int &out_j)
   out_j = Gmin_idx;
   return 0;
 }
+
+#if 0
+// return 1 if already optimal, return 0 otherwise
+// old code
+int Solver::select_working_set(int &out_i, int &out_j)
+{
+	// return i,j such that
+	// i: maximizes -y_i * grad(f)_i, i in I_up(\alpha)
+	// j: minimizes the decrease of obj value
+	//    (if quadratic coefficeint <= 0, replace it with tau)
+	//    -y_j*grad(f)_j < -y_i*grad(f)_i, j in I_low(\alpha)
+	
+	double Gmax = -INF;
+	double Gmax2 = -INF;
+	int Gmax_idx = -1;
+	int Gmin_idx = -1;
+	double obj_diff_min = INF;
+
+	for(int t=0;t<active_size;t++)
+		if(y[t]==+1)	
+		{
+			if(!is_upper_bound(t))
+				if(-G[t] >= Gmax)
+				{
+					Gmax = -G[t];
+					Gmax_idx = t;
+				}
+		}
+		else
+		{
+			if(!is_lower_bound(t))
+				if(G[t] >= Gmax)
+				{
+					Gmax = G[t];
+					Gmax_idx = t;
+				}
+		}
+
+	int i = Gmax_idx;
+	const Qfloat *Q_i = NULL;
+	if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
+		Q_i = Q->get_Q(i,active_size);
+
+	for(int j=0;j<active_size;j++)
+	{
+    double grad_diff=Gmax+G[j]*y[j];
+		if(y[j]==+1)
+		{
+			if (!is_lower_bound(j))
+			{
+				if (G[j] >= Gmax2)
+					Gmax2 = G[j];
+				if (grad_diff > 0)
+				{
+          assert(Q_i);
+					double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
+					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
+
+					if (obj_diff <= obj_diff_min)
+					{
+						Gmin_idx=j;
+						obj_diff_min = obj_diff;
+					}
+				}
+			}
+		}
+		else
+		{
+			if (!is_upper_bound(j))
+			{
+				if (-G[j] >= Gmax2)
+					Gmax2 = -G[j];
+				if (grad_diff > 0)
+				{
+          assert(Q_i);
+					double quad_coef = QD[i]+QD[j]+2.0*y[i]*Q_i[j];
+					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
+
+					if (obj_diff <= obj_diff_min)
+					{
+						Gmin_idx=j;
+						obj_diff_min = obj_diff;
+					}
+				}
+			}
+		}
+	}
+	if(Gmax+Gmax2 < eps)
+		return 1;
+
+	out_i = Gmax_idx;
+	out_j = Gmin_idx;
+	return 0;
+}
+#endif
 
 bool Solver::be_shrunk(int i, double Gmax1, double Gmax2)
 {

@@ -149,11 +149,6 @@ float DoSVM(int nFolds, SVMProblem* prob, SVMParameter* param)
   return 1.0*total_correct/prob->l;
 }
 
-void ComputeLinerKernelMatrix(float* data, Trial* trials, Voxel* voxels, int step, int nTrainings)
-{
-  
-}
-
 VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int step, int nTrainings, int nFolds)  //classifiers for a voxel array
 {
   if (me==0)  //sanity check
@@ -181,10 +176,10 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int
 #if __MEASURE_TIME__
   gettimeofday(&end, 0);
   t=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
-  cout<<"computing time: "<<t<<endl;
+  //cout<<"computing time: "<<t<<endl;
   gettimeofday(&start, 0);
 #endif
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(dynamic)
   for (i=0; i<step; i++)
   {
     (scores+i)->vid = voxels->vid[i];
@@ -201,7 +196,7 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels, int
 #if __MEASURE_TIME__
   gettimeofday(&end, 0);
   t=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
-  cout<<"svm time: "<<t<<endl;
+  //cout<<"svm time: "<<t<<endl;
 #endif
   return scores;
 }
@@ -213,16 +208,16 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
   prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
-  float* simMatrix = new float[nTrainings*nTrainings];
-  for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
-  float* corr_vecs = voxel->corr_vecs+step_id*voxel->nTrials*voxel->nVoxels;
-  //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrainings, nTrainings, row, 1.0, corr_vecs, row, corr_vecs, row, 0.0, simMatrix, nTrainings);
+  //float* simMatrix = new float[nTrainings*nTrainings];
+  //for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
+  float* simMatrix = voxel->corr_vecs+step_id*nTrainings*nTrainings;
+/*
 #ifdef __MIC__
   custom_ssyrk_old((const int)nTrainings, (const int)row, corr_vecs, (const int)row, simMatrix, (const int)nTrainings); // lower triangle matrix
 #else
   cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
 #endif
-
+*/
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = trials[i].label;
@@ -236,7 +231,7 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
     }
     prob->x[i][j+1].index = -1;
   }
-  delete[] simMatrix;
+  //delete[] simMatrix;
   return prob;
 }
 
@@ -253,7 +248,7 @@ VoxelScore* GetVoxelwiseNewSVMPerformance(int me, Trial* trials, Voxel* voxels, 
 #ifdef __MEASURE_TIME__
   float t1=0, t2=0;
 #endif
-  #pragma omp parallel for private(i)
+  #pragma omp parallel for private(i) schedule(dynamic)
   for (i=0; i<step; i++)
   {
 #ifdef __MEASURE_TIME__
@@ -273,6 +268,7 @@ VoxelScore* GetVoxelwiseNewSVMPerformance(int me, Trial* trials, Voxel* voxels, 
     gettimeofday(&start_time, 0);
 #endif
     (scores+i)->score = DOSVMNew(data, nTrainings, nTrainings, nFolds, labels, voxels->vid[i]);
+    //cout<<omp_get_thread_num()<<" here"<<endl;
     //delete[] data;
     delete[] labels;
 #ifdef __MEASURE_TIME__
@@ -286,8 +282,8 @@ VoxelScore* GetVoxelwiseNewSVMPerformance(int me, Trial* trials, Voxel* voxels, 
 #ifdef __MEASURE_TIME__
   if (me==1)  // this time is just for omp_thread_0, is not the wall time of omp
   {
-    printf("kernel matrix computing time: %fs\n", t1);
-    printf("svm cross validation time: %fs\n", t2);
+    //printf("kernel matrix computing time: %fs\n", t1);
+    //printf("svm cross validation time: %fs\n", t2);
   }
 #endif
   return scores;
@@ -327,6 +323,8 @@ void GetNewSVMProblemWithPreKernel(Trial* trials, Voxel* voxel, int step_id, int
       simMatrix[j*nTrainings+i] = simMatrix[i*nTrainings+j];
     }
   }
+  //if (step_id==1)
+  //cout<<simMatrix[0]<<" "<<simMatrix[1]<<endl;sleep(1);exit(1);
   for (i=0; i<nTrainings; i++)
   {
     labels[i] = trials[i].label;
