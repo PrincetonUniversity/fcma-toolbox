@@ -48,6 +48,9 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
   int ml=trials[0].ec;    // assuming all blocks have the same size
   int nPerSubj=nTrials/nSubs;    // assuming all subjects have the same number of blocks
   int m_max = (step/BLK2)*BLK2;
+  memset((void*)voxels->corr_vecs, 0, sizeof(float)*nTrainings*nTrainings*step);
+  //float* temp = new float[nTrainings*nTrainings*step];
+  //memset((void*)temp, 0, sizeof(float)*nTrainings*nTrainings*step);
 #ifdef __MIC__
   widelock_t Clocks[BLK2];
   #pragma omp parallel for
@@ -78,6 +81,12 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
            (const int)k_range, voxels->corr_output+prob_ID*row*nTrials + start_k,
            (const int)row, voxels->corr_vecs+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
       }
+      /*#pragma omp parallel for
+      for (int mm=m; mm<m+BLK2; mm++)
+      {
+        custom_ssyrk_old((const int)nTrainings, (const int)row, voxels->corr_output+(mm-m)*row*nTrials, (const int)row, temp+mm*nTrainings*nTrainings, (const int)nTrainings);
+        //cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, temp+mm*nTrainings*nTrainings, nTrainings);
+      }*/
 #else
       #pragma omp parallel for
       for (int mm=m; mm<m+BLK2; mm++)
@@ -103,10 +112,16 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
         int end_k = (thread_ID+1) * k_per_thread;
         if(end_k > row) end_k = row;
         int k_range = end_k - start_k;
-        custom_ssyrk((const int)nTrials, 
-           (const int)k_range, voxels->corr_output+prob_ID*row*nTrainings + start_k,
+        custom_ssyrk((const int)nTrainings, 
+           (const int)k_range, voxels->corr_output+prob_ID*row*nTrials + start_k,
            (const int)row, voxels->corr_vecs+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
       }
+      /*#pragma omp parallel for
+      for (int mm=m; mm<step; mm++)
+      {
+        custom_ssyrk_old((const int)nTrainings, (const int)row, voxels->corr_output+(mm-m)*row*nTrials, (const int)row, temp+mm*nTrainings*nTrainings, (const int)nTrainings);
+        //cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_output+(mm-m)*row*nTrials, row, 0.0, temp+mm*nTrainings*nTrainings, nTrainings);
+      }*/
 #else
       #pragma omp parallel for
       for (int mm=m; mm<step; mm++)
@@ -117,6 +132,16 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, i
 #endif
     } // else m
   } //for m
+  /*#pragma omp parallel for
+  for (int i=0; i<nTrainings*nTrainings*step; i++)
+  {
+    if (voxels->corr_vecs[i]!=0.0 && fabs(voxels->corr_vecs[i]-temp[i])/voxels->corr_vecs[i]>1e-5)
+    {
+      cout<<"error! "<<voxels->corr_vecs[i]<<" "<<temp[i]<<" "<<fabs(voxels->corr_vecs[i]-temp[i])/voxels->corr_vecs[i]<<endl;
+      exit(1);
+    }
+  }
+  delete temp;*/
   return voxels;
 }
 
