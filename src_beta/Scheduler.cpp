@@ -20,12 +20,14 @@
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
+  double tstart, tstop;
   int i;
   RawMatrix** masked_matrices1=NULL;
   RawMatrix** masked_matrices2=NULL;
 #ifndef __MIC__
   if (me == 0)
   {
+    tstart = MPI_Wtime();
     if (mask_file1!=NULL)
     {
       masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1);
@@ -55,10 +57,13 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
       PreprocessMatrices(masked_matrices2, buf_trials, trials, nSubs, nTrials);
       delete buf_trials;
     }
+    tstop = MPI_Wtime();
+    cout.precision(6);
+    cout<<"data mask applying time: "<<tstop-tstart<<"s"<<endl;
 #endif
   }
 #endif
-  double tstart = MPI_Wtime();
+  tstart = MPI_Wtime();
 #ifdef __USE_MIC__
   // resend trials because it may change in PreprocessMatrices  
   if (taskType==0)
@@ -103,7 +108,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
     MPI_Bcast((void*)(masked_matrices2[i]->matrix), r2*c2, MPI_FLOAT, 0, MPI_COMM_WORLD);
   }
   MPI_Barrier(MPI_COMM_WORLD);
-  double tstop = MPI_Wtime();
+  tstop = MPI_Wtime();
   if (me == 0)
   {
     cout.precision(6);

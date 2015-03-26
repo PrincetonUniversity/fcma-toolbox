@@ -346,6 +346,8 @@ static void params_from_keyvalues(char** keys_and_values,const int& num_elements
 
 void run_fcma(Param* param)
 {
+    float t_init=0.0f;
+    struct timeval start, end;
     int initialized;
     MPI_Initialized(&initialized);
     if (!initialized) MPI_Init(NULL,NULL);
@@ -355,6 +357,7 @@ void run_fcma(Param* param)
     if (me==0)
     {
       cout<<"The program runs "<<nprocs<<" process(es) in total"<<endl;
+      gettimeofday(&start, 0);
     }
     /* initialization done */
     /* ---------------------------------------------- */
@@ -410,11 +413,6 @@ void run_fcma(Param* param)
     //VoxelXYZ* temp_pts=new VoxelXYZ[r_matrices[0]->row];
     //int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
     MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
-    if (me == 0)
-    {
-        cout<<"data reading done!"<<endl;
-        //cout<<row_tmp<<endl;
-    }
     VoxelXYZ* pts = NULL; 
 #ifndef __MIC__
     if (me == 0)
@@ -450,6 +448,13 @@ void run_fcma(Param* param)
             FATAL("More holds ("<<nHolds<<") than trials ("<<nTrials<<")!");
     }
     MPI_Barrier(MPI_COMM_WORLD); // wait for all nodes to finish reading the data
+    if (me == 0)
+    {
+        cout<<"data reading done! ";
+        gettimeofday(&end, 0);
+        t_init=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+        cout<<"Takes "<<t_init<<"s"<<endl;
+    }
     /* data reading done */
     /* ----------------------------------------------- */
     /* main program begins */
@@ -583,6 +588,7 @@ int main(int argc, char** argv)
 {
     //total_count=0;
     //raise(SIGSTOP); //xcode attach to process
+    //kmp_set_defaults("KMP_AFFINITY=scatter");
     parse_command_line(argc, argv);
     run_fcma(&Parameters);
     return 0;
