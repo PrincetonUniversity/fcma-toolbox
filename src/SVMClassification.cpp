@@ -167,9 +167,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
     prob[i] = GetSVMProblemWithPreKernel2(trials, voxels[i], row, nTrainings);
     param[i] = SetSVMParameter(4); //0 for linear, 4 for precomputed kernel
   }
-#ifdef __MIC__
-  omp_set_num_threads(60);      //to use VPU exclusively
-#endif
   #pragma omp parallel for private(i)
   for (i=0; i<step; i++)
   {
@@ -184,9 +181,6 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel** voxels, in
     delete[] prob[i]->x;
     delete prob[i];
   }
-#ifdef __MIC__
-  omp_set_num_threads(240);
-#endif
   return scores;
 }
 
