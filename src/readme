@@ -140,5 +140,6 @@ merge the BETA version to the main branch
 disable distance ratio methods for now
 use voxelwise data structure to store the correlation data
 for correlation based voxel selection, memory limitation of Xeon Phi is relaxed, but for correlation sum, memory limitation of Xeon Phi is not addressed
-correlation based classification is optimized for data normalization and kernel matrix computation
+correlation based classification using top voxels is optimized for data normalization and kernel matrix computation
 other parts remain the same
+gcc 4.9 and/or icc 15.0 are recommended for compiling
