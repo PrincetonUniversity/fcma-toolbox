@@ -7,7 +7,6 @@
 #include "common.h"
 #include "SVMPredictorWithMasks.h"
 #include "MatComputation.h"
-#include "LibSVM.h"
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "SVMPredictor.h"
@@ -51,7 +50,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1, RawMatrix** r_matric
     delete[] tempSimMatrix;
     sr += rowLength;
   }
-  SVMParameter* param = SetSVMParameter(4); // precomputed
+  SVMParameter* param = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
   SVMProblem* prob = GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials-nTests);
   struct svm_model *model = svm_train(prob, param);
   int nTrainings = nTrials-nTests;
@@ -170,10 +169,10 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs, const cha
 #ifndef __MIC__
   int i, j;
   int nTrainings = nTrials-nTests;
-  SVMParameter* param = SetSVMParameter(0); // linear
+  SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   svm_set_print_string_function(&print_null);
   

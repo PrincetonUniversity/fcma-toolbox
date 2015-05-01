@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <map>
+#include <list>
 #include <algorithm>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -24,6 +25,9 @@
 #include <iomanip>
 #include <nifti1_io.h>
 #include <cassert>
+#include <immintrin.h>
+#include <zmmintrin.h>
+#include <omp.h>
 /*#include <array>
 #include <chrono>
 #include <random>*/
@@ -64,6 +68,17 @@ typedef struct raw_matrix_t
   float* matrix;
 }RawMatrix;
 
+typedef struct trial_data_t
+{
+  int nTrials;
+  int nVoxels;
+  int nCols;
+  int* trialLengths;  // keep all trials data, subject by subject
+  int* scs;
+  float* data;  // normalized data for correlation
+  trial_data_t(int x, int y) : nTrials(x), nVoxels(y) {}
+}TrialData;
+
 typedef struct corr_matrix_t
 {
   int sid;      // subject id
@@ -88,11 +103,12 @@ typedef struct trial_t
 
 typedef struct voxel_t
 {
-  int vid;
+  int* vid; // contains global voxel ids
   float* corr_vecs;
+  float* kernel_matrices; // contains precomputed kernel matrix
   int nTrials;  //row
   int nVoxels;  //col
-  voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
+  //voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
 }Voxel;
 
 typedef struct voxel_Score_t
@@ -106,6 +122,11 @@ typedef struct voxelxyz_t
 {
   int x, y, z;
 }VoxelXYZ;
+
+typedef __declspec(align(64)) struct WIDELOCK_T
+{
+  omp_lock_t lock;
+} widelock_t;
 
 extern unsigned long long total_count;
 

@@ -89,3 +89,56 @@ only voxel selection (task 0) and marginal screening (task 9) is runnable on Xeo
 1.4.8
 vectorize select_working_set function in svm.cpp. the number of threads needs to be 60 in svm iteration for exclusive usage of vector process unit
 fix a bug in voxelwise voxel selection code
+
+1.5
+focus on optimizing code of correlation-based voxel selection (-k 0) for xeon phi
+in this version, xeon and xeon phi mixed voxel selection task is NOT supported yet
+the default setting is for running on xeon phi, __USE_MIC__ needs to be commented out in Makefile for running on xeon
+do getBuf to normalize the activity matrices in master node to save bandwidth and computing time on xeon phi
+use predefined space instead of dynamically allocated space to store corelation values to help the compilor's optimization. by doing this, the data contention in 1.4.7 is fixed as well
+rewrite z-score function for better vectorization, also eliminate double-float conversion in z-score function
+
+1.5.1
+clean svm related code for further optimization
+
+1.5.2
+remove unnecessary OMP parallelization in get_Q function of svm.cpp to eliminate __kmp_wait_yield_4
+
+1.5.3
+vectorize getting max/min of arrays in select_working_set for MIC using Intel intrinsics
+
+1.5.4
+change the data layout of correlation vectors in voxelwise analysis to be continuous across voxels
+use cblas_sgemm to compute correlation vectors instead of VecMatMultiply function
+parallelize and do SIMD across voxels in the normalization step
+
+1.5.5
+more optimization in the normalization step, do omp across z-scorings to make sure each thread processes continuous data
+
+1.5.6
+optimize the SVM kernel matrix computing for Phi, using custom_ssryk routine
+
+1.6
+incorporate GPUSVM to replace LibSVM code
+the first try, only for correlation-based voxel selection, works correctly but 5x slower than LibSVM
+
+1.6.1
+vectorize hot spots of GPUSVM, now outperform LibSVM by a factor of 2.7
+
+1.6.2
+further optimize GPUSVM, by 1) simplifying get max/min loops in first order heuristics; 2) avoiding using devCache in the precomputed kernel
+now outperform LibSVM by a factor of 2.2 on Xeon and a factor of 5.7 on Xeon Phi
+
+1.6.3
+replace sgemm in correlation computing with customized blocking code
+
+1.6.4
+merging correlation computing and normalization together to deal with data piece by piece in L2 cache
+
+1.7
+merge the BETA version to the main branch
+disable distance ratio methods for now
+use voxelwise data structure to store the correlation data
+for correlation based voxel selection, memory limitation of Xeon Phi is relaxed, but for correlation sum, memory limitation of Xeon Phi is not addressed
+correlation based classification is optimized for data normalization and kernel matrix computation
+other parts remain the same

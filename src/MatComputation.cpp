@@ -39,7 +39,7 @@ int getBuf(int start_col, int end_col, int row, int col, float* mat, float* buf)
     #pragma simd
     for (int j=start_col; j<=end_col; j++)
     {
-        buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean_f) * inv_sd_f; // bds 1/sd; // if sd is zero, a "nan" appears
+      buf[i*delta_col+j-start_col] = (mat[i*col+j] - mean_f) * inv_sd_f; // bds 1/sd; // if sd is zero, a "nan" appears
     }
   }
   return delta_col;

@@ -6,6 +6,7 @@
 
 #include <cstring>
 #include "common.h"
+#include "ErrorHandling.h"
 #ifdef USE_MKL
 #include <mkl_cblas.h>
 #elif defined __APPLE__
@@ -39,8 +40,32 @@ inline float fisherTransformation(float v)
   }
   return 0.5 * logf(f1/f2);
 }
-void z_score(float* v, int n);
+/***************************************
+z-score the vectors
+input: the vector, the length of the vector
+output: write z-scored values to the vector
+****************************************/
+inline void z_score(float* v, int n)
+{
+  int i;
+  ALIGNED(64) float mean=0, sd=0;  // float here is not precise enough to handle
+  #pragma loop count(12)
+  for (i=0; i<n; i++)
+  {
+    mean += v[i];
+    sd += v[i] * v[i]; // float can cause sd<0, need to handle it later
+  }
+  mean /= n;
+  sd = sd/n - mean * mean;
+  ALIGNED(64) float inv_sd= sd<=0?0.0:1/sqrt(sd);  // do time-comsuming division once, sd==0 means all values are the same, sd<0 happens due to floating point number rounding error
+  #pragma loop count(12)
+  #pragma simd
+  for (i=0; i<n; i++)
+  {
+    v[i] = (v[i] - mean)*inv_sd;
+  }
+}
 RawMatrix** rawMatPreprocessing(RawMatrix** r_matrices, int n, int nTrials, Trial* trials);
 float getAverage(RawMatrix* r_matrix, Trial trial, int vid);
 void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, const char* permute_book_file);
-void PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials);
+TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials);

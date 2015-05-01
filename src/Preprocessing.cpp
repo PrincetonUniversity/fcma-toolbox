@@ -216,47 +216,6 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
   }
 }
 
-/***************************************
-z-score the vectors
-input: the vector, the length of the vector
-output: write z-scored values to the vector
-****************************************/
-void z_score(float* v, int n)
-{
-  int i;
-  ALIGNED(64) double mean=0, sd=0;  // float here is not precise enough to handle
-  ALIGNED(64) double dv[n];
-  #pragma loop count(12)
-  #pragma simd
-  for (i=0; i<n; i++)
-  {
-    dv[i] = (double)v[i];
-  }
-  #pragma loop count(12)
-  for (i=0; i<n; i++)
-  {
-    mean += dv[i];
-    sd += dv[i] * dv[i]; // double other than float can avoid overflow
-  }
-  mean /= n;
-  sd = sd/n - mean * mean;
-  if (sd < 0) {cerr<<"sd<0! "<<sd; FATAL("zscore error");}  // if the types of mean and sd are double, this won't happen
-  sd = sqrt(sd);
-  if (sd==0)// all values are the same
-  {
-    memset(v, 0, sizeof(float)*n);
-    return;
-  }
-  ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
-  ALIGNED(64) float mean_f=mean;  // for vecterization
-  #pragma loop count(12)
-  #pragma simd
-  for (i=0; i<n; i++)
-  {
-    v[i] = (v[i] - mean_f)*inv_sd_f;
-  }
-}
-
 /****************************************
 average the activation values by blocks then z-scored them across blocks within subjects
 input: the raw matrix array, the length of this array (the number of subjects), the number of blocks per subject, the trials
@@ -360,63 +319,67 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, con
 
 /****************************************
 use the trials information to filter the given raw matrices and normalize it for correlation computation
-input: the raw matrix array, the trial array, the length of raw matrix array (the number of subjects), the length of trials array (the number of trials)
-output: the matrix array is rewritten and the trial array is modified accordingly
+input: the raw matrix array, the buffer trial array storing old trial info, the trial array, the length of raw matrix array (the number of subjects), the length of trials array (the number of trials)
+output: the matrix array is rewritten to be one by one submatrix instead of one big matrix and the trial array is modified accordingly
 *****************************************/
-void PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials)
+TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials)
 {
-  int new_cols[nSubs];
-  memset((void*)new_cols, 0, sizeof(int)*nSubs);
+  TrialData* td = new TrialData(nTrials, matrices[0]->row);
+  td->trialLengths = new int[nTrials];
+  td->scs = new int[nTrials];
+  int total_cols=0;
+  // get total TRs of each subject
   for (int i=0; i<nTrials; i++)
   {
-    int sid=trials[i].sid;
-    new_cols[sid]+=trials[i].ec-trials[i].sc+1;
+    td->scs[i] = total_cols;
+    total_cols += trials[i].ec-trials[i].sc+1;
+    td->trialLengths[i] = trials[i].ec-trials[i].sc+1;
+  }
+  td->nCols = total_cols;
+  td->data = (float*)_mm_malloc(sizeof(float)*td->nCols*td->nVoxels, 64);
+  int cur_cols[nTrials];
+  cur_cols[0] = 0;
+  for (int i=1; i<nTrials; i++)
+  {
+    int sc= trials[i-1].sc;
+    int ec= trials[i-1].ec;
+    int delta_col = ec-sc+1;
+    cur_cols[i] = cur_cols[i-1]+delta_col;
   }
   #pragma omp parallel for
-  for (int i=0; i<nSubs; i++)
+  for (int i=0; i<nTrials; i++)
   {
-    int new_col=0;
-    int row = matrices[i]->row;
-    int col = matrices[i]->col;
-    matrices[i]->col = new_cols[i];
-    float* buf=new float[row*new_cols[i]];
-    float* matrix = matrices[i]->matrix;
-    for (int j=0; j<nTrials; j++)
+    int sid = trials[i].sid;
+    int row = matrices[sid]->row;
+    int col = matrices[sid]->col;
+    float* matrix = matrices[sid]->matrix;
+    float* buf = td->data+cur_cols[i]*(td->nVoxels);
+    int sc= trials[i].sc;
+    int ec= trials[i].ec;
+    int delta_col = ec-sc+1;
+    for (int r=0; r<row; r++)
     {
-      if (trials[j].sid==i)
+      double mean=0, sd=0;  // float here is not precise enough to handle
+      for (int c=sc; c<=ec; c++)
       {
-        int sc= trials[j].sc;
-        int ec= trials[j].ec;
-        int delta_col = ec-sc+1;
-        for (int r=0; r<row; r++)
-        {
-          double mean=0, sd=0;  // float here is not precise enough to handle
-          for (int c=sc; c<=ec; c++)
-          {
-            mean += (double)matrix[r*col+c];
-            sd += (double)matrix[r*col+c] * matrix[r*col+c]; // convert to double to avoid overflow
-          }
-          mean /= delta_col;
-          sd = sd - delta_col * mean * mean;
-          sd = sqrt(sd);
-          if (sd == 0)  // leave the numbers as they are
-          {
-            continue;
-          }
-          ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
-          ALIGNED(64) float mean_f=mean;  // for vecterization
-          #pragma simd
-          for (int c=sc; c<=ec; c++)
-          {
-            buf[r*new_cols[i]+trials[j].sc+c-sc] = (matrix[r*col+c] - mean_f) * inv_sd_f; // if sd is zero, a "nan" appears
-          }
-        }
-        trials[j].ec = new_col+trials[j].ec-trials[j].sc+1;
-        trials[j].sc = new_col;
-        new_col = trials[j].ec+1;
+        mean += (double)matrix[r*col+c];
+        sd += (double)matrix[r*col+c] * matrix[r*col+c]; // convert to double to avoid overflow
+      }
+      mean /= delta_col;
+      sd = sd - delta_col * mean * mean;
+      sd = sqrt(sd);
+      ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
+      ALIGNED(64) float mean_f=mean;  // for vecterization
+      if (sd == 0)  // leave the numbers as they are
+      {
+        inv_sd_f=0.0f;
+      }
+      #pragma simd
+      for (int c=sc; c<=ec; c++)
+      {
+        buf[r*delta_col+c-sc] = (matrix[r*col+c] - mean_f) * inv_sd_f; // if sd is zero, a "nan" appears
       }
     }
-    delete matrix;
-    matrices[i]->matrix = buf;
   }
+  return td;
 }

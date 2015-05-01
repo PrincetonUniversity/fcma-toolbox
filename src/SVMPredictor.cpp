@@ -7,7 +7,7 @@
 #include "common.h"
 #include "SVMPredictor.h"
 #include "MatComputation.h"
-#include "LibSVM.h"
+//#include "LibSVM.h"
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "ErrorHandling.h"
@@ -117,7 +117,14 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
       delete[] tempSimMatrix;
       sr += rowLength;
     }
-    SVMParameter* param = SetSVMParameter(4); // precomputed
+    for (j=0; j<nTrials; j++)
+    {
+      for (k=0; k<j; k++)
+      {
+        simMatrix[k*nTrials+j] = simMatrix[j*nTrials+k];
+      }
+    }
+    SVMParameter* param = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
     SVMProblem* prob = GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials-nTests);
     struct svm_model *model = svm_train(prob, param);
     int nTrainings = nTrials-nTests;
@@ -190,10 +197,10 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
 {
   int i, j, k;
   int nTrainings = nTrials-nTests;
-  SVMParameter* param = SetSVMParameter(0); // linear
+  SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   for (i=0; i<ntops; i++)
   {
@@ -381,7 +388,8 @@ compute the dot product of all-pair sub correlation vectors
 void GetDotProductUsingMatMul(float* simMatrix, float* values, int nTrials, int nVoxels, int lengthPerCorrVector)
 {
   int length = nVoxels*lengthPerCorrVector;
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrials, nTrials, length, 1.0, values, length, values, length, 1.0, simMatrix, nTrials); // notice the latter 1.0 here, this is for accumulation
+  //cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nTrials, nTrials, length, 1.0, values, length, values, length, 1.0, simMatrix, nTrials); // notice the latter 1.0 here, this is for accumulation
+  cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrials, length, 1.0, values, length, 1.0, simMatrix, nTrials);
 }
 
 /***********************************
@@ -391,31 +399,33 @@ size(values) = [nTrials, nVoxels*lengthPerCorrVector]
 ************************************/
 void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerCorrVector, int nSubs)
 {
-  int length = nVoxels*lengthPerCorrVector;
-  int trialsPerSub = nTrials / nSubs; // should be dividable
-  int i, j;
-  #pragma omp parallel for collapse(2) private(i,j)
-  for (i=0; i<nSubs; i++) // do normalization subject by subject
+  int length = nVoxels*lengthPerCorrVector; // row length
+  int nPerSub = nTrials / nSubs; // should be dividable
+  #pragma omp parallel for
+  for (int i=0; i<nSubs; i++) // do normalization subject by subject
   {
-    for (j=0; j<length; j++)
+    float (*mat)[length] = (float(*)[length])&(values[i*nPerSub*length]);
+    #pragma simd
+    for (int j=0; j<length; j++)
     {
-      int k;
-      ALIGNED(64) float buf[trialsPerSub];
-      for (k=0; k<trialsPerSub; k++)
+      float mean = 0.0f;
+    	float std_dev = 0.0f;
+      for(int b = 0; b < nPerSub; b++)
       {
-        buf[k] = fisherTransformation(values[i*trialsPerSub*length+k*length+j]);
-        //cout<<values[i*trialsPerSub*length+k*length+j]<<" ";
-        /*if (values[i*trialsPerSub*length+k*length+j]>=0)
-          values[i*trialsPerSub*length+k*length+j] = log(values[i*trialsPerSub*length+k*length+j]+1);
-        else
-          values[i*trialsPerSub*length+k*length+j] = -log(-values[i*trialsPerSub*length+k*length+j]+1);
-        buf[k] = values[i*trialsPerSub*length+k*length+j];*/
-        //cout<<values[i*trialsPerSub*length+k*length+j]<<endl;
+        float num = 1.0f + mat[b][j]; 
+      	float den = 1.0f - mat[b][j];
+      	num = (num <= 0.0f) ? 1e-4 : num;
+      	den = (den <= 0.0f) ? 1e-4 : den;
+      	mat[b][j] = 0.5f * logf(num/den);
+      	mean += mat[b][j];
+      	std_dev += mat[b][j] * mat[b][j];
       }
-      z_score(buf, trialsPerSub);
-      for (k=0; k<trialsPerSub; k++)
+      mean = mean / (float)nPerSub;
+      std_dev = std_dev / (float)nPerSub - mean*mean;
+      float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
+      for(int b = 0; b < nPerSub; b++)
       {
-        values[i*trialsPerSub*length+k*length+j] = buf[k];
+        mat[b][j] = (mat[b][j] - mean) * inv_std_dev;
       }
     }
   }
@@ -430,7 +440,7 @@ SVMProblem* GetSVMTrainingSet(float* simMatrix, int nTrials, Trial* trials, int 
 {
   SVMProblem* prob = new SVMProblem();
   prob->l = nTrainings;
-  prob->y = new double[nTrainings];
+  prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
   for (i=0; i<nTrainings; i++)

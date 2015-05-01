@@ -7,138 +7,198 @@
 #include "VoxelwiseAnalysis.h"
 #include "Preprocessing.h"
 #include "MatComputation.h"
+#include "CustomizedMatrixMultiply.h"
 #include "common.h"
+#include "SVMClassification.h"
 
 /********************************
 compute coorelation between "step" number of voxels from the starting row of the first matrix array and the second matrix array, across all trials
 one voxel struct contains the correlation between a voxel of matrices1 and all voxels of matrice2, across all trials
-input: the trial struct array, number of trials, the starting row (since distributing to multi-nodes), step, the raw matrix struct arrays
+input: the trial struct array, number of trials, number of subjects, number of training trials, the starting row (since distributing to multi-nodes), step, the raw matrix struct arrays
 output: the voxel struct array
 *********************************/
-Voxel** ComputeAllVoxelsAnalysisData(Trial* trials, int nTrials, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2)
+Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int nTrainings, int sr, int step, TrialData* td1, TrialData* td2)
 {
   int i;
-  Voxel** voxels = new Voxel*[step];
+#if __MEASURE_TIME__
+  float t=0.0f, t_corr=0.0f;
+  struct timeval start, end;
+#endif
   for (i=0; i<step; i++)
   {
-    voxels[i] = new Voxel(sr+i, nTrials, matrices2[0]->row);  // assume the number of voxels (row) is the same accross blocks
-    voxels[i]->corr_vecs = new float[nTrials*matrices2[0]->row];
+    voxels->vid[i]=sr+i;
   }
+//float t;
+//struct timeval start, end;
+//gettimeofday(&start, 0);
+  int row=td2->nVoxels;    // assuming all matrices have the same size
+  int ml=trials[0].ec-trials[0].sc+1;    // assuming all blocks have the same size
+  int nPerSubj=nTrials/nSubs;    // assuming all subjects have the same number of blocks
+  int m_max = (step/BLK2)*BLK2;
+  memset((void*)voxels->kernel_matrices, 0, sizeof(float)*nTrainings*nTrainings*step);
+#ifdef __MIC__
+  widelock_t Clocks[BLK2];
   #pragma omp parallel for
-  for (i=0; i<nTrials; i++)
+  for (int i=0; i<BLK2; i++)
   {
-    int sc = trials[i].sc;
-    int ec = trials[i].ec;
-    int sid = trials[i].sid;
-    int row1 = matrices1[sid]->row;
-    int col1 = matrices1[sid]->col;
-    int row2 = matrices2[sid]->row;
-    int col2 = matrices2[sid]->col;
-    float* buf1 = (float*)_mm_malloc(sizeof(float)*row1*(ec-sc+1), 64);
-    int ml = getBuf(sc, ec, row1, col1, matrices1[sid]->matrix, buf1);
-    float* buf2 = (float*)_mm_malloc(sizeof(float)*row2*(ec-sc+1), 64);
-    getBuf(sc, ec, row2, col2, matrices2[sid]->matrix, buf2);
-    for (int j=0; j<step; j++)
-    {
-      vectorMatMultiply(buf2, sizeof(float)*row2*ml, buf1+(sr+j)*ml, sizeof(float)*ml, (voxels[j]->corr_vecs)+i*row2, sizeof(float)*row2);
-    }
-    _mm_free(buf1);
-    _mm_free(buf2);
+    omp_init_lock(&(Clocks[i].lock));
   }
+#endif
+  for (int m=0; m<step; m+=BLK2)
+  {
+    if (m<m_max)
+    {
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      //cout<<td1->scs[0]<<" "<<td1->scs[10]<<endl<<flush;
+      sgemmTransposeMerge(td1, td2, BLK2, row, ml, nPerSubj, nSubs, voxels->corr_vecs, row*nTrials, sr+m);
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t_corr+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#ifdef __MIC__
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      int np = BLK2;
+      int threads_per_prob = MICTH/np;
+      #pragma omp parallel for
+      for(int p = 0 ; p < np*threads_per_prob ; p++)
+      {
+        int prob_ID = p / threads_per_prob;
+        int thread_ID = p % threads_per_prob;
+        int k_per_thread = ((row + threads_per_prob-1) / threads_per_prob);
+        int start_k = thread_ID * k_per_thread;
+        int end_k = (thread_ID+1) * k_per_thread;
+        if(end_k > row) end_k = row;
+        int k_range = end_k - start_k;
+        custom_ssyrk((const int)nTrainings, 
+           (const int)k_range, voxels->corr_vecs+prob_ID*row*nTrials + start_k,
+           (const int)row, voxels->kernel_matrices+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
+      }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#else
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      #pragma omp parallel for
+      for (int mm=m; mm<m+BLK2; mm++)
+      {
+        //custom_ssyrk_old((const int)nTrainings, (const int)row, voxels->corr_output+(mm-m)*row*nTrials, (const int)row, voxels->corr_vecs+mm*nTrainings*nTrainings, (const int)nTrainings);
+        cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_vecs+(mm-m)*row*nTrials, row, 0.0, voxels->kernel_matrices+mm*nTrainings*nTrainings, nTrainings);
+      }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#endif
+    }
+    else
+    {
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      sgemmTransposeMerge(td1, td2, step-m_max, row, ml, nPerSubj, nSubs, voxels->corr_vecs, row*nTrials, sr+m);
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t_corr+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#ifdef __MIC__
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      int np = step-m_max;
+      int threads_per_prob = MICTH/np;
+      #pragma omp parallel for
+      for(int p = 0 ; p < np*threads_per_prob ; p++)
+      {
+        int prob_ID = p / threads_per_prob;
+        int thread_ID = p % threads_per_prob;
+        int k_per_thread = ((row + threads_per_prob-1) / threads_per_prob);
+        int start_k = thread_ID * k_per_thread;
+        int end_k = (thread_ID+1) * k_per_thread;
+        if(end_k > row) end_k = row;
+        int k_range = end_k - start_k;
+        custom_ssyrk((const int)nTrainings, 
+           (const int)k_range, voxels->corr_vecs+prob_ID*row*nTrials + start_k,
+           (const int)row, voxels->kernel_matrices+(prob_ID+m)*nTrainings*nTrainings, Clocks[prob_ID], (const int)nTrainings);
+      }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#else
+#if __MEASURE_TIME__
+      gettimeofday(&start, 0);
+#endif
+      #pragma omp parallel for
+      for (int mm=m; mm<step; mm++)
+      {
+        cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, voxels->corr_vecs+(mm-m)*row*nTrials, row, 0.0, voxels->kernel_matrices+mm*nTrainings*nTrainings, nTrainings);
+      }
+#if __MEASURE_TIME__
+      gettimeofday(&end, 0);
+      t+=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+#endif
+#endif
+    } // else m
+  } //for m
+#if __MEASURE_TIME__
+  cout<<"correlation computing and normalization time: "<<t_corr<<"s"<<endl;
+  cout<<"kernel computing time: "<<t<<"s"<<endl;
+#endif
   return voxels;
 }
 
-/******************************
-compute a voxel of id "vid", across all trials
-input: a trial struct, voxel id, number of trials, normalized data, number of voxels (row), number of TRs (col)
-output: the voxel struct
-*******************************/
-Voxel* ComputeOneVoxelAnalysisData(Trial* trials, int vid, int nTrials, float** data_buf1, float** data_buf2, int row, int col)
+VoxelScore* GetVoxelwiseCorrVecSum(int me, Voxel* voxels, int step, int sr, TrialData* td1, TrialData* td2)  // step is the number of voxels
 {
-  Voxel* voxel = new Voxel(vid, nTrials, row);
-  voxel->corr_vecs = new float[nTrials*row];
-  int i;
-  for (i=0; i<nTrials; i++)
+  if (me==0)  //sanity check
   {
-    int sc = trials[i].sc;
-    int ec = trials[i].ec;
-    int sid = trials[i].sid;
-    float* buf1 = data_buf1[i];
-    float* buf2 = data_buf2[i];
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 1, row, col, 1.0, buf1+vid*col, col, buf2, col, 0.0, voxel->corr_vecs+i*row, row);
-    // c=a*b', a: n1*n2, b: n3*n2, c: n1*n3
-    //matmul(buf1+vid*col, buf2, voxel->corr_vecs+i*row, 1, col, row);
+    FATAL("the master node isn't supposed to do classification jobs");
   }
-  return voxel;
-}
-
-/****************************************
-Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for all voxels' correlation data
-input: the voxel array, the length of this array (the number of voxels, "step"), the number of subjects
-output: update values to the voxels' correlation data
-*****************************************/
-void PreprocessAllVoxelsAnalysisData(Voxel** voxels, int step, int nSubs)
-{    
+  int nTrials = voxels->nTrials;
+  int nVoxels = voxels->nVoxels; // assume all elements in c_matrices array have the same #voxels
   int i;
-  #pragma omp parallel for private(i)
   for (i=0; i<step; i++)
   {
-    PreprocessOneVoxelsAnalysisData(voxels[i], nSubs);
+    voxels->vid[i]=sr+i;
   }
-  return;
+  int row1=td1->nVoxels;    // assuming all matrices have the same size
+  int row2=td2->nVoxels;    // assuming all matrices have the same size
+  float* bufs1 = td1->data;
+  float* bufs2 = td2->data;
+  #pragma omp parallel for
+  for (i=0; i<nTrials; i++)
+  {
+    int cur_col = td1->scs[i];
+    int ml = td1->trialLengths[i];
+    sgemmTranspose(bufs1+i*row1*ml+sr*ml, bufs2+i*row2*ml, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);  // assume all blocks have the same length
+  }
+  VoxelScore* scores = new VoxelScore[step];  // get step voxels' scores here
+  int length = nVoxels * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
+  #pragma omp parallel for
+  for (int i=0; i<step; i++)
+  {
+    (scores+i)->vid = voxels->vid[i];
+    (scores+i)->score = ComputeCorrVecSum(voxels, i); // compute the sum for one voxel
+  }
+  return scores;
 }
 
-/****************************************
-Fisher transform the correlation values (coefficients) then z-scored them across within-subject blocks for one voxel's correlation data
-input: the voxel, the number of subjects
-output: update values to the voxel's correlation data
-*****************************************/
-void PreprocessOneVoxelsAnalysisData(Voxel* voxel, int nSubs)
+float ComputeCorrVecSum(Voxel* voxels, int voxel_id)
 {
-  int i, j, k;
-  int nTrials = voxel->nTrials;
-  int row = voxel->nVoxels;
-  int nPerSub=nTrials/nSubs;
-  ALIGNED(64) float buf[nPerSub];
-  for (i=0; i<nSubs; i++)
+  int nTrials = voxels->nTrials;
+  int nVoxels = voxels->nVoxels;
+  float* corr_vecs = voxels->corr_vecs+voxel_id*nTrials*nVoxels;
+  float sum=0.0f;
+  #pragma simd
+  for (int i=0; i<nTrials*nVoxels; i++)
   {
-    for (j=0; j<row; j++)
-    {
-      #pragma simd  // simd and prefetch and simd+preftech got similar performance
-      for (k=0; k<nPerSub; k++)
-      {
-        buf[k] = fisherTransformation(voxel->corr_vecs[i*nPerSub*row+j+k*row]);
-      }
-      if (nPerSub>1)  // nPerSub==1 results in 0
-        z_score(buf, nPerSub);
-      #pragma vector aligned nontemporal  // stream storing helps a little
-      for (k=0; k<nPerSub; k++)
-      {
-        voxel->corr_vecs[i*nPerSub*row+j+k*row] = buf[k];
-      }
-    }
+    sum += isnan(corr_vecs[i])?0:fabs(corr_vecs[i]);
   }
-  return;
-}
-
-/****************************************
-Perform vector matrix multiply for fine-grained threads
-input: matrix data, matrix data size, vector data, vector data size, output data location, output data size (all sizes are in bytes)
-output: update values to the output data
-*****************************************/
-void vectorMatMultiply(float* mat, int mat_size, float* vec, int vec_size, float* output, int output_size)
-{
-  int col = vec_size/sizeof(float);
-  int row = mat_size/sizeof(float)/col;
-  for (int i=0; i<row; i++)
-  {
-    float sum=0.0;  // use an additional variable for reduction in the following vectorization
-    #pragma loop count(12)
-    for (int j=0; j<col; j++)
-    {
-      sum += mat[i*col+j]*vec[j];
-    }
-    output[i]=sum;
-  }
-  return;
+  return sum/nTrials/nVoxels;
 }
