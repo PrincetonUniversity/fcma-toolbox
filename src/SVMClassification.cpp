@@ -208,16 +208,7 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
   prob->y = new schar[nTrainings];
   prob->x = new SVMNode*[nTrainings];
   int i, j;
-  //float* simMatrix = new float[nTrainings*nTrainings];
-  //for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
-  float* simMatrix = voxel->corr_vecs+step_id*nTrainings*nTrainings;
-/*
-#ifdef __MIC__
-  custom_ssyrk_old((const int)nTrainings, (const int)row, corr_vecs, (const int)row, simMatrix, (const int)nTrainings); // lower triangle matrix
-#else
-  cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
-#endif
-*/
+  float* simMatrix = voxel->kernel_matrices+step_id*nTrainings*nTrainings;
   for (i=0; i<nTrainings; i++)
   {
     prob->y[i] = trials[i].label;
@@ -231,7 +222,6 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel, int step_id
     }
     prob->x[i][j+1].index = -1;
   }
-  //delete[] simMatrix;
   return prob;
 }
 
@@ -294,23 +284,6 @@ void GetNewSVMProblemWithPreKernel(Trial* trials, Voxel* voxel, int step_id, int
   int i, j;
   //float* simMatrix = new float[nTrainings*nTrainings];
   float* labels = new float[nTrainings];
-/*
-  for (i=0; i<nTrainings*nTrainings; i++) simMatrix[i]=0.0f;
-  float* corr_vecs = voxel->corr_vecs+step_id*voxel->nTrials*voxel->nVoxels;
-#ifdef __MIC__
-  custom_ssyrk((const int)nTrainings, (const int)row, corr_vecs, (const int)row, simMatrix, (const int)nTrainings); // lower triangle matrix
-#else
-  cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, nTrainings, row, 1.0, corr_vecs, row, 0.0, simMatrix, nTrainings);
-#endif
-
-  for (i=0; i<nTrainings; i++)
-  {
-    for (j=0; j<i; j++)
-    {
-      simMatrix[j*nTrainings+i] = simMatrix[i*nTrainings+j];
-    }
-  }
-*/
   float* simMatrix = voxel->kernel_matrices+step_id*nTrainings*nTrainings;
   for (i=0; i<nTrainings*nTrainings; i++)
   {
@@ -345,6 +318,6 @@ float DOSVMNew(float* data, int nPoints, int nDimension, int nFolds, float* labe
   SelectionHeuristic heuristicMethod = ADAPTIVE;
   float tolerance = 1e-3f;
   float epsilon = 1e-5f;
-  float accuracy = crossValidationNoShuffle(data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod, epsilon, tolerance, NULL); //transposedData is not used here
+  float accuracy = crossValidationNoShuffle(data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod, epsilon, tolerance, NULL, vid); //transposedData is not used here
   return accuracy;
 }

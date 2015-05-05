@@ -80,9 +80,9 @@ class Controller {
   struct timeval finish;
 };
 
-float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFolds, float* labels, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData);
+float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFolds, float* labels, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData, int vid);
 void svmGroupClasses(int nPoints, float *labels, int **start_ret, int **count_ret, int *perm);
-void performTraining(float* data, int nPoints, int nDimension, float* labels, float** p_alpha, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData);
+void performTraining(float* data, int nPoints, int nDimension, float* labels, float** p_alpha, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData, int fold_id, int vid);
 template<int Kernel>
 void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedData, int devTransposedDataPitchInFloats, float* devLabels, int nPoints, int nDimension, float epsilon, float cEpsilon, float* devAlpha, float* devF, float alpha1Diff, float alpha2Diff, int iLow, int iHigh, float parameterA, float parameterB, float parameterC, float* devCache, int devCachePitchInFloats, int iLowCacheIndex, int iHighCacheIndex, float* devKernelDiag, void* devResult, float cost, bool iLowCompute, bool iHighCompute, int nthreads);
 void launchFirstOrder(bool iLowCompute, bool iHighCompute, int kType, int nPoints, int nDimension, float* devData, int devDataPitchInFloats, float* devTransposedData, int devTransposedDataPitchInFloats, float* devLabels, float epsilon, float cEpsilon, float* devAlpha, float* devF, float sAlpha1Diff, float sAlpha2Diff, int iLow, int iHigh, float parameterA, float parameterB, float parameterC, float* devCache, int devCachePitchInFloats, int iLowCacheIndex, int iHighCacheIndex, float* devKernelDiag, void* devResult, float cost, int nthreads);

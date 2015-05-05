@@ -44,7 +44,7 @@ void svmGroupClasses(int nPoints, float *labels, int **start_ret, int **count_re
 
 //float* data, int nPoints, int nDimension, float* labels, float** p_alpha, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData
 // only works for binary classification now, i.e. two classes
-float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFolds, float* labels, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData)
+float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFolds, float* labels, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData, int vid)
 {
 /**
   get kernel type
@@ -221,8 +221,7 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     {
       sub_nDimension = sub_nPoints;
     }
-    performTraining(sub_data, sub_nPoints, sub_nDimension, sub_labels, &alpha, kp, cost, heuristicMethod, epsilon, tolerance, transposedData);
-//cout<<i<<" ";
+    performTraining(sub_data, sub_nPoints, sub_nDimension, sub_labels, &alpha, kp, cost, heuristicMethod, epsilon, tolerance, transposedData, i, vid);
 /**
    generate support vectors
 **/
@@ -322,7 +321,7 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   return 1.0*nCorrects/nPoints;
 }
 
-void performTraining(float* data, int nPoints, int nDimension, float* labels, float** p_alpha, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData) {
+void performTraining(float* data, int nPoints, int nDimension, float* labels, float** p_alpha, Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float epsilon, float tolerance, float* transposedData, int fold_id, int vid) {
   
   float cEpsilon = cost - epsilon;
   Controller progress(2.0, heuristicMethod, 64, nPoints);
@@ -442,7 +441,7 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   
   //printf("Starting iterations\n");
   for (iteration = 1; true; iteration++) {
-    if (bLow <= bHigh + 2*tolerance) {
+    if (bLow <= bHigh + 2*tolerance || (bLow==1.0f && bHigh==-1.0f && iteration>=200)) {
       //printf("Converged\n");
       break; //Convergence!!
     }

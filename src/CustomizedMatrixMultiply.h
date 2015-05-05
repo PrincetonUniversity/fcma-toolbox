@@ -12,7 +12,7 @@
 #define NBLK  9
 #define KBLK  96
 #define BLK   48
-#define BLK2  60
+#define BLK2  30
 #define COL   12
 #define MICTH 240
 
