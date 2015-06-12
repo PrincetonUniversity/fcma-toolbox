@@ -8,9 +8,6 @@
 #ifndef __ErrorHandling__
 #define __ErrorHandling__
 
-
-#include "common.h"
-
 #define FATAL(x) do { std::ostringstream os; os << x; ExitWithError(os); } while (false)
 #define NONFATAL(x) do { std::ostringstream os; os << x; ContinueWithError(os); } while (false)
 
@@ -23,6 +20,6 @@ enum ErrorType {
 };
 
 void ContinueWithError(const std::ostringstream& os, ErrorType error = ERROR_NOEXIT);
-void ExitWithError(const std::ostringstream& os, ErrorType error = ERROR_FATAL);
+void ExitWithError(const std::ostringstream& os, ErrorType error = ERROR_FATAL) __attribute__((__noreturn__));
 
 #endif /* defined(__ErrorHandling__) */

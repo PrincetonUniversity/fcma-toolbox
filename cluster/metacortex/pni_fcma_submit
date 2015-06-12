@@ -3,7 +3,7 @@
 # the fcma file with runtime settings read in by pni_fcma
 # and this script too (for meta-settings)
 fcmafile="/share/apps/fcma-toolbox/cluster/template.fcma"
-(( $# < 1 )) && echo "usage: $(basename $0) params.fcma  | example fcmafile at $fcmafile" && exit 1
+(( $# < 1 )) && echo "usage: $(basename $0) params.fcma [pni_fcma_args] | example fcmafile at $fcmafile" && exit 1
 [[ ! -f $1 ]] && echo "$1 not found" && exit 1
 fcmafile=$1
 shift
@@ -18,6 +18,7 @@ function hget() {
 }
 
 dryrun=$(hget dryrun)
+[[ -z $dryrun ]] && [[ $* =~ dryrun ]] && dryrun=1
 [[ -n $dryrun ]] && (( dryrun == 0 )) && dryrun=""
 # which binary to run
 binary=$(hget binary)
@@ -27,9 +28,10 @@ binary=$(hget binary)
 use_phi=$(hget use_phi)
 [[ $use_phi == 1 ]] && use_phi=1 || use_phi=0
 if (( use_phi )); then
+  # setup /etc/profile.d on mics to set LD_LIBRARY_PATH and PATH
   echo "\"use_phi\" was set to 1; attempting to use Xeon Phi"
   binary_mic=$(hget binary_mic)
-  [[ -z $binary_mic ]] && binary_mic=pni_fcma_mic
+  [[ -z $binary_mic ]] && binary_mic=pni_fcma
   # max 240 OpenMP threads on mic
   # (60 cores, 4 virtual per physical)
   threads_max_mic=240
@@ -39,6 +41,8 @@ if (( use_phi )); then
   micenable="I_MPI_MIC=enable"
   threadline_mic="-env OMP_NUM_THREADS ${threads_mic}"
   #TODO: slurm srun phi
+  printf  "Phi not supported yet, sorry.\n\tSet use_phi:0 in fcma file to continue\n"
+  exit 1
   pmiline_mic="" 
 else
   micenable=""
@@ -69,7 +73,6 @@ if (( use_phi )); then
   command="$command \
 : \
 $threadline_mic $pmiline_mic \
-LD_LIBRARY_PATH=/opt/intel/mkl/lib/mic:/opt/intel/composer_xe/compiler/lib/mic \
 ${binary_mic} $fcmafile"
 
 fi

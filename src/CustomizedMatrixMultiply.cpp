@@ -146,14 +146,27 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
 {
   float* mat1 = td1->data+sr*K;
   float* mat2 = td2->data;
-  int n_max = (N / BLK) * BLK;
+  const int n_max = (N / BLK) * BLK;
+  const size_t MtBLK = M*BLK;
+  const size_t KtBLK = K*BLK;
+  const size_t olsize = MtBLK*nPerSubj;
+  const size_t mtsize = KtBLK*nPerSubj;
+    
+  // remember, can #define NDEBUG at compile time
+  // (or at top of common.h) to disable assertions
+  assert(n_max>0);
+  assert(MtBLK>0);
+  assert(KtBLK>0);
+  assert(olsize>0);
+  assert(mtsize>0);
+    
   #pragma omp parallel for collapse(2)// schedule(dynamic)
   for (int s=0; s<nSubjs; s++)
   {
     for(int n=0; n<N; n+=BLK)
     {
-      float mat_T[K*BLK*nPerSubj];
-      float output_local[M*BLK*nPerSubj];
+      float mat_T[mtsize];
+      float output_local[olsize];
       if(n < n_max)
       {
         // transpose
@@ -164,15 +177,15 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
           {
             for(int rr=0; rr<BLK; rr++)
             {
-              mat_T[ss*BLK*K+cc*BLK+rr] = mat2[cur_col*N+cc+(n+rr)*K];
+              mat_T[ss*KtBLK+cc*BLK+rr] = mat2[cur_col*N+cc+(n+rr)*K];
             }
           }
         }
         for (int ss=0; ss<nPerSubj; ss++)
         {
-          for (int i=0; i<M*BLK; i++)
+          for (int i=0; i<MtBLK; i++)
           {
-            output_local[ss*M*BLK+i] = 0.0f;
+            output_local[ss*MtBLK+i] = 0.0f;
           }
           int cur_col = td1->scs[s*nPerSubj+ss];
           for (int i=0; i<M; i++)
@@ -181,13 +194,13 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
             {
               for (int k=0; k<K; k++)
               {
-                output_local[ss*M*BLK+i*BLK+j] += mat1[cur_col*N+i*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                output_local[ss*MtBLK+i*BLK+j] += mat1[cur_col*N+i*K+k]*mat_T[ss*KtBLK+k*BLK+j];
               }
             }
           }
         } // for ss
         // z-scoring etc.
-        NormalizeBlkData(output_local, M, nPerSubj);
+        NormalizeBlkData(output_local, (int)MtBLK, nPerSubj);
         for (int ss=0; ss<nPerSubj; ss++)
         {
           for (int i=0; i<M; i++)
@@ -195,7 +208,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
             #pragma vector nontemporal
             for (int j=0; j<BLK; j++)
             {
-              output[s*nPerSubj*N+ss*N+i*ldc+n+j] = output_local[ss*M*BLK+i*BLK+j];  //i is vid
+              output[s*nPerSubj*N+ss*N+i*ldc+n+j] = output_local[ss*MtBLK+i*BLK+j];  //i is vid
             }
           }
         }
@@ -210,15 +223,15 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
           {
             for(int rr=0; rr<N-n_max; rr++)
             {
-              mat_T[ss*BLK*K+cc*BLK+rr] = mat2[cur_col*N+cc+(n+rr)*K];
+              mat_T[ss*KtBLK+cc*BLK+rr] = mat2[cur_col*N+cc+(n+rr)*K];
             }
           }
         }
         for (int ss=0; ss<nPerSubj; ss++)
         {
-          for (int i=0; i<M*BLK; i++)
+          for (int i=0; i<MtBLK; i++)
           {
-            output_local[ss*M*BLK+i] = 0.0f;
+            output_local[ss*MtBLK+i] = 0.0f;
           }
           int cur_col = td1->scs[s*nPerSubj+ss];
           for (int i=0; i<M; i++)
@@ -227,13 +240,13 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
             {
               for (int k=0; k<K; k++)
               {
-                output_local[ss*M*BLK+i*BLK+j] += mat1[cur_col*N+i*K+k]*mat_T[ss*BLK*K+k*BLK+j];
+                output_local[ss*MtBLK+i*BLK+j] += mat1[cur_col*N+i*K+k]*mat_T[ss*KtBLK+k*BLK+j];
               }
             }
           }
         } //for ss
         // z-scoring etc.
-        NormalizeBlkData(output_local, M, nPerSubj);
+        NormalizeBlkData(output_local, (int)MtBLK, nPerSubj);
         for (int ss=0; ss<nPerSubj; ss++)
         {
           for (int i=0; i<M; i++)
@@ -241,7 +254,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
             #pragma vector nontemporal
             for (int j=0; j<N-n_max; j++)
             {
-              output[s*nPerSubj*N+ss*N+i*ldc+n+j] = output_local[ss*M*BLK+i*BLK+j];  //i is vid
+              output[s*nPerSubj*N+ss*N+i*ldc+n+j] = output_local[ss*MtBLK+i*BLK+j];  //i is vid
             }
           }
         }
@@ -257,10 +270,10 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const MKL_INT M, const 
 // 2. z-score across every entry of M*BLK matrices
 // or one can treat data as a nPerSubj-row, M*BLK-column matrix
 // z-scoring goes across columns
-void NormalizeBlkData(float* data, const int M, const int nPerSubj)
+void NormalizeBlkData(float* data, const int MtBLK, const int nPerSubj)
 {
   #pragma simd
-  for(int j=0; j<M*BLK; j++)
+  for(int j=0; j<MtBLK; j++)
   {
     float mean = 0.0f;
   	float std_dev = 0.0f;
@@ -268,22 +281,21 @@ void NormalizeBlkData(float* data, const int M, const int nPerSubj)
     {
 #ifdef __MIC__
       _mm_prefetch((char*)&(data[b*BLK2*BLK+j+16]), _MM_HINT_T0);
-      //_mm_prefetch((char*)&(data[b*BLK2*BLK+j+32]), _MM_HINT_ET1);
 #endif
-      float num = 1.0f + data[b*M*BLK+j];
-    	float den = 1.0f - data[b*M*BLK+j];
-    	num = (num <= 0.0f) ? 1e-4 : num;
-     	den = (den <= 0.0f) ? 1e-4 : den;
-     	data[b*M*BLK+j] = 0.5f * logf(num/den);
-     	mean += data[b*M*BLK+j];
-     	std_dev += data[b*M*BLK+j] * data[b*M*BLK+j];
+      float num = 1.0f + data[b*MtBLK+j];
+      float den = 1.0f - data[b*MtBLK+j];
+      num = (num <= 0.0f) ? 1e-4 : num;
+      den = (den <= 0.0f) ? 1e-4 : den;
+      data[b*MtBLK+j] = 0.5f * logf(num/den);
+      mean += data[b*MtBLK+j];
+      std_dev += data[b*MtBLK+j] * data[b*MtBLK+j];
     }
     mean = mean / (float)nPerSubj;
     std_dev = std_dev / (float)nPerSubj - mean*mean;
     float inv_std_dev = (std_dev <= 0.0f) ? 0.0f : 1.0f / sqrt(std_dev);
     for(int b=0; b<nPerSubj; b++)
     {
-      data[b*M*BLK+j] = (data[b*M*BLK+j] - mean) * inv_std_dev;
+      data[b*MtBLK+j] = (data[b*MtBLK+j] - mean) * inv_std_dev;
     }
   }
 }
@@ -299,7 +311,6 @@ void custom_ssyrk(
   int k_max = (K / KBLK) * KBLK;
 
   // Round ldc to nearest 16
-  const MKL_INT ldcc = ((ldc + 15)/16)*16;
   const int n_row_blks = (M + (MBLK-1)) / MBLK;
 
   float A_T[MBLK*KBLK];
@@ -412,7 +423,6 @@ void custom_ssyrk_old(
   int k_max = (K / KBLK) * KBLK;
 
   // Round ldc to nearest 16
-  //const MKL_INT ldcc = ((ldc + 15)/16)*16;
   const int n_row_blks = (M + (MBLK-1)) / MBLK;
 
   float A_T[MBLK*KBLK]; // 6KB
@@ -470,18 +480,6 @@ void custom_ssyrk_old(
       for(int j = (i/NBLK)*NBLK ; j < n_max ; j+=NBLK)  // compute the lower triangle
       {
         sgemm_assembly(&(A_T[0]), &(A_local[j*KBLK]), &C_local[i*M + j*MBLK],NULL,NULL,NULL);
-        //cblas_sgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, MBLK, NBLK, KBLK, 1.0, &(A_T[0]), MBLK, &(A_local[j*KBLK]), KBLK, 1.0, &C_local[i*M + j*MBLK], MBLK);
-        /*for (int ii=0; ii<MBLK; ii++)
-        {
-          for (int jj=0; jj<NBLK; jj++)
-          {
-            for (int kk=0; kk<KBLK; kk++)
-            {
-              C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_T[ii+kk*MBLK]*A_local[j*KBLK+kk+jj*KBLK];
-              //C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_local[kk+(i+ii)*KBLK]*A_local[j*KBLK+kk+jj*KBLK];
-            }
-          }
-        }*/
       }
 
       // Fill in remaining rows of C by looping over i,k,j (vectorize over i)
@@ -493,21 +491,9 @@ void custom_ssyrk_old(
           for(int ii = 0  ; ii < MBLK; ii++)
           {
             C_local[(ii+i*M)+jj*MBLK] += A_T[ii + kk*MBLK] * A_local[kk + jj*KBLK]; // time consuming
-            //C_local[(ii+i*M)+jj*MBLK] += A_local[kk + (i+ii)*KBLK] * A_local[kk + jj*KBLK];
-          }
+           }
         }
       }
-      /*for (int ii=0; ii<MBLK; ii++) // this doesn't make much difference than the other one, just vectorized in a different way
-      {
-        for (int jj=n_max; jj<M; jj++)
-        {
-          for (int kk=0; kk<KBLK; kk++)
-          {
-            C_local[i*M+jj*MBLK+ii]+=A_T[ii+kk*MBLK]*A_local[kk+jj*KBLK];
-            //C_local[i*M+j*MBLK+jj*MBLK+ii]+=A_local[kk+(i+ii)*KBLK]*A_local[j*KBLK+kk+jj*KBLK];
-          }
-        }
-      }*/
     }
     // Fill in bottom right corner of the matrix by looping over i,j,k (no vectorization)
     for(int ii = m_max ; ii < M ; ii++)
@@ -695,8 +681,5 @@ float* Z = &mic_zero;
                          "cmpq $16, %%r14\n\t"
                          "jl 10016b\n\t"
                         : : "m"(B), "m"(A), "m"(C), "m"(Z) : "r8","r9","r10","r13","r14","r15","zmm0","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
-//#else
-//#pragma message ("KERNEL COMPILATION ERROR in: " __FILE__)
-//#error No kernel was compiled, lacking support for current architecture?
 #endif
 }

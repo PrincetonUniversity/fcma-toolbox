@@ -8,3 +8,4 @@ Make.user*
 !Make.user.intel
 !Make.user.osx
 !Make.user.linux
+*.optrpt

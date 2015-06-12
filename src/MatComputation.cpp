@@ -63,7 +63,7 @@ CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** mat
   float* buf1 = new float[row1*col]; // col is more than what really need, just in case
   float* buf2 = new float[row2*col]; // col is more than what really need, just in case
   int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
-  int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
+  /* int ml2 = */ getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
   CorrMatrix* c_matrix = new CorrMatrix();
   c_matrix->sid = sid;
   c_matrix->tlabel = trial.label;

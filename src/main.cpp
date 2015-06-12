@@ -35,7 +35,7 @@ void exit_with_help()
   "-1 one of the nifti file directories, if providing -1, -2 must be provided, too. providing -1 and -2 will cause error if providing -d as well\n"
   "-2 the other one of the nifti file directories, -1 and -2 MUST have the same number of nifti files and file name sequence should be matched. -2 won't be used in activity-based analysis\n"
   "-m matrix file type, usually the extension name\n"
-  "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation, 8 for voxel correlation visualizarion\n"
+  "-k task type, 0 for voxel selection using svm, 1 for smart distance ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts correlation and test, 5 for cross validation of two parts correlation, 6 for one part activation and test, 7 for cross validation of one part activation, 8 for voxel correlation visualization, 9 for marginal screening\n"
   "-t output file for task 0,1,2,3 in the voxel selection mode, input file for the same tasks in the test mode\n"
   "-b block information file, if no block information file, a block information directory is required\n"
   "-e block directory name, will check this if -b is not provided\n"
@@ -80,6 +80,9 @@ void set_default_parameters()
 
 void check_parameters()
 {
+  using std::cout;
+  using std::endl;
+    
   if (Parameters.fmri_directory==NULL && Parameters.fmri_directory1==NULL && Parameters.fmri_directory2==NULL)
   {
     cout<<"no fmri directory, general information below"<<endl;
@@ -236,7 +239,7 @@ void parse_command_line(int argc, char **argv)
         Parameters.permute_book_file = argv[i];
         break;
       default:
-        cout<<"unknown option: -"<<argv[i-1][1]<<endl;
+        std::cout<<"unknown option: -"<<argv[i-1][1]<<std::endl;
         exit_with_help();
     }
   }
@@ -346,6 +349,10 @@ static void params_from_keyvalues(char** keys_and_values,const int& num_elements
 
 void run_fcma(Param* param)
 {
+    using std::cout;
+    using std::cerr;
+    using std::endl;
+    
     float t_init=0.0f;
     struct timeval start, end;
     int initialized;
@@ -472,6 +479,7 @@ void run_fcma(Param* param)
     }
     if (param->isTestMode && me == 0) // program in test mode only uses one node to predict
     {
+        
         int l = 0, result = 0, f = 0;
         cout<<"data directory: "<<fmri_directory<<endl;
         if (mask_file1!=NULL)
@@ -532,7 +540,7 @@ void run_fcma(Param* param)
                 VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2, ref_file, trials[visualized_block_id], output_file);
                 break;
             default:
-                cerr<<"Unknown task type"<<endl;
+                std::cerr<<"Unknown task type"<<std::endl;
                 exit_with_help();
         }
     }

@@ -5,15 +5,6 @@
 */
 
 #include "common.h"
-#ifdef USE_MKL
-#include <mkl.h>
-#elif defined __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
-extern "C" {
-#include <cblas.h>
-}
-#endif
 
 Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int nTrainings, int sr, int step, TrialData* td1, TrialData* td2);
 void PreprocessAllVoxelsAnalysisData(Voxel* voxels, int step, int nSubs);

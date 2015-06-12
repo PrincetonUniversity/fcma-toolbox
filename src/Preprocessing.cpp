@@ -4,11 +4,12 @@
  For license terms, please see the LICENSE file.
 */
 
-#include "Preprocessing.h"
-#include "common.h"
-#include "ErrorHandling.h"
 #include <sstream>
 #include <nifti1_io.h>
+#include "common.h"
+#include "ErrorHandling.h"
+#include "Preprocessing.h"
+
 
 /**************************
 align multi-subjects, remove all-zero voxels, if all-zero in one subject, remove the corresponding voxel among all subjects
@@ -17,15 +18,19 @@ output: the remaining number of voxels, remove voxels from raw matrix and locati
 ***************************/
 int AlignMatrices(RawMatrix** r_matrices, int nSubs, VoxelXYZ* pts)
 {
-  // align multi-subjects, remove all-zero voxels, assume that all subjects have the same number of voxels  
+  // - align multi-subjects
+  // - remove all-zero voxels
+  // - assume that all subjects have the same number of voxels
   int row = r_matrices[0]->row;
-  bool flags[row];  // can use a variable to define an array
+  bool flags[row];
   int i, j, k;
   for (i=0; i<row; i++)
   {
     flags[i] = true;
   }
-  for (i=0; i<nSubs; i++) // get the zll-zero conditions, store in flags, false means at least one subject contains all-zeros
+  // get the zll-zero conditions, store in flags;
+  // false means at least one subject contains all-zeros
+  for (i=0; i<nSubs; i++)
   {
     int col = r_matrices[i]->col;
     float* mat = r_matrices[i]->matrix;
@@ -40,14 +45,6 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, VoxelXYZ* pts)
     }
   }
   int count=0;
-  /*ofstream ofile("masks.txt");  // for outputting mask file
-  for (i=0; i<row; i++)
-  {
-    if (flags[i]) ofile<<"1 ";
-    else ofile<<"0 ";
-  }
-  ofile.close();*/
-  //exit(1);
   for (i=0; i<nSubs; i++) // remove the all-zero voxels
   {
     int col = r_matrices[i]->col;
@@ -72,21 +69,6 @@ int AlignMatrices(RawMatrix** r_matrices, int nSubs, VoxelXYZ* pts)
       count++;
     }
   }
-  // one-time rearrange the location information and new location file writing
-  /*count = 0;
-  for (j=0; j<row; j++)
-  {
-    if (flags[j])
-    {
-      memcpy(&(pts[count]), &(pts[j]), 3*sizeof(int));
-      count++;
-    }
-  }
-  FILE *fp = fopen("/memex/yidawang/neuroscience/data/Abby/Parity_Magnitude/location_new.bin", "wb");
-  fwrite((void*)&count, sizeof(int), 1, fp);
-  fwrite((void*)pts, sizeof(int), 3*count, fp);
-  fclose(fp);
-  exit(1);*/
   return count;
 }
 
@@ -181,7 +163,7 @@ input: the correlation matrix array, the length of this array (the number of blo
 output: update values to the matrices
 *****************************************/
 void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
-{//cout<<c_matrices[0]->matrix[0]<<" "<<c_matrices[0]->matrix[1]<<" "<<c_matrices[0]->matrix[2]<<endl;
+{
   int row = c_matrices[0]->step;
   int col = c_matrices[0]->nVoxels; // assume that all correlation matrices have the same size
   int i;
@@ -191,7 +173,7 @@ void corrMatPreprocessing(CorrMatrix** c_matrices, int n, int nSubs)
   }
   int nPerSub = n/nSubs;
   // assume that the blocks belonged to the same subject are placed together
-  // for each subject, go through the availble voxel pairs;
+  // for each subject, go through the available voxel pairs;
   // then for each pairs, Fisher transform it and z-score within subject
   // doing this can make better cache usage than going through voxel pairs in the outtest loop
   for (int k=0; k<nSubs; k++)
@@ -273,15 +255,20 @@ output: voxels have been randomly permuted
 *****************************************/
 void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, const char* permute_book_file)
 {
+
   int row = r_matrices[0]->row;
   int col = r_matrices[0]->col;
+    
+  assert(row>0 && col>0);
+  
   int i, j;
   float buf[row];
   int index[row];
-  ifstream ifile;
+  std::ifstream ifile;
+    
   if (permute_book_file)  // use permute book
   {
-    ifile.open(permute_book_file, ios::in);
+    ifile.open(permute_book_file, std::ios::in);
     if (!ifile)
     {
       FATAL("file not found: "<<permute_book_file);
@@ -299,9 +286,16 @@ void MatrixPermutation(RawMatrix** r_matrices, int nSubs, unsigned int seed, con
     {
       for (j=0; j<row; j++) ifile>>index[j];
     }
-    else
+    else if (row > 1)
     {
-      random_shuffle(&index[0], &index[row-1]);
+        /* shuffle function most effective if row << RAND_MAX */
+         for (size_t r = 0; r < row - 1; r++)
+        {
+            size_t j = r + rand() / (RAND_MAX / (row - r) + 1);
+            int t = index[j];
+            index[j] = index[r];
+            index[r] = t;
+        }
     }
     for (j=0; j<row; j++)
     {
@@ -324,19 +318,29 @@ output: the matrix array is rewritten to be one by one submatrix instead of one 
 *****************************************/
 TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, int nTrials)
 {
+  assert(nTrials>1);
+  assert(matrices);
+  assert(matrices[0]);
+    
   TrialData* td = new TrialData(nTrials, matrices[0]->row);
+  // making this an array allows for variable-sized trials (ie blocks)
   td->trialLengths = new int[nTrials];
   td->scs = new int[nTrials];
   int total_cols=0;
   // get total TRs of each subject
+  // note that nTrials is across subjects
+  // that is, nTrials is nSubs * trials (ie blocks) per subject
   for (int i=0; i<nTrials; i++)
   {
     td->scs[i] = total_cols;
     total_cols += trials[i].ec-trials[i].sc+1;
     td->trialLengths[i] = trials[i].ec-trials[i].sc+1;
   }
+  // nCols was nTrials * trs_per_block when trialLengths were constant
+  // now use the cumulative sum of trialLengths from above
   td->nCols = total_cols;
   td->data = (float*)_mm_malloc(sizeof(float)*td->nCols*td->nVoxels, 64);
+  assert(td->data);
   int cur_cols[nTrials];
   cur_cols[0] = 0;
   for (int i=1; i<nTrials; i++)
@@ -346,6 +350,7 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
     int delta_col = ec-sc+1;
     cur_cols[i] = cur_cols[i-1]+delta_col;
   }
+  // for all trials (ie blocks * subjects)
   #pragma omp parallel for
   for (int i=0; i<nTrials; i++)
   {
@@ -354,12 +359,14 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
     int col = matrices[sid]->col;
     float* matrix = matrices[sid]->matrix;
     float* buf = td->data+cur_cols[i]*(td->nVoxels);
-    int sc= trials[i].sc;
-    int ec= trials[i].ec;
+    int sc = trials[i].sc;
+    int ec = trials[i].ec;
     int delta_col = ec-sc+1;
+    // for all voxels (rows)
     for (int r=0; r<row; r++)
     {
       double mean=0, sd=0;  // float here is not precise enough to handle
+      // normalization 1: get mean+sd for a particular block within a particular subject
       for (int c=sc; c<=ec; c++)
       {
         mean += (double)matrix[r*col+c];
@@ -369,16 +376,19 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
       sd = sd - delta_col * mean * mean;
       sd = sqrt(sd);
       ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
-      ALIGNED(64) float mean_f=mean;  // for vecterization
+      ALIGNED(64) float mean_f=mean;  // for vectorization
       if (sd == 0)  // leave the numbers as they are
       {
         inv_sd_f=0.0f;
       }
+      // normalization 2: subtract mean and divide by sd calculated above
       #pragma simd
       for (int c=sc; c<=ec; c++)
       {
-        buf[r*delta_col+c-sc] = (matrix[r*col+c] - mean_f) * inv_sd_f; // if sd is zero, a "nan" appears
+        // if sd is zero, a "nan" appears
+        buf[r*delta_col+c-sc] = (matrix[r*col+c] - mean_f) * inv_sd_f;
       }
+      // so buffer data is organized as trialLength vectors (trs in a block)
     }
   }
   return td;

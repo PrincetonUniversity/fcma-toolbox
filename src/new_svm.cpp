@@ -1,5 +1,7 @@
-#include "new_svm.h"
+#include <climits>
+#include "common.h"
 #include "ErrorHandling.h"
+#include "new_svm.h"
 
 #ifndef Calloc
 #define Calloc(type,n) (type *)calloc(n,sizeof(type))
@@ -50,11 +52,9 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   get kernel type
 **/
   int kType = NEWGAUSSIAN;
-  float parameterA;
   if (kp->kernel_type.compare(0,3,"rbf") == 0) {
-    parameterA = -kp->gamma;
     kType = NEWGAUSSIAN;
-    //printf("Gaussian kernel: gamma = %f\n", -parameterA);
+    //printf("Gaussian kernel: gamma = %f\n", kp->gamma);
   } else if (kp->kernel_type.compare(0,6,"linear") == 0) {
     kType = NEWLINEAR;
     //printf("Linear kernel\n");
@@ -70,7 +70,9 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
 /**
   group folds
 **/
-  //float* target=(float*)kmp_malloc(sizeof(float)*nPoints);
+  assert(nPoints>0);
+  assert(nFolds>0);
+  
   float target[nPoints];
   int i;
   int fold_start[nFolds+1];
@@ -84,7 +86,8 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     int *count = NULL;
     // put the same class to be adjacent to each other
     svmGroupClasses(nPoints, labels, &start, &count, perm);
-
+    assert(start && count && count[0]>0 && count[1]>0);
+      
     // data grouped by fold using the array perm
     int *fold_count = Calloc(int,nFolds);
     int c;
@@ -132,7 +135,7 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
   float* sub_labels = (float*)malloc(sizeof(float)*nPoints);  // ditto
   float* test_data = (float*)malloc(sizeof(float)*nPoints*nDimension);
   float* test_labels = (float*)malloc(sizeof(float)*nPoints);
-  bool *bit_map;
+  bool *bit_map = nullptr;
   float sv_alpha[nPoints];  // normally nSV<<sub_nPoints
   float supportVectors[nPoints*nDimension];
   if (kType==NEWPRECOMPUTED)
@@ -149,7 +152,9 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension, int nFo
     gettimeofday(&start_time, 0);
 #endif
     int begin = fold_start[i];
-    int end = fold_start[i+1];    
+    int end = fold_start[i+1];
+    assert(begin>=0 && end>=0 && end>=begin);
+      
     int j,k,l;
     int sub_nPoints = nPoints - (end-begin);
     if (kType==NEWPRECOMPUTED)
@@ -327,9 +332,9 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   Controller progress(2.0, heuristicMethod, 64, nPoints);
 
   int kType = NEWGAUSSIAN;
-  float parameterA;
-  float parameterB;
-  float parameterC;
+  float parameterA = -FLT_MAX;
+  float parameterB = -FLT_MAX;
+  float parameterC = -FLT_MAX;
   if (kp->kernel_type.compare(0,3,"rbf") == 0) {
     parameterA = -kp->gamma;
     kType = NEWGAUSSIAN;
@@ -345,11 +350,6 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   
   float* devData;
   float* devTransposedData;
-  size_t devDataPitch;
-  size_t devTransposedDataPitch;
-  int hostPitchInFloats = nPoints;
-  float* hostData;
-  bool hostDataAlloced = false;
 
   devData = data;
   int devDataPitchInFloats = nPoints;
@@ -363,7 +363,6 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   float devF[nPoints];
   float* hostResult = (float*)malloc(8*sizeof(float));
   void* devResult = (void*) hostResult;
-  int blockWidth = intDivideRoundUp(nPoints, BLOCKSIZE);
 
   size_t rowPitch = nPoints*sizeof(float);  
   size_t sizeOfCache = (10*1024*1024*1024L)/(rowPitch); //10GB cache
@@ -380,18 +379,15 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
 
   float* devCache;
   size_t cachePitch = rowPitch;
-  NewCache kernelCache(nPoints, sizeOfCache);
+  NewCache kernelCache(nPoints, (int)sizeOfCache);
   int devCachePitchInFloats = (int)cachePitch/(sizeof(float));
 
   //emulate precomputed kernel..
   if (kType == NEWPRECOMPUTED) {
     if(nPoints != nDimension) { 
-	printf("Not a kernel matrix (not square) \n"); exit(1); 
+	printf("Not a kernel matrix (not square) \n"); exit(1);
     }
     devCache = devData;
-    //memcpy(devCache, devData, nPoints*nPoints*sizeof(float));
-    //for (int i = 0 ;i < nPoints*nPoints; i++) devCache[i] /= 1000.0f;
-    //printf("Cache populated\n");
   }
   else {
     devCache = new float[sizeOfCache * nPoints];
@@ -434,10 +430,10 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   float alpha1Diff = alpha1New - alpha1Old;
   float alpha2Diff = alpha2New - alpha2Old;
 	
-  int iLowCacheIndex;
-  int iHighCacheIndex;
-  bool iLowCompute;
-  bool iHighCompute; 
+  int iLowCacheIndex = -INT_MAX;
+  int iHighCacheIndex = -INT_MAX;
+  bool iLowCompute = false;
+  bool iHighCompute = false;
   
   //printf("Starting iterations\n");
   for (iteration = 1; true; iteration++) {
@@ -484,7 +480,7 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels, fl
   //kernelCache.printStatistics();
   free(hostResult);
   if (kType != NEWPRECOMPUTED) {
-    free(devCache);
+      delete [] devCache;
   }
 }
 
@@ -560,15 +556,8 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
     float* xILow = devTransposedData + iLow*devTransposedDataPitchInFloats;
     float* xIHigh = devTransposedData + iHigh*devTransposedDataPitchInFloats;
 
-    float* highKernel;
-    float* lowKernel;
-
-    if (!iHighCompute) {
-	    highKernel = devCache + (devCachePitchInFloats * iHighCacheIndex) ;
-    }
-    if (!iLowCompute) {
-    	lowKernel = devCache + (devCachePitchInFloats * iLowCacheIndex);
-    }
+    float* highKernel = nullptr;
+    float* lowKernel = nullptr;
 
     if (iHighCompute) {
       highKernel = new float[nPoints];
@@ -582,6 +571,8 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
         }
         highKernel[j] = exp(parameterA * acc);
       }
+    } else {
+        highKernel = devCache + (devCachePitchInFloats * iHighCacheIndex) ;
     }
     if (iLowCompute) {
        lowKernel = new float[nPoints];
@@ -594,33 +585,21 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
           acc += diff*diff;
         }
         lowKernel[j] = exp(parameterA * acc);
-      }
-   }
+       }
+    } else {
+        lowKernel = devCache + (devCachePitchInFloats * iLowCacheIndex);
+    }
 
-    //const int CL = 16; //64 bytes
-    //reduction arrays
-    //int* devLocalIndicesRL = new int[nthreads*CL];
-    //int* devLocalIndicesRH = new int[nthreads*CL];
-    //float* devLocalFsRL = new float[nthreads*CL]; // init to -inf
-    //float* devLocalFsRH = new float[nthreads*CL];  //init to inf
-    int devLocalIndicesRL;
-    int devLocalIndicesRH;
+    int devLocalIndicesRL = -INT_MAX;
+    int devLocalIndicesRH = -INT_MAX;
     float devLocalFsRL = -FLT_MAX; // init to -inf
     float devLocalFsRH = FLT_MAX;  //init to inf
     
-    /*for (int tid = 0 ; tid < nthreads; tid++) {
-      devLocalFsRL[tid*CL] = -FLT_MAX;
-      devLocalFsRH[tid*CL] = FLT_MAX;
-    }*/
-
-    //#pragma omp parallel for num_threads(nthreads)
-    //bool flag0[nPoints];
-    //bool flag1[nPoints];
+    assert(nPoints>0);
     float localFsRL[nPoints];
     float localFsRH[nPoints];
     #pragma simd
     for (int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
-      int tid = 0;//omp_get_thread_num();
 
       float alpha = devAlpha[globalIndex];
       float f = devF[globalIndex];
@@ -646,19 +625,11 @@ void	firstOrder(float* devData, int devDataPitchInFloats, float* devTransposedDa
     float minFsRH = devLocalFsRH;
     int iLowNew=devLocalIndicesRL, iHighNew=devLocalIndicesRH;
 
-    /*for (int tid = 0; tid < nthreads; tid++) {
-      if (maxFsRL < devLocalFsRL[tid*CL]) { maxFsRL = devLocalFsRL[tid*CL]; iLowNew = devLocalIndicesRL[tid*CL];}
-      if (minFsRH > devLocalFsRH[tid*CL]) { minFsRH = devLocalFsRH[tid*CL]; iHighNew = devLocalIndicesRH[tid*CL];}
-    }*/
     float bLow = maxFsRL;
     float bHigh = minFsRH;
 
     if(iHighCompute) delete [] highKernel;
     if(iLowCompute) delete [] lowKernel;
-    //delete [] devLocalIndicesRL;
-    //delete [] devLocalIndicesRH;
-    //delete [] devLocalFsRL;
-    //delete [] devLocalFsRH;
 
     *((float*)devResult + 2) = bLow;
     *((float*)devResult + 3) = bHigh;
@@ -673,19 +644,21 @@ void launchFirstOrder(bool iLowCompute, bool iHighCompute, int kType, int nPoint
 
   switch(kType) {
     case NEWGAUSSIAN:
-      firstOrder<NEWGAUSSIAN>(devData, devDataPitchInFloats, devTransposedData, devTransposedDataPitchInFloats, devLabels, nPoints, nDimension, epsilon, cEpsilon, devAlpha, devF, sAlpha1Diff, sAlpha2Diff, iLow, iHigh, parameterA, parameterB, parameterC, devCache, devCachePitchInFloats, iLowCacheIndex, iHighCacheIndex, devKernelDiag, devResult, cost, iLowCompute, iHighCompute, nthreads);
-      bLow = *((float*)devResult + 2);
-      bHigh = *((float*)devResult + 3);
-      iLowNew = *((int*)devResult + 6);
-      iHighNew = *((int*)devResult + 7);
-      float* highPointer = devTransposedData + (iHighNew * devTransposedDataPitchInFloats);
-      float* lowPointer = devTransposedData + (iLowNew * devTransposedDataPitchInFloats);  
-      float acc = 0.0f;
-      for (int i = 0; i < nDimension; i++) {
-        float diff = highPointer[i] - lowPointer[i];
-        acc += diff*diff;
+      {
+        firstOrder<NEWGAUSSIAN>(devData, devDataPitchInFloats, devTransposedData, devTransposedDataPitchInFloats, devLabels, nPoints, nDimension, epsilon, cEpsilon, devAlpha, devF, sAlpha1Diff, sAlpha2Diff, iLow, iHigh, parameterA, parameterB, parameterC, devCache, devCachePitchInFloats, iLowCacheIndex, iHighCacheIndex, devKernelDiag, devResult, cost, iLowCompute, iHighCompute, nthreads);
+        bLow = *((float*)devResult + 2);
+        bHigh = *((float*)devResult + 3);
+        iLowNew = *((int*)devResult + 6);
+        iHighNew = *((int*)devResult + 7);
+        float* highPointer = devTransposedData + (iHighNew * devTransposedDataPitchInFloats);
+        float* lowPointer = devTransposedData + (iLowNew * devTransposedDataPitchInFloats);
+        float acc = 0.0f;
+        for (int i = 0; i < nDimension; i++) {
+          float diff = highPointer[i] - lowPointer[i];
+          acc += diff*diff;
+        }
+        kernelEval = exp(parameterA * acc);
       }
-      kernelEval = exp(parameterA * acc);
       break;
     case NEWPRECOMPUTED:
       iHighCompute = false; iHighCacheIndex = iHigh;
@@ -737,14 +710,14 @@ void	secondOrder(float* devData, int devDataPitchInFloats, float* devTransposedD
   for (int tid = 0 ; tid < nthreads; tid++) {
     devLocalFsRL[tid*CL] = -FLT_MAX;
   } */
-  int devLocalIndicesRL;
+  int devLocalIndicesRL = -INT_MAX;
   float devLocalFsRL = -FLT_MAX;
 
   //#pragma omp parallel for num_threads(nthreads)
+  assert(nPoints>0);
   float objs[nPoints];
   #pragma simd
   for(int globalIndex = 0; globalIndex < nPoints; globalIndex++) {
-    int tid = 0;//omp_get_thread_num();
     float alpha = devAlpha[globalIndex];
     float label = devLabels[globalIndex];
     float f = devF[globalIndex];
@@ -762,14 +735,6 @@ void	secondOrder(float* devData, int devDataPitchInFloats, float* devTransposedD
     }
   }  
 
-  //reduction.. 
-  //
-    /*float maxFsRL = -FLT_MAX;
-    int iLowNew;
-
-    for (int tid = 0; tid < nthreads; tid++) {
-        if (maxFsRL < devLocalFsRL[tid*CL]) { maxFsRL = devLocalFsRL[tid*CL]; iLowNew = devLocalIndicesRL[tid*CL];}
-    }*/
     float bLow = devF[devLocalIndicesRL];
 
     if(iHighCompute) delete [] highKernel;
@@ -992,13 +957,13 @@ SelectionHeuristic Controller::getMethod() {
 
   
   if (timeSinceInspection >= inspectionPeriod) {
-    int currentIteration = progress.size();
+    int currentIteration = (int)progress.size();
     gettimeofday(&start, 0);
     currentInspectionPhase = 1;
     timeSinceInspection = 0;
     beginningOfEpoch = currentIteration;
   } else if (currentInspectionPhase == 1) {
-    int currentIteration = progress.size();
+    int currentIteration = (int)progress.size();
 
     middleOfEpoch = currentIteration;
     gettimeofday(&mid, 0);
@@ -1012,7 +977,7 @@ SelectionHeuristic Controller::getMethod() {
     }
     
   } else if (currentInspectionPhase == 2) {
-    int currentIteration = progress.size();
+    int currentIteration = (int)progress.size();
         
     gettimeofday(&finish, 0);
     rates[currentMethod] = findRate(&mid, &finish, middleOfEpoch, currentIteration);
@@ -1041,6 +1006,7 @@ float Controller::filter(int begin, int end) {
 }
 
 void Controller::print() {
+  using std::vector;
   FILE* outputFilePointer = fopen("gap.dat", "w");
   if (outputFilePointer == NULL) {
     printf("Can't write %s\n", "gap.dat");
@@ -1150,8 +1116,9 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
 {
 	int total_nPoints = nData;
 	int nPoints;	
-	float gamma,coef0,b;
-	int degree;
+    float gamma = 0.0;
+    float b;
+    int degree = -INT_MAX;
 	KernelType kType;
 	
 	if(kp->kernel_type.compare(0,3,"rbf") == 0)
@@ -1183,26 +1150,24 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
 	int nBlocksSV = intDivideRoundUp(nSV,BLOCKSIZE);
 
 	float* devSV;
-	size_t devSVPitch;
 	devSV = supportVectors;
 	int devSVPitchInFloats = nDimension;
 
 	float* devAlpha;
 	devAlpha = alpha;
 
-	float* devLocalValue;
 	float* devResult;
+    assert(total_nPoints>0);
 	float* result = (float*)malloc(total_nPoints*sizeof(float));
 	*(p_result) = result;
 
 	float* devSVDots;
 	devSVDots = new float[nSV];
 
-	size_t free_memory,total_memory;
-	free_memory = 1*1024*1024*1024; //1GB 
+	size_t free_memory = 1*1024*1024*1024; //1GB
 	size_t free_memory_floats = free_memory/sizeof(float);
 	
-	nPoints = ((free_memory_floats-devSVPitchInFloats*nDimension-nSV-nSV)/(nDimension+1+devSVPitchInFloats+1+nBlocksSV));
+	nPoints = (int)((free_memory_floats-devSVPitchInFloats*nDimension-nSV-nSV)/(nDimension+1+devSVPitchInFloats+1+nBlocksSV));
 	nPoints = (nPoints>>7)<<7;		//for pitch limitations assigning to be a multiple of 128
 	
 	nPoints = (nPoints < total_nPoints)?(nPoints):(total_nPoints); //for few points
@@ -1210,7 +1175,6 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
 
 	float* devData;
 	size_t devDataPitch;
-	//devData = new float[nPoints*nDimension];
 	devDataPitch = nDimension*sizeof(float);
 
 	int devDataPitchInFloats = ((int)devDataPitch) / sizeof(float);
@@ -1225,8 +1189,6 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
 
 	if(kType == NEWPRECOMPUTED) {
 		devData = data;
-    //if (vid==9053 && fold==1) {printf("%d\n", devDataPitchInFloats); exit(1);}
-		//#pragma omp parallel for
 		for (int i = 0; i < nPoints; i++) {
 			float s = b;
 			float* __restrict__ ptr = devData + i*devDataPitchInFloats;
@@ -1248,7 +1210,7 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
 	  int iteration=1;
 	  for(int dataoffset=0; dataoffset<total_nPoints; dataoffset += nPoints) 
 	  {
-		  // code for copying data
+        // code for copying data
   		if(dataoffset+nPoints > total_nPoints)
 	  	{
 	  		nPoints = total_nPoints-dataoffset;
@@ -1277,7 +1239,7 @@ void performClassification(float *data, int nData, float *supportVectors, int nS
   			sgemmBeta = 0.0f;
   		}
   		cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, nPoints, nSV, nDimension, sgemmAlpha, devData, devDataPitchInFloats, devSV, devSVPitchInFloats, sgemmBeta, devDots, devDotsPitchInFloats); //for rowmajor formats
-  		computeKernels(devDots, devDotsPitchInFloats, devAlpha, nPoints, nSV, kType, coef0, degree, b, devResult);
+  		computeKernels(devDots, devDotsPitchInFloats, devAlpha, nPoints, nSV, kType, degree, b, devResult);
   		memcpy(result+dataoffset, devResult, nPoints*sizeof(float));
   		iteration++;
   	}
@@ -1311,7 +1273,7 @@ void makeDots(float* devDots, int devDotsPitchInFloats, float* devSVDots, float*
 	}
 }
 
-float kernel(const float v, const float coef0, const int degree, const KernelType kType) {
+float kernel(const float v, const int degree, const KernelType kType) {
 	float res = 0.0f;
 	switch(kType) {
 	case NEWGAUSSIAN:
@@ -1323,14 +1285,14 @@ float kernel(const float v, const float coef0, const int degree, const KernelTyp
 	return res;
 }
 
-void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha, int nPoints, int nSV, const KernelType kType, float coef0, int degree, float b, float* devResult) {
+void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha, int nPoints, int nSV, const KernelType kType, int degree, float b, float* devResult) {
 
 	//#pragma omp parallel for
 	for (int j = 0; j < nPoints; j++) {
 		float res = 0.0f;
 		#pragma simd
 		for (int i = 0; i < nSV; i++) {
-			res += devAlpha[i]*kernel(devNorms[j*devNormsPitchInFloats + i], coef0, degree, kType);
+			res += devAlpha[i]*kernel(devNorms[j*devNormsPitchInFloats + i], degree, kType);
 		}
 		devResult[j] = res + b;
 	}

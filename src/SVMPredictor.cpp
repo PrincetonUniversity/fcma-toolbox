@@ -7,11 +7,9 @@
 #include "common.h"
 #include "SVMPredictor.h"
 #include "MatComputation.h"
-//#include "LibSVM.h"
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "ErrorHandling.h"
-//#include "Searchlight.h"
 
 int getNumTopIndices(int* tops, int maxtops, int nvoxels)
 {
@@ -45,6 +43,10 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg
   int ntops;
   switch (taskType)
   {
+    using std::cout;
+    using std::cerr;
+    using std::endl;
+          
     case 0:
     case 1:
       if (mask_file!=NULL)
@@ -156,9 +158,12 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs, int nTrials
         predict_correctness[j-nTrainings] = false;
       }
     }
-    cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
+    std::cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<std::endl;
     if (!is_quiet_mode)
     {
+      using std::cout;
+      using std::endl;
+        
       cout<<"blocking testing confidence:"<<endl;
       for (j=nTrainings; j<nTrials; j++)
       {
@@ -249,9 +254,12 @@ void ActivationBasedClassification(int* tops, int ntops, int nTrials, Trial* tri
         predict_correctness[j-nTrainings] = false;
       }
     }
-    cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<endl;
+    std::cout<<tops[i]<<": "<<result<<"/"<<nTrials-nTrainings<<"="<<result*1.0/(nTrials-nTrainings)<<std::endl;
     if (!is_quiet_mode)
     {
+      using std::cout;
+      using std::endl;
+        
       cout<<"blocking testing confidence:"<<endl;
       for (j=nTrainings; j<nTrials; j++)
       {
@@ -288,7 +296,7 @@ output: top voxel classifier array (the length of the array is the number of vox
 VoxelScore* ReadTopVoxelFile(const char* file, int n)
 {
   int i;
-  ifstream ifile(file);
+  std::ifstream ifile(file);
   if (!ifile)
   {
     FATAL("file not found: "<<file);
@@ -401,10 +409,17 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels, int lengthPerC
 {
   int length = nVoxels*lengthPerCorrVector; // row length
   int nPerSub = nTrials / nSubs; // should be dividable
+  typedef float mattype[][length];
+    
   #pragma omp parallel for
   for (int i=0; i<nSubs; i++) // do normalization subject by subject
   {
+#ifdef __INTEL_COMPILER
     float (*mat)[length] = (float(*)[length])&(values[i*nPerSub*length]);
+#else
+    float* rowptr = &(values[i*nPerSub*length]);
+    mattype& mat = *reinterpret_cast<mattype*>(rowptr);
+#endif
     #pragma simd
     for (int j=0; j<length; j++)
     {

@@ -20,9 +20,13 @@ VoxelScore* GetCorrVecSum(int me, CorrMatrix** c_matrices, int nTrials)  //score
   {
     FATAL("the master node isn't supposed to do classification jobs");
   }
-  int rowBase = c_matrices[0]->sr;  // assume all elements in c_matrices array have the same starting row
-  int row = c_matrices[0]->nVoxels; // assume all elements in c_matrices array have the same #voxels
-  int length = row * c_matrices[0]->step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
+  // assume all elements in c_matrices array have the same
+  // starting row, number of voxels, and working set (step)
+  int rowBase = c_matrices[0]->sr;
+  int row = c_matrices[0]->nVoxels;
+  // get the number of entries of a correlation matrix
+  // notice the row here!!
+  int length = row * c_matrices[0]->step;
   VoxelScore* scores = new VoxelScore[c_matrices[0]->step];  // get step voxels' scores here
   #pragma omp parallel for
   for (int i=0; i<length; i+=row)

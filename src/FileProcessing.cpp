@@ -23,7 +23,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
   DIR *pDir;
   struct dirent *dp;
   char fullfilename[MAXFILENAMELENGTH];
-  string strFilenames[MAXSUBJS];
+  std::string strFilenames[MAXSUBJS];
   if ((pDir=opendir(filepath)) == NULL)
   {
     FATAL("invalid directory");
@@ -49,7 +49,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSu
     {
       sprintf(fullfilename, "%s", filepath);
       strcat(fullfilename, dp->d_name);
-      strFilenames[count] = string(fullfilename);
+        strFilenames[count] = std::string(fullfilename);
       count++;
     }
   }
@@ -70,7 +70,7 @@ read matrix data from gz files, the first eight bytes are two 32-bit ints, indic
 input: the gz file name, subject id
 output: the raw matrix data
 **************************/
-RawMatrix* ReadGzData(string fileStr, int sid)
+RawMatrix* ReadGzData(std::string fileStr, int sid)
 {
   const char* file = fileStr.c_str();
   gzFile fp = gzopen(file, "rb");
@@ -86,7 +86,7 @@ RawMatrix* ReadGzData(string fileStr, int sid)
   gzread(fp, &col, sizeof(int));
   size_t startPos = fileStr.find_last_of('/');
   size_t endPos = fileStr.find_first_of('.', startPos);
-  string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
+  std::string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
   r_matrix->sname = sname;
   r_matrix->row = row;
   r_matrix->col = col;
@@ -108,7 +108,7 @@ read matrix data from nii.gz files
 input: the gz file name, subject id
 output: the raw matrix data
 **************************/
-RawMatrix* ReadNiiGzData(string fileStr, int sid)
+RawMatrix* ReadNiiGzData(std::string fileStr, int sid)
 {
   const char* file = fileStr.c_str();
   nifti_image* nim;
@@ -129,7 +129,7 @@ RawMatrix* ReadNiiGzData(string fileStr, int sid)
   RawMatrix* r_matrix = new RawMatrix();
   size_t startPos = fileStr.find_last_of('/');
   size_t endPos = fileStr.find_first_of('.', startPos);
-  string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
+  std::string sname = fileStr.substr(startPos+1, endPos-startPos-1); // assuming that the subject name doesn't contain '.'
   r_matrix->sname = sname;
   r_matrix->sid = sid;
   r_matrix->row = nim->nx * nim->ny * nim->nz;
@@ -463,7 +463,7 @@ output: the trial data structure array, the number of trials
 *******************************/
 Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file)
 {
-  ifstream ifile(file);
+  std::ifstream ifile(file);
   if (!ifile)
   {
     FATAL("no block file found!");
@@ -529,7 +529,7 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
     FATAL("invalid block information directory");
   }
   closedir(pDir);
-  string dirStr = string(dir);
+  std::string dirStr = std::string(dir);
   if (dirStr[dirStr.length()-1] != '/')
   {
     dirStr += '/';
@@ -540,9 +540,9 @@ Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials, RawMatrix** r_matri
   int index=0;
   for (i=0; i<nSubs; i++)
   {
-    string blockFileStr = r_matrices[i]->sname + ".txt";
+    std::string blockFileStr = r_matrices[i]->sname + ".txt";
     blockFileStr = dirStr + blockFileStr;
-    ifstream ifile(blockFileStr.c_str());
+    std::ifstream ifile(blockFileStr.c_str());
     if (!ifile)
     {
       FATAL("no block file found!");

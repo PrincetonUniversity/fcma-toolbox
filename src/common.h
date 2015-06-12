@@ -23,21 +23,33 @@
 #include <cstring>
 #include <cmath>
 #include <iomanip>
-#include <nifti1_io.h>
+// define NDEBUG here to disable assertions
+// if/when "release" builds are supported
+// #define NDEBUG
 #include <cassert>
-#include <immintrin.h>
-#include <zmmintrin.h>
-#include <omp.h>
-/*#include <array>
-#include <chrono>
-#include <random>*/
 
+// nifti1_io.h is from nifticlib http://nifti.nimh.nih.gov
+// see README in fcma-toolbox.git/deps/
+#include <nifti1_io.h>
+
+// SSE/AVX instrinsics
+#if defined(_MSC_VER)
+    // Microsoft C/C++-compatible compiler */
+#   include <intrin.h>
+#elif defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+    // GCC-compatible compiler (gcc,clang,icc) targeting x86/x86-64
+#   include <x86intrin.h>
+#endif
+
+// OpenMP : gcc >= 4.7 or clang-omp http://clang-omp.github.io
+#include <omp.h>
+
+// Aligned memory blocks
 #ifdef __INTEL_COMPILER
 #   include <offload.h>
 #else
 #   include <mm_malloc.h>
 #endif
-
 #if defined(__GNUC__)
     // gcc supports this syntax
 #   define ALIGNED(x) __attribute__ ((aligned(x)))
@@ -46,7 +58,19 @@
 #   define ALIGNED(x) __declspec(align(x))
 #endif
 
-using namespace std;
+// BLAS dependency
+#ifdef USE_MKL
+#   include <mkl.h>
+#else
+typedef int MKL_INT;
+#   if defined __APPLE__
+#       include <Accelerate/Accelerate.h>
+#   else
+extern "C" {
+#       include <cblas.h>
+}
+#   endif
+#endif
 
 // Matrix multiplication parameters
 #define TINYNUM 1e-4
@@ -55,12 +79,20 @@ using namespace std;
 #define MAXSUBJS 100
 #define MAXTRIALPERSUBJ 64
 
+// MPI communication tags
+#define COMPUTATIONTAG 1
+#define LENGTHTAG 2
+#define VOXELCLASSIFIERTAG 3
+#define ELAPSETAG 4
+#define POSITIONTAG 5
+#define SECONDORDERTAG 6
+
 typedef unsigned long long uint64;
 typedef unsigned short uint16;
 
 typedef struct raw_matrix_t
 {
-  string sname;  // subject name (file name without extension)
+  std::string sname;  // subject name (file name without extension)
   int sid;  // subject id
   int row;
   int col;
@@ -123,19 +155,11 @@ typedef struct voxelxyz_t
   int x, y, z;
 }VoxelXYZ;
 
-typedef __declspec(align(64)) struct WIDELOCK_T
+typedef ALIGNED(64) struct WIDELOCK_T
 {
   omp_lock_t lock;
 } widelock_t;
 
 extern unsigned long long total_count;
-
-// MPI communication tags
-#define COMPUTATIONTAG 1
-#define LENGTHTAG 2
-#define VOXELCLASSIFIERTAG 3
-#define ELAPSETAG 4
-#define POSITIONTAG 5
-#define SECONDORDERTAG 6
 
 #endif

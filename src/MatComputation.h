@@ -5,15 +5,6 @@
 */
 
 #include "common.h"
-#ifdef USE_MKL
-#include <mkl.h>
-#elif defined __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
-extern "C" {
-#include <cblas.h>
-}
-#endif
 
 int getBuf(int start_col, int end_col, int row, int col, float* mat, float* buf);
 CorrMatrix* CorrMatrixComputation(Trial trial, int sr, int step, RawMatrix** matrices1, RawMatrix** matrices2);

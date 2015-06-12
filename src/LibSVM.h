@@ -7,7 +7,6 @@
 #ifndef _LIBSVM_H
 #define _LIBSVM_H
 
-//#include "common.h"
 #include "svm.h"
 
 //libsvm

@@ -2,7 +2,6 @@
 #define NEW_SVM
 #include <float.h>
 #include "common.h"
-#include <mkl.h>
 
 #define BLOCKSIZE 256
 #define REDUCE0  0x00000001
@@ -44,11 +43,11 @@ private:
     DirectoryEntry();
     int status;
     int location;
-    list<int>::iterator lruListEntry;
+    std::list<int>::iterator lruListEntry;
   };
 
-  vector<DirectoryEntry> directory;
-  list<int> lruList;
+  std::vector<DirectoryEntry> directory;
+  std::list<int> lruList;
   int occupancy;
   int hits;
   int compulsoryMisses;
@@ -64,10 +63,10 @@ class Controller {
  private:
   bool adaptive;
   int samplingInterval;
-  vector<float> progress;
-  vector<int> method;
+  std::vector<float> progress;
+  std::vector<int> method;
   SelectionHeuristic currentMethod;
-  vector<float> rates;
+  std::vector<float> rates;
   int timeSinceInspection;
   int inspectionPeriod;
   int beginningOfEpoch;
@@ -96,8 +95,8 @@ template<int Kernel>
 void takeFirstStep(void* devResult, float* devKernelDiag, float* devData, int devDataPitchInFloats, float* devCache, int devCachePitchInFloats, float* devAlpha, float cost, int nDimension, int iLow, int iHigh, float parameterA, float parameterB, float parameterC);
 void launchTakeFirstStep(void* devResult, float* devKernelDiag, float* devData, int devDataPitchInFloats, float* devCache, int devCachePitchInFloats, float* devAlpha, float cost, int nDimension, int iLow, int iHigh, int kType, float parameterA, float parameterB, float parameterC, int nthreads);
 void performClassification(float *data, int nData, float *supportVectors, int nSV, int nDimension, float* alpha, Kernel_params* kp, float** p_result);
-void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha, int nPoints, int nSV, const KernelType kType, float coef0, int degree, float b, float* devResult);
-float kernel(const float v, const float coef0, const int degree, const KernelType kType);
+void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha, int nPoints, int nSV, const KernelType kType, int degree, float b, float* devResult);
+float kernel(const float v, const int degree, const KernelType kType);
 void makeSelfDots(float* devSource, int devSourcePitchInFloats, float* devDest, int sourceCount, int sourceLength);
 void makeDots(float* devDots, int devDotsPitchInFloats, float* devSVDots, float* devDataDots, int nSV, int nPoints);
 #endif

@@ -22,6 +22,9 @@ output: write the result to the nifti file
 void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, const char* maskFile2, const char* refFile, Trial trial, const char* output_file)
 {
 #ifndef __MIC__
+  using std::cout;
+  using std::endl;
+    
   RawMatrix* masked_matrix1=NULL;
   RawMatrix* masked_matrix2=NULL;
   if (maskFile1!=NULL)
@@ -40,7 +43,7 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
   int row2 = masked_matrix2->row;
   int col = masked_matrix1->col;
   float* buf1 = new float[row1*col]; // col is more than what really need, just in case
-  float* buf2 = new float[row2*col]; // col is more than what really need, just in case
+  float* buf2 = new float[row2*col]; 
   int sc=trial.sc, ec=trial.ec;
   int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized matrix, return the length of time points to be computed
   int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized matrix, return the length of time points to be computed, m1==m2
@@ -49,19 +52,6 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1, c
   delete[] buf1;
   delete[] buf2;
   float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
-  /*nifti_image* ref_nim = nifti_image_read(maskFile1, 1);
-  int dims[8];
-  memcpy((void*)dims, (const void*)ref_nim->dim, 8*sizeof(int));
-  dims[0] = 4;
-  dims[4] = row1;
-  nifti_image* nim = nifti_make_new_nim(dims, DT_FLOAT32, 0);
-  char* fileName = nifti_makeimgname((char*)output_file, nim->nifti_type, 0, 1);  //3rd argument: 0 means overwrite the existing file, 1 means returning error if the file exists; 4th argument: 0 means not compressed, 1 means compressed
-  nim->fname = fileName;
-  nim->data = (void*)wholeData;
-  //nim->qform_code = 1;
-  //nim->sform_code = 1;
-  nifti_image_write(nim);
-  nifti_image_free(nim);*/
   Write4DNiiGzData(output_file, refFile, (void*)wholeData, DT_FLOAT32, row1);
   return;
 #endif

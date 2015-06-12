@@ -12,6 +12,8 @@
 #include "SVMPredictor.h"
 #include <nifti1_io.h>
 
+using namespace std;
+
 /***************************************
 Get two parts of the brain to compute the correlation and then use the correlation vectors to predict
 input: the raw activation matrix arrays, the number of subjects, the number of subjects, the first mask file, the second mask file, the number of blocks(trials), the blocks, the number of test samples

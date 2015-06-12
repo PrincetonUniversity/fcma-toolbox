@@ -47,6 +47,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <iostream>
+#include "common.h"
 #include "svm.h"
 
 int libsvm_version = LIBSVM_VERSION;
@@ -283,8 +284,7 @@ double Kernel::dot(const svm_node *px, const svm_node *py, int length)
 {
   // we assume px and py always have the same length and there's no index missing
   float sum = cblas_sdot(length, (float*)px+1, 2, (float*)py+1, 2);
-  //counter++;
-  return sum;
+   return sum;
 }
 
 double Kernel::k_function(const svm_node *x, const svm_node *y,
@@ -403,19 +403,14 @@ void Solver::reconstruct_gradient()
   #pragma simd reduction(+:nr_free)
   for(j=0;j<active_size;j++)
     nr_free+=alpha_status[j]==FREE?1:0;
-    //if(is_free(j))
-      //nr_free++;
-
+ 
   if (nr_free*l > 2*active_size*(l-active_size))
   {
     for(i=active_size;i<l;i++)
     {
       const Qfloat *Q_i = Q->get_Q(i,active_size);
-      //#pragma simd reduction(+:G[i])
       for(j=0;j<active_size;j++)
         G[i]+=alpha_status[j]==FREE?alpha[j] * Q_i[j]:0;
-        //if(is_free(j))
-          //G[i] += alpha[j] * Q_i[j];
     }
   }
   else
@@ -425,7 +420,6 @@ void Solver::reconstruct_gradient()
       {
         const Qfloat *Q_i = Q->get_Q(i,l);
         double alpha_i = alpha[i];
-        //#pragma simd reduction(+:G[j])
         for(j=active_size;j<l;j++)
           G[j] += alpha_i * Q_i[j];
       }
@@ -768,6 +762,8 @@ int Solver::select_working_set(int &out_i, int &out_j)
   if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
     Q_i = Q->get_Q(i,active_size);
 
+  assert(Q_i);
+  assert(active_size>0);
   ALIGNED(64) double grad_diff[active_size];
   ALIGNED(64) double obj_diff[active_size+8];
   ALIGNED(64) double g[active_size+8];
@@ -800,20 +796,6 @@ int Solver::select_working_set(int &out_i, int &out_j)
     value=_mm512_load_pd((void const*)(obj_diff+j));
     cur_min = _mm512_gmin_pd(cur_min, value);
   }
-/*
-  __m512d temp = _mm512_swizzle_pd(cur_max, _MM_SWIZ_REG_CDAB);
-  cur_max = _mm512_gmax_pd(cur_max, temp);
-  temp = _mm512_swizzle_pd(cur_max, _MM_SWIZ_REG_BADC);
-  cur_max = _mm512_gmax_pd(cur_max, temp);
-  _mm512_store_pd((void*)Gmax2_arr, cur_max);
-  Gmax2 = Gmax2_arr[0]>Gmax2_arr[1]?Gmax2_arr[0]:Gmax2_arr[1];
-
-  temp = _mm512_swizzle_pd(cur_min, _MM_SWIZ_REG_CDAB);
-  cur_min = _mm512_gmin_pd(cur_min, temp);
-  temp = _mm512_swizzle_pd(cur_min, _MM_SWIZ_REG_BADC);
-  cur_min = _mm512_gmin_pd(cur_min, temp);
-  _mm512_store_pd((void*)obj_diff_min_arr, cur_min);
-  obj_diff_min = obj_diff_min_arr[0]<obj_diff_min_arr[1]?obj_diff_min_arr[0]:obj_diff_min_arr[1];*/
   _mm512_store_pd((void*)Gmax2_arr, cur_max);
   _mm512_store_pd((void*)obj_diff_min_arr, cur_min);
   #pragma loop count (8)
@@ -864,101 +846,6 @@ int Solver::select_working_set(int &out_i, int &out_j)
   out_j = Gmin_idx;
   return 0;
 }
-
-#if 0
-// return 1 if already optimal, return 0 otherwise
-// old code
-int Solver::select_working_set(int &out_i, int &out_j)
-{
-	// return i,j such that
-	// i: maximizes -y_i * grad(f)_i, i in I_up(\alpha)
-	// j: minimizes the decrease of obj value
-	//    (if quadratic coefficeint <= 0, replace it with tau)
-	//    -y_j*grad(f)_j < -y_i*grad(f)_i, j in I_low(\alpha)
-	
-	double Gmax = -INF;
-	double Gmax2 = -INF;
-	int Gmax_idx = -1;
-	int Gmin_idx = -1;
-	double obj_diff_min = INF;
-
-	for(int t=0;t<active_size;t++)
-		if(y[t]==+1)	
-		{
-			if(!is_upper_bound(t))
-				if(-G[t] >= Gmax)
-				{
-					Gmax = -G[t];
-					Gmax_idx = t;
-				}
-		}
-		else
-		{
-			if(!is_lower_bound(t))
-				if(G[t] >= Gmax)
-				{
-					Gmax = G[t];
-					Gmax_idx = t;
-				}
-		}
-
-	int i = Gmax_idx;
-	const Qfloat *Q_i = NULL;
-	if(i != -1) // NULL Q_i not accessed: Gmax=-INF if i=-1
-		Q_i = Q->get_Q(i,active_size);
-
-	for(int j=0;j<active_size;j++)
-	{
-    double grad_diff=Gmax+G[j]*y[j];
-		if(y[j]==+1)
-		{
-			if (!is_lower_bound(j))
-			{
-				if (G[j] >= Gmax2)
-					Gmax2 = G[j];
-				if (grad_diff > 0)
-				{
-          assert(Q_i);
-					double quad_coef = QD[i]+QD[j]-2.0*y[i]*Q_i[j];
-					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
-
-					if (obj_diff <= obj_diff_min)
-					{
-						Gmin_idx=j;
-						obj_diff_min = obj_diff;
-					}
-				}
-			}
-		}
-		else
-		{
-			if (!is_upper_bound(j))
-			{
-				if (-G[j] >= Gmax2)
-					Gmax2 = -G[j];
-				if (grad_diff > 0)
-				{
-          assert(Q_i);
-					double quad_coef = QD[i]+QD[j]+2.0*y[i]*Q_i[j];
-					double obj_diff = quad_coef>0?-(grad_diff*grad_diff)/quad_coef:-(grad_diff*grad_diff)/TAU;
-
-					if (obj_diff <= obj_diff_min)
-					{
-						Gmin_idx=j;
-						obj_diff_min = obj_diff;
-					}
-				}
-			}
-		}
-	}
-	if(Gmax+Gmax2 < eps)
-		return 1;
-
-	out_i = Gmax_idx;
-	out_j = Gmin_idx;
-	return 0;
-}
-#endif
 
 bool Solver::be_shrunk(int i, double Gmax1, double Gmax2)
 {
@@ -1255,7 +1142,7 @@ static void svm_group_classes(const svm_problem *prob, int *nr_class_ret, int **
       ++nr_class;
     }
   }
-
+  assert(nr_class>0);
   int *start = Calloc(int,nr_class);
   start[0] = 0;
   for(i=1;i<nr_class;i++)
@@ -1321,6 +1208,7 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
   bool *nonzero = Calloc(bool,l);
   for(i=0;i<l;i++)
     nonzero[i] = false;
+  assert(nr_class>1);
   decision_function *f = Calloc(decision_function,nr_class*(nr_class-1)/2);
 
   double *probA=NULL,*probB=NULL;
@@ -1388,7 +1276,8 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
     model->nSV[i] = nSV;
     nz_count[i] = nSV;
   }
-		
+
+  assert(total_sv>0);
   model->l = total_sv;
   model->SV = Calloc(svm_node *,total_sv);
   p = 0;
@@ -1512,7 +1401,6 @@ void svm_cross_validation_no_shuffle(const svm_problem *prob, const svm_paramete
     subprob.y = Calloc(schar,subprob.l);
 			
     k=0;
-    //for(int ii=0;ii<l;ii++) perm[ii]=ii;  // for further making sure no permutation happens, actually no need
     for(j=0;j<begin;j++)
     {
       subprob.x[k] = prob->x[perm[j]];
@@ -1639,19 +1527,6 @@ double svm_predict_distance(const struct svm_model *model, const struct svm_node
   free(dec_values);
   return pred_distance;
 }
-
-static const char *svm_type_table[] =
-{
-  "c_svc",NULL
-};
-
-static const char *kernel_type_table[]=
-{
-  "linear","precomputed",NULL
-};
-
-static char *line = NULL;
-static int max_line_len;
 
 void svm_free_model_content(svm_model* model_ptr)
 {

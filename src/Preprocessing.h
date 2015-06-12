@@ -7,15 +7,6 @@
 #include <cstring>
 #include "common.h"
 #include "ErrorHandling.h"
-#ifdef USE_MKL
-#include <mkl_cblas.h>
-#elif defined __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
-extern "C" {
-#include <cblas.h>
-}
-#endif
 
 int AlignMatrices(RawMatrix** r_matrices, int nSubs, VoxelXYZ* pts);
 int AlignMatricesByFile(RawMatrix** r_matrices, int nSubs, const char* file, VoxelXYZ* pts);

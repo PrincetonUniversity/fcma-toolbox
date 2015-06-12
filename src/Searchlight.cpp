@@ -41,16 +41,16 @@ void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials, int nTrials
     }
   int i;
   int row = masked_matrices[0]->row;  // assume all elements in r_matrices array have the same row
-  cout<<"#voxels for mask: "<<row<<endl;
+  std::cout<<"#voxels for mask: "<<row<<std::endl;
   VoxelScore* scores = GetSearchlightSVMPerformance(masked_matrices, trials, nTrials, nTests, nFolds, masked_pts);
-  sort(scores, scores+row, cmp);
+    std::sort(scores, scores+row, cmp);
   char fullfilename[MAXFILENAMELENGTH];
   sprintf(fullfilename, "%s", topVoxelFile);
   strcat(fullfilename, "_list.txt");
-  ofstream ofile(fullfilename);
+  std::ofstream ofile(fullfilename);
   for (i=0; i<row; i++)
   {
-    ofile<<scores[i].vid<<" "<<scores[i].score<<endl;
+    ofile<<scores[i].vid<<" "<<scores[i].score<<std::endl;
   }
   ofile.close();
   int* data_ids = (int*)GenerateNiiDataFromMask(maskFile, scores, row, DT_SIGNED_INT);
@@ -83,7 +83,7 @@ VoxelScore* GetSearchlightSVMPerformance(RawMatrix** avg_matrices, Trial* trials
   for (i=0; i<row; i++)
   {
     SVMProblem* prob = GetSearchlightSVMProblem(avg_matrices, trials, i, nTrials-nTests, pts);
-    if (i%1000==0) cout<<i<<" "<<flush;
+      if (i%1000==0) std::cout<<i<<" "<<std::flush;
     //if (me==0) PrintSVMProblem(prob);
     SVMParameter* param = SetSVMParameter(LINEAR); //LINEAR or PRECOMPUTED
     (score+i)->vid = i;

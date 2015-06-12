@@ -161,7 +161,6 @@ VoxelScore* GetVoxelwiseCorrVecSum(int me, Voxel* voxels, int step, int sr, Tria
     FATAL("the master node isn't supposed to do classification jobs");
   }
   int nTrials = voxels->nTrials;
-  int nVoxels = voxels->nVoxels; // assume all elements in c_matrices array have the same #voxels
   int i;
   for (i=0; i<step; i++)
   {
@@ -174,12 +173,10 @@ VoxelScore* GetVoxelwiseCorrVecSum(int me, Voxel* voxels, int step, int sr, Tria
   #pragma omp parallel for
   for (i=0; i<nTrials; i++)
   {
-    int cur_col = td1->scs[i];
     int ml = td1->trialLengths[i];
     sgemmTranspose(bufs1+i*row1*ml+sr*ml, bufs2+i*row2*ml, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);  // assume all blocks have the same length
   }
   VoxelScore* scores = new VoxelScore[step];  // get step voxels' scores here
-  int length = nVoxels * step; // assume all elements in c_matrices array have the same step, get the number of entries of a coorelation matrix, notice the row here!!
   #pragma omp parallel for
   for (int i=0; i<step; i++)
   {
@@ -198,7 +195,7 @@ float ComputeCorrVecSum(Voxel* voxels, int voxel_id)
   #pragma simd
   for (int i=0; i<nTrials*nVoxels; i++)
   {
-    sum += isnan(corr_vecs[i])?0:fabs(corr_vecs[i]);
+    sum += std::isnan(corr_vecs[i])?0:fabs(corr_vecs[i]);
   }
   return sum/nTrials/nVoxels;
 }

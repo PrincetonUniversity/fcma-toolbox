@@ -82,16 +82,15 @@ float DoDistanceRatioSmarter(int nTrainings, int startIndex, CorrMatrix** c_matr
   for (i=0; i<length; i++)
   {
     sum_c0[i] = nIn0*c0_2[i] - c0[i]*c0[i];
-    if (sum_c0[i]<0) sum_c0[i]=0.0;//{cout<<"sum_c0: "<<nIn0<<" "<<c0[i]<<" "<<c0_2[i]<<" "<<sum_c0[i]; getchar();}
+    if (sum_c0[i]<0) sum_c0[i]=0.0;
     sum_c1[i] = nIn1*c1_2[i] - c1[i]*c1[i];
-    if (sum_c1[i]<0) sum_c1[i]=0.0;//{cout<<"sum_c1: "<<nIn1<<" "<<c1[i]<<" "<<c1_2[i]<<" "<<sum_c1[i]; getchar();}
+    if (sum_c1[i]<0) sum_c1[i]=0.0;
     sum_c01[i] = nIn1*c0_2[i] + nIn0*c1_2[i] - 2*c0[i]*c1[i];
-    if (sum_c01[i]<0) sum_c01[i]=0.0;//{cout<<"sum_c01: "<<nIn0<<" "<<nIn1<<" "<<" "<<c0[i]<<" "<<c0_2[i]<<" "<<c1[i]<<" "<<c1_2[i]<<" "<<sum_c01[i]; getchar();}
+    if (sum_c01[i]<0) sum_c01[i]=0.0;
   }
   float dIn0 = GetVectorSum(sum_c0, length);
   float dIn1 = GetVectorSum(sum_c1, length);
   float dOut = GetVectorSum(sum_c01, length);
-  //cout<<((dIn0+dIn1)/((nIn0-1)*nIn0/2+(nIn1-1)*nIn1/2))<<" "<<(dOut/(nIn0*nIn1)); getchar();
   float ratio = ((dIn0+dIn1)/((nIn0-1)*nIn0/2+(nIn1-1)*nIn1/2)) / (dOut/(nIn0*nIn1));
   delete[] c0;  // try to use array instead of new later
   delete[] c0_2;
@@ -102,14 +101,3 @@ float DoDistanceRatioSmarter(int nTrainings, int startIndex, CorrMatrix** c_matr
   delete[] sum_c01;
   return ratio;
 }
-
-/*float GetVectorSum(float* v, int length)
-{
-  int i;
-  float result = 0.0;
-  for (i=0; i<length; i++)
-  {
-    result += v[i]; // could add sqrt here sqrt(v[i])
-  }
-  return result;  // or here sqrt(result)
-}*/

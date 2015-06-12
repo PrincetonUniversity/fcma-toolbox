@@ -4,6 +4,7 @@
  For license terms, please see the LICENSE file.
 */
 
+#include <iostream> // nullptr
 #include "LibSVM.h"
 
 void print_null(const char*){} // for SVM print quietly
@@ -29,7 +30,7 @@ SVMParameter* SetSVMParameter(int kernel_type)
 	param->shrinking = 1;
 	param->probability = 0;
 	param->nr_weight = 0;
-	param->weight_label = NULL;
-	param->weight = NULL;
+    param->weight_label = nullptr;
+	param->weight = nullptr;
   return param;
 }

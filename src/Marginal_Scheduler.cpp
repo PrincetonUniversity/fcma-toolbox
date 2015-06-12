@@ -70,6 +70,8 @@ void Marginal_Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, in
   if (me == 0)
   {
 #ifndef __MIC__
+    using std::cout;
+    using std::endl;
     cout.precision(6);
     cout<<"data transferring time: "<<tstop-tstart<<"s"<<endl;
     cout<<"#voxels for mask: "<<row<<endl;
@@ -159,7 +161,7 @@ VoxelScore* compute_first_order(RawMatrix** masked_matrices, Trial* trials, int 
     scores[i].vid=i;
     scores[i].score=DoIteration(data+i*nTrialsUsed, NULL, nTrialsUsed, labels, LOGISTICTRHEHOLD, 2, i, -1);
   }
-  sort(scores, scores+row, cmp1);
+  std::sort(scores, scores+row, cmp1);
   return scores;
 }
 
@@ -209,6 +211,7 @@ int* GatherLabels(Trial* trials, int nTrials)
 VoxelScore* compute_marginal_info(VoxelScore* scores, int topK, int row, float* second_order)
 {
   int i;
+  assert(row>0);
   bool isTopK[row];
   memset((void*)isTopK, false, row*sizeof(bool));
   for (i=0; i<topK; i++)
@@ -232,7 +235,7 @@ VoxelScore* compute_marginal_info(VoxelScore* scores, int topK, int row, float* 
       //}
     }
   }
-  sort(marginalLikelihood, marginalLikelihood+row, cmp1);
+  std::sort(marginalLikelihood, marginalLikelihood+row, cmp1);
   return marginalLikelihood;
 }
 
@@ -254,10 +257,10 @@ void write_result(const char* output_file, int order, VoxelScore* scores, int ro
   char fullfilename[MAXFILENAMELENGTH];
   sprintf(fullfilename, "%s", output_file);
   strcat(fullfilename, suffix1);
-  ofstream ofile(fullfilename);
+  std::ofstream ofile(fullfilename);
   for (int i=0; i<row; i++)
   {
-    ofile<<scores[i].vid<<" "<<scores[i].score<<endl;
+    ofile<<scores[i].vid<<" "<<scores[i].score<<std::endl;
   }
   ofile.close();
   int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, row, DT_SIGNED_INT);
@@ -281,7 +284,7 @@ void Do_Marginal_Master(int nprocs, int step, int row, float* second_order, cons
   {
     total += 1;
   }
-  cout<<"total task: "<<total<<endl;
+    std::cout<<"total task: "<<total<<std::endl;
   int sentCount = 0;
   int doneCount = 0;
   int sendMsg[2];
@@ -337,11 +340,11 @@ void Do_Marginal_Master(int nprocs, int step, int row, float* second_order, cons
            &status);                /* info about the received message */
     doneCount++;
     ///////////cout<<*(second_order+curPosition*row)<<" "<<*(second_order+curPosition*row+1)<<endl;
-    cout.precision(4);
-    cout<<doneCount<<'\t'<<elapse<<"s\t"<<flush;
+    std::cout.precision(4);
+    std::cout<<doneCount<<'\t'<<elapse<<"s\t"<<std::flush;
     if (doneCount%6==0)
     {
-      cout<<endl;
+      std::cout<<std::endl;
     }
     sendMsg[0] = curSr;
     sendMsg[1] = step;
@@ -391,11 +394,11 @@ void Do_Marginal_Master(int nprocs, int step, int row, float* second_order, cons
            MPI_COMM_WORLD,          /* default communicator */
            &status);                /* info about the received message */
     doneCount++;
-    cout.precision(4);
-    cout<<doneCount<<'\t'<<elapse<<"s\t"<<flush;
+    std::cout.precision(4);
+    std::cout<<doneCount<<'\t'<<elapse<<"s\t"<<std::flush;
     if (doneCount%6==0)
     {
-      cout<<endl;
+      std::cout<<std::endl;
     }
   }
   for (i=1; i<nprocs; i++)  // tell all processes to stop

@@ -85,31 +85,12 @@ void GetSAndH(float* data, float* data2, float* beta, int length, int* labels, i
 
 float* GetInverseMat(float* mat, int rank)
 {
-  int lwork = 102;
-  float work[lwork];
-  int info;
-  float wr[rank], wi[rank];
   float tempMat[rank*rank];
   memcpy((void*)tempMat, (const void*)mat, rank*rank*sizeof(float));
-  //for (int i=0; i<rank*rank; i++) tempMat[i] = -tempMat[i];
-  //dgeev( "N", "N", &rank, tempMat, &rank, wr, wi, NULL, &rank, NULL, &rank, work, &lwork, &info );
-  // ridge regularization
-  /*float delta=-0.1;
-  for (int i=0; i<rank; i++)
-  {
-    if (wr[i]>delta)
-    {
-      mat[0] += delta;
-      mat[4] += delta;
-      if (rank==3) mat[8] += delta;
-      break;
-    }
-  }*/
-  /*if (rank==3){
-  cout<<mat[0]<<" "<<mat[1]<<" "<<mat[2]<<endl;
-  cout<<mat[3]<<" "<<mat[4]<<" "<<mat[5]<<endl;
-  cout<<mat[6]<<" "<<mat[7]<<" "<<mat[8]<<endl;
-  cout<<wr[0]<<" "<<wr[1]<<" "<<wr[2]<<endl;exit(1);}*/
+    
+  using std::cerr;
+  using std::endl;
+    
   float* iMat = new float[rank*rank];
   if (rank==2)
   {
@@ -157,12 +138,9 @@ float* GetInverseMat(float* mat, int rank)
 
 float DoIteration(float* data, float* data2, int length, int* labels, float epsilon, int rank, int v1, int v2)
 {
-  //float* beta=new float[rank];
   float* beta = (float*)_mm_malloc(sizeof(float)*rank, 64);
   memset((void*)beta, 0, rank*sizeof(float));
-  //float* S=new float[rank];
   float* S = (float*)_mm_malloc(sizeof(float)*rank, 64);
-  //float* H=new float[rank*rank];
   float* H = (float*)_mm_malloc(sizeof(float)*rank*rank, 64);
   float loglikelihood = 0.0;
   if (rank==2)
@@ -243,7 +221,7 @@ float DoIteration2(float* dataHead, int offset1, float* dataHead2, int offset2, 
     {
       GetSAndH(data, data2, beta, length, labels, rank, S, H, -1, -1, -1);
       if (H[2]==0 && H[3]==0)
-      { for (int ii=0; ii<length; ii++) cerr<<data[ii]<<" "; cerr<<endl;cerr<<epsilon<<endl;}
+      { for (int ii=0; ii<length; ii++) std::cerr<<data[ii]<<" "; std::cerr<<std::endl;std::cerr<<epsilon<<std::endl;}
       iH = GetInverseMat(H, rank);
       lambda = -((S[0]*iH[0]+S[1]*iH[2])*S[0]+(S[0]*iH[1]+S[1]*iH[3])*S[1]);
       beta[0] = beta[0]-(iH[0]*S[0]+iH[1]*S[1]);

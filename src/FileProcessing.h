@@ -6,19 +6,10 @@
 
 #include <cstring>
 #include "common.h"
-#ifdef USE_MKL
-#include <mkl_cblas.h>
-#elif defined __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
-extern "C" {
-#include <cblas.h>
-}
-#endif
 
 RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype, int& nSubs);
-RawMatrix* ReadGzData(string fileStr, int sid);
-RawMatrix* ReadNiiGzData(string fileStr, int sid);
+RawMatrix* ReadGzData(std::string fileStr, int sid);
+RawMatrix* ReadNiiGzData(std::string fileStr, int sid);
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs, const char* maskFile);
 RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile);
 VoxelXYZ* GetMaskedPts(VoxelXYZ* pts, int nMaskedVoxels, const char* maskFile);

@@ -17,15 +17,19 @@
 #include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
 
+
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
   double tstart, tstop;
-  int i;
   RawMatrix** masked_matrices1=NULL;
   RawMatrix** masked_matrices2=NULL;
   TrialData* td1=NULL;
   TrialData* td2=NULL;
+    
+  using std::cout;
+  using std::endl;
+    
 #ifndef __MIC__
   if (me == 0)
   {
@@ -50,18 +54,15 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
       MatrixPermutation(masked_matrices2, nSubs, seed, permute_book_file);
     }
-//#ifdef __USE_MIC__  // currently, only for MIC jobs we preprocess the activity matrices to save bandwidth and onboard normalization time
-    if (taskType==0 || taskType==3)
-    {
-      td1 = PreprocessMatrices(masked_matrices1, trials, nSubs, nTrials);
-      td2 = PreprocessMatrices(masked_matrices2, trials, nSubs, nTrials);
-    }
+    td1 = PreprocessMatrices(masked_matrices1, trials, nSubs, nTrials);
+    td2 = PreprocessMatrices(masked_matrices2, trials, nSubs, nTrials);
     tstop = MPI_Wtime();
     cout.precision(6);
     cout<<"data mask applying time: "<<tstop-tstart<<"s"<<endl;
-//#endif
   }
 #endif
+    
+    /* about TrialData: it is */
   tstart = MPI_Wtime();
   if (me != 0)
   {
@@ -83,9 +84,23 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   MPI_Bcast((void*)(td2->trialLengths), td2->nTrials, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast((void*)(td1->scs), td1->nTrials, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast((void*)(td2->scs), td2->nTrials, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast((void*)(td1->data), td1->nCols*td1->nVoxels, MPI_FLOAT, 0, MPI_COMM_WORLD);
-  MPI_Bcast((void*)(td2->data), td2->nCols*td2->nVoxels, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    
+  // Since can be too much data for a single send (max 2^31 elements or 4GB)
+  // send as a series of trials
+  // (voxels*trs_per_trial per send , for nSubs*numblocks sends)
+  float* d1ptr = td1->data;
+  float* d2ptr = td2->data;
+  for (int t=0; t<nTrials; t++) {
+      int dataChunk1 = td1->trialLengths[t]*td1->nVoxels;
+      int dataChunk2 = td2->trialLengths[t]*td2->nVoxels;
+      MPI_Bcast((void*)d1ptr, dataChunk1, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      MPI_Bcast((void*)d2ptr, dataChunk2, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      d1ptr += dataChunk1;
+      d2ptr += dataChunk2;
+  }
+    
   MPI_Barrier(MPI_COMM_WORLD);
+    
   tstop = MPI_Wtime();
   if (me == 0)
   {
@@ -122,6 +137,12 @@ The mask file here is the sample nifti file for writing */
 void DoMaster(int nprocs, int step, int row, const char* output_file, const char* mask_file)
 {
 #ifndef __MIC__
+  using std::cout;
+  using std::endl;
+  using std::flush;
+  using std::sort;
+  using std::ofstream;
+    
   int curSr = 0;
   int i, j;
   int total = row / step;
@@ -291,7 +312,6 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType,
   voxels->vid=new int[preset_step];
   voxels->kernel_matrices = (float*)_mm_malloc(sizeof(float)*nTrials*nTrials*preset_step, 64);
   voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nVoxels*BLK2*nTrials, 64);
-  int ml = trials[0].ec;  // assuming all blocks have the same length
   while (true)
   {
     MPI_Recv(recvMsg,      /* message buffer */
@@ -365,6 +385,6 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType,
   }
   _mm_free(voxels->corr_vecs);
   _mm_free(voxels->kernel_matrices);
-  delete voxels->vid;
+  delete [] voxels->vid;
   delete voxels;
 }
