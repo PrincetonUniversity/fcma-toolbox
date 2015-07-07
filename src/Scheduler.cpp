@@ -17,7 +17,6 @@
 #include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
 
-
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
@@ -61,8 +60,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
     cout<<"data mask applying time: "<<tstop-tstart<<"s"<<endl;
   }
 #endif
-    
-    /* about TrialData: it is */
+
   tstart = MPI_Wtime();
   if (me != 0)
   {
@@ -77,8 +75,10 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
     td2->trialLengths = new int[td2->nTrials];
     td1->scs = new int[td1->nTrials];
     td2->scs = new int[td2->nTrials];
-    td1->data = (float*)_mm_malloc(sizeof(float)*td1->nCols*td1->nVoxels, 64);
-    td2->data = (float*)_mm_malloc(sizeof(float)*td2->nCols*td2->nVoxels, 64);
+    td1->data = (float*)_mm_malloc(sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels, 64);
+    assert(td1->data);
+    td2->data = (float*)_mm_malloc(sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
+    assert(td2->data);
   }
   MPI_Bcast((void*)(td1->trialLengths), td1->nTrials, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast((void*)(td2->trialLengths), td2->nTrials, MPI_INT, 0, MPI_COMM_WORLD);
@@ -91,10 +91,12 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix**
   float* d1ptr = td1->data;
   float* d2ptr = td2->data;
   for (int t=0; t<nTrials; t++) {
-      int dataChunk1 = td1->trialLengths[t]*td1->nVoxels;
-      int dataChunk2 = td2->trialLengths[t]*td2->nVoxels;
-      MPI_Bcast((void*)d1ptr, dataChunk1, MPI_FLOAT, 0, MPI_COMM_WORLD);
-      MPI_Bcast((void*)d2ptr, dataChunk2, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      size_t dataChunk1 = td1->trialLengths[t] * (size_t)td1->nVoxels;
+          assert(dataChunk1 < (size_t)INT_MAX);
+      size_t dataChunk2 = td2->trialLengths[t] * (size_t)td2->nVoxels;
+          assert(dataChunk2 < (size_t)INT_MAX);
+      MPI_Bcast((void*)d1ptr, (int)dataChunk1, MPI_FLOAT, 0, MPI_COMM_WORLD);
+      MPI_Bcast((void*)d2ptr, (int)dataChunk2, MPI_FLOAT, 0, MPI_COMM_WORLD);
       d1ptr += dataChunk1;
       d2ptr += dataChunk2;
   }
@@ -151,6 +153,7 @@ void DoMaster(int nprocs, int step, int row, const char* output_file, const char
     total += 1;
   }
   cout<<"total task: "<<total<<endl;
+
   int sentCount = 0;
   int doneCount = 0;
   int sendMsg[2];
@@ -305,13 +308,23 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType,
 {
   int recvMsg[2];
   MPI_Status status;
-  int nVoxels = td2->nVoxels;
+  size_t nVoxels = td2->nVoxels;
   Voxel* voxels = new Voxel();
   voxels->nTrials = nTrials;
   voxels->nVoxels = nVoxels;
   voxels->vid=new int[preset_step];
-  voxels->kernel_matrices = (float*)_mm_malloc(sizeof(float)*nTrials*nTrials*preset_step, 64);
-  voxels->corr_vecs = (float*)_mm_malloc(sizeof(float)*nVoxels*BLK2*nTrials, 64);
+  voxels->kernel_matrices = (float*)_mm_malloc(sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step, 64);
+  assert(voxels->kernel_matrices);
+  
+  size_t dataSize = sizeof(float) * (size_t)nVoxels * (size_t)BLK2 * (size_t)nTrials;
+  if (1 == me)
+  {
+	  std::cout << "task 1: bytes for correlation vecs: " << dataSize << std::endl << std::flush;
+	  if (getenv("FCMA_DEBUG_TASK")) WaitForDebugAttach();
+  }
+  
+  voxels->corr_vecs = (float*)_mm_malloc(dataSize, 64);
+  assert(voxels->corr_vecs);
   while (true)
   {
     MPI_Recv(recvMsg,      /* message buffer */

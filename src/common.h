@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <climits>
 #include <iomanip>
 // define NDEBUG here to disable assertions
 // if/when "release" builds are supported

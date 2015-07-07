@@ -735,7 +735,11 @@ void	secondOrder(float* devData, int devDataPitchInFloats, float* devTransposedD
     }
   }  
 
-    float bLow = devF[devLocalIndicesRL];
+    float bLow = 1.0f;
+    if (devLocalIndicesRL >= 0)
+      bLow = devF[devLocalIndicesRL];
+    else
+      devLocalIndicesRL=0;
 
     if(iHighCompute) delete [] highKernel;
 

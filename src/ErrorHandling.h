@@ -21,5 +21,6 @@ enum ErrorType {
 
 void ContinueWithError(const std::ostringstream& os, ErrorType error = ERROR_NOEXIT);
 void ExitWithError(const std::ostringstream& os, ErrorType error = ERROR_FATAL) __attribute__((__noreturn__));
+void WaitForDebugAttach(void);
 
 #endif /* defined(__ErrorHandling__) */

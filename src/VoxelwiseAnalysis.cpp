@@ -19,20 +19,19 @@ output: the voxel struct array
 *********************************/
 Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int nTrainings, int sr, int step, TrialData* td1, TrialData* td2)
 {
-  int i;
 #if __MEASURE_TIME__
   float t=0.0f, t_corr=0.0f;
   struct timeval start, end;
 #endif
-  for (i=0; i<step; i++)
+  for (size_t i=0; i<step; i++)
   {
     voxels->vid[i]=sr+i;
   }
 //float t;
 //struct timeval start, end;
 //gettimeofday(&start, 0);
-  int row=td2->nVoxels;    // assuming all matrices have the same size
-  int ml=trials[0].ec-trials[0].sc+1;    // assuming all blocks have the same size
+  size_t row=td2->nVoxels;    // assuming all matrices have the same size
+  size_t ml=trials[0].ec-trials[0].sc+1;    // assuming all blocks have the same size
   int nPerSubj=nTrials/nSubs;    // assuming all subjects have the same number of blocks
   int m_max = (step/BLK2)*BLK2;
   memset((void*)voxels->kernel_matrices, 0, sizeof(float)*nTrainings*nTrainings*step);
@@ -166,14 +165,14 @@ VoxelScore* GetVoxelwiseCorrVecSum(int me, Voxel* voxels, int step, int sr, Tria
   {
     voxels->vid[i]=sr+i;
   }
-  int row1=td1->nVoxels;    // assuming all matrices have the same size
-  int row2=td2->nVoxels;    // assuming all matrices have the same size
+  size_t row1=td1->nVoxels;    // assuming all matrices have the same size
+  size_t row2=td2->nVoxels;    // assuming all matrices have the same size
   float* bufs1 = td1->data;
   float* bufs2 = td2->data;
   #pragma omp parallel for
   for (i=0; i<nTrials; i++)
   {
-    int ml = td1->trialLengths[i];
+    size_t ml = td1->trialLengths[i];
     sgemmTranspose(bufs1+i*row1*ml+sr*ml, bufs2+i*row2*ml, step, row2, ml, voxels->corr_vecs+i*row2, row2*nTrials);  // assume all blocks have the same length
   }
   VoxelScore* scores = new VoxelScore[step];  // get step voxels' scores here
@@ -189,11 +188,11 @@ VoxelScore* GetVoxelwiseCorrVecSum(int me, Voxel* voxels, int step, int sr, Tria
 float ComputeCorrVecSum(Voxel* voxels, int voxel_id)
 {
   int nTrials = voxels->nTrials;
-  int nVoxels = voxels->nVoxels;
+  size_t nVoxels = voxels->nVoxels;
   float* corr_vecs = voxels->corr_vecs+voxel_id*nTrials*nVoxels;
   float sum=0.0f;
   #pragma simd
-  for (int i=0; i<nTrials*nVoxels; i++)
+  for (size_t i=0; i<nTrials*nVoxels; i++)
   {
     sum += std::isnan(corr_vecs[i])?0:fabs(corr_vecs[i]);
   }

@@ -339,7 +339,12 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
   // nCols was nTrials * trs_per_block when trialLengths were constant
   // now use the cumulative sum of trialLengths from above
   td->nCols = total_cols;
-  td->data = (float*)_mm_malloc(sizeof(float)*td->nCols*td->nVoxels, 64);
+  
+  size_t dataSize = sizeof(float) * (size_t)td->nCols * (size_t)td->nVoxels;
+
+  std::cout << "allocating raw data buffer bytes: " << dataSize << std::endl << std::flush;
+ 
+  td->data = (float*)_mm_malloc(dataSize, 64);
   assert(td->data);
   int cur_cols[nTrials];
   cur_cols[0] = 0;
@@ -358,14 +363,16 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
     int row = matrices[sid]->row;
     int col = matrices[sid]->col;
     float* matrix = matrices[sid]->matrix;
-    float* buf = td->data+cur_cols[i]*(td->nVoxels);
+    float* buf = td->data + (size_t)cur_cols[i] * (size_t)td->nVoxels;
     int sc = trials[i].sc;
     int ec = trials[i].ec;
     int delta_col = ec-sc+1;
+    assert(delta_col > 0);
+    
     // for all voxels (rows)
     for (int r=0; r<row; r++)
     {
-      double mean=0, sd=0;  // float here is not precise enough to handle
+      double mean=0.0f, sd=0.0f;  // float here is not precise enough to handle
       // normalization 1: get mean+sd for a particular block within a particular subject
       for (int c=sc; c<=ec; c++)
       {
@@ -375,12 +382,17 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs, in
       mean /= delta_col;
       sd = sd - delta_col * mean * mean;
       sd = sqrt(sd);
-      ALIGNED(64) float inv_sd_f=1/sd;  // do time-comsuming division once
+      ALIGNED(64) float inv_sd_f;
       ALIGNED(64) float mean_f=mean;  // for vectorization
-      if (sd == 0)  // leave the numbers as they are
+      if (sd == 0.0f)  // leave the numbers as they are
       {
         inv_sd_f=0.0f;
       }
+      else
+      {
+        inv_sd_f=1.0f/sd;  // do time-comsuming division once
+      }
+      
       // normalization 2: subtract mean and divide by sd calculated above
       #pragma simd
       for (int c=sc; c<=ec; c++)

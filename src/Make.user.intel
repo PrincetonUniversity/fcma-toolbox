@@ -4,7 +4,7 @@
 # set location of your MPI and BLAS development install here
 #  (assumes subdirs include and lib for each)
 BLASINCLUDE = -I/opt/intel/mkl/include
-BLASCFLAGS = -DUSE_MKL -qopt-report-phase=vec #-vec-report=1
+BLASCFLAGS = -DUSE_MKL -qopt-report-phase=vec -DCMM_INT_IS_LONG #-vec-report=1
 BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64 -L$(HOME)/tools/nifticlib-2.0.0/lib
 BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include -I$(HOME)/tools/nifticlib-2.0.0/include

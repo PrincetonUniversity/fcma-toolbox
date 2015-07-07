@@ -592,11 +592,35 @@ void run_fcma(Param* param)
 
 #ifndef NOMAIN
 
+#define FCSIZE_INFO(T) \
+do \
+{ \
+  std::cout << "sizeof(" << #T << ") is " << sizeof(T) << std::endl << std::flush; \
+} while (false)
+
 int main(int argc, char** argv)
 {
     //total_count=0;
     //raise(SIGSTOP); //xcode attach to process
     //kmp_set_defaults("KMP_AFFINITY=scatter");
+    if (argc>1 && !strcmp(argv[1],"info"))
+    {
+        
+        FCSIZE_INFO(char);
+        FCSIZE_INFO(short);
+        FCSIZE_INFO(int);
+        FCSIZE_INFO(size_t);
+        FCSIZE_INFO(long);
+        FCSIZE_INFO(long long);
+        FCSIZE_INFO(float);
+        FCSIZE_INFO(double);
+        FCSIZE_INFO(long double);
+        FCSIZE_INFO(MKL_INT);
+
+        return 0;
+    }
+
+    
     parse_command_line(argc, argv);
     run_fcma(&Parameters);
     return 0;
