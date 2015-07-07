@@ -1,2 +1,0 @@
-BLASINCLUDE = -F Accelerate
-BLASLIBINC = -framework Accelerate
