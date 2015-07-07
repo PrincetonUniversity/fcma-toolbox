@@ -148,3 +148,6 @@ gcc 4.9 and/or icc 15.0 are recommended for compiling
 added sending data by trial not all at once (MPI_Bcast 32-bit limit)
 removed global 'using namespace std' from common header into local using statements
 compiles using clang++ on os x again, ran llvm 3.6 static analyzer, added assertions & cleanup
+
+1.7.2
+further addressed 32-bit int issue by using longs where appropriate
