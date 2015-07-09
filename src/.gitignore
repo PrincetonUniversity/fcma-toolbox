@@ -1,0 +1,6 @@
+Make.user*
+pni_fcma*
+!Make.user.intel
+!Make.user.osx
+!Make.user.linux
+*.optrpt

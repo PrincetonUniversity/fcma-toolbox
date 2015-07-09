@@ -1,11 +1,5 @@
 .snapshot/
-pni_fcma
-Make.user*
 *.[oa]
 *.MIC
 *~
 !.gitignore
-!Make.user.intel
-!Make.user.osx
-!Make.user.linux
-*.optrpt
