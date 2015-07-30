@@ -65,7 +65,7 @@ void set_default_parameters()
   Parameters.output_file = "topvoxels";
   Parameters.block_information_file = Parameters.block_information_directory = NULL;
   Parameters.step = 100;
-  Parameters.taskType = 0;
+  Parameters.taskType = Corr_Based_SVM;
   Parameters.leave_out_id = -1;
   Parameters.nHolds = 0;
   Parameters.nFolds = -1;
@@ -98,12 +98,12 @@ void check_parameters()
     cout<<"no block information, general information below"<<endl;
     exit_with_help();
   }
-  if (Parameters.taskType==-1)
+  if (Parameters.taskType==Error_Type)
   {
     cout<<"task type must be specified"<<endl;
     exit_with_help();
   }
-  if (Parameters.output_file==NULL && (Parameters.taskType==0 || Parameters.taskType==1 || Parameters.taskType==2 || Parameters.taskType==3))
+  if (Parameters.output_file==NULL && (Parameters.taskType==Corr_Based_SVM || Parameters.taskType==Corr_Based_Dis || Parameters.taskType==Acti_Based_SVM || Parameters.taskType==Corr_Sum))
   {
     cout<<"no output file, general information below"<<endl;
     exit_with_help();
@@ -118,12 +118,12 @@ void check_parameters()
     cout<<"number of folds in the voxel selection must be specified"<<endl;
     exit_with_help();
   }
-  if (Parameters.taskType==8 && Parameters.visualized_block_id==-1)
+  if (Parameters.taskType==Corr_Visualization && Parameters.visualized_block_id==-1)
   {
     cout<<"the block to be visualized must be specified"<<endl;
     exit_with_help();
   }
-  if (Parameters.taskType==8 && Parameters.ref_file==NULL)
+  if (Parameters.taskType==Corr_Visualization && Parameters.ref_file==NULL)
   {
     cout<<"in the voxel correlation visualization task, a reference file must be provided"<<endl;
     exit_with_help();
@@ -203,7 +203,7 @@ void parse_command_line(int argc, char **argv)
         Parameters.output_file = argv[i];
         break;
       case 'k':
-        Parameters.taskType = atoi(argv[i]);
+        Parameters.taskType = (Task)atoi(argv[i]);
         break;
       case 'l':
         Parameters.leave_out_id = atoi(argv[i]);
@@ -303,7 +303,7 @@ static void params_from_keyvalues(char** keys_and_values,const int& num_elements
             Parameters.output_file = keys_and_values[v];
             break;
           case FCMA_TASK_TYPE:
-            Parameters.taskType = atoi(keys_and_values[v]);
+            Parameters.taskType = (Task)atoi(keys_and_values[v]);
             break;
           case FCMA_BLOCKFILE:
             Parameters.block_information_file = keys_and_values[v];
@@ -370,7 +370,7 @@ void run_fcma(Param* param)
     /* ---------------------------------------------- */
     /* set a series of input arguments */
     int step = param->step;
-    int taskType = param->taskType;
+    Task taskType = param->taskType;
     const char* fmri_directory = param->fmri_directory;
     if (fmri_directory==NULL) fmri_directory = param->fmri_directory1;
     const char* fmri_directory2 = param->fmri_directory2;
@@ -468,12 +468,12 @@ void run_fcma(Param* param)
     double tstart = MPI_Wtime();
     //int row = r_matrices[0]->row;
     RawMatrix** avg_matrices = NULL;
-    if (taskType == 2 || taskType == 6 || taskType == 7)
+    if (taskType == Acti_Based_SVM || taskType == Acti_Mask_Classification || taskType == Acti_Mask_Cross_Validation)
     {
         int nBlocksPerSub = nTrials / nSubs;  // assume each subject has the same number of blocks
         avg_matrices = rawMatPreprocessing(r_matrices, nSubs, nBlocksPerSub, trials); // 18 subjects, 12 blocks per subject
     }
-    if (taskType != 5 && taskType != 7 && leave_out_id>=0)  // k==5 or 7 implies a cross validation
+    if (taskType != Corr_Mask_Cross_Validation && taskType != Acti_Mask_Cross_Validation && leave_out_id>=0)  // k==5 or 7 implies a cross validation
     {
         leaveSomeTrialsOut(trials, nTrials, leave_out_id, nHolds); // leave nHolds blocks out every time, usually 1 entire subject
     }
@@ -492,17 +492,17 @@ void run_fcma(Param* param)
         cout<<"task type: "<<taskType<<endl;
         switch (taskType)
         {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
+            case Corr_Based_SVM:
+            case Corr_Based_Dis:
+            case Acti_Based_SVM:
+            case Corr_Sum:
                 SVMPredict(r_matrices, r_matrices2, avg_matrices, nSubs, nTrials, trials, nHolds, taskType, output_file, mask_file1, is_quiet_mode);
                 break;
-            case 4:
+            case Corr_Mask_Classification:
                 result = SVMPredictCorrelationWithMasks(r_matrices, r_matrices2, nSubs, mask_file1, mask_file2, nTrials, trials, nHolds, is_quiet_mode);
                 cout<<"accuracy: "<<result<<"/"<<nHolds<<"="<<result*1.0/nHolds<<endl;
                 break;
-            case 5:
+            case Corr_Mask_Cross_Validation:
                 nHolds = param->nHolds;
                 while (l<=nTrials-nHolds) //assume that nHolds*an integer==nTrials
                 {
@@ -515,11 +515,11 @@ void run_fcma(Param* param)
                 }
                 cout<<"total accuracy: "<<result<<"/"<<nTrials<<"="<<result*1.0/nTrials<<endl;
                 break;
-            case 6:
+            case Acti_Mask_Classification:
                 result = SVMPredictActivationWithMasks(avg_matrices, nSubs, mask_file1, nTrials, trials, nHolds, is_quiet_mode);
                 cout<<"accuracy: "<<result<<"/"<<nHolds<<"="<<result*1.0/nHolds<<endl;
                 break;
-            case 7:
+            case Acti_Mask_Cross_Validation:
                 nHolds = param->nHolds;
                 while (l<=nTrials-nHolds) //assume that nHolds*an integer==nTrials
                 {
@@ -532,7 +532,7 @@ void run_fcma(Param* param)
                 }
                 cout<<"total accuracy: "<<result<<"/"<<nTrials<<"="<<result*1.0/nTrials<<endl;
                 break;
-            case 8:
+            case Corr_Visualization:
                 if (visualized_block_id>=nTrials)
                 {
                     FATAL("Wrong visualized block id, you only provide "<<nTrials<<" blocks!");
@@ -549,22 +549,22 @@ void run_fcma(Param* param)
         // compute the matrix, do analysis
         switch (taskType)
         {
-            case 0:
-            case 1:
-            case 3:
+            case Corr_Based_SVM:
+            case Corr_Based_Dis:
+            case Corr_Sum:
                 if (me==0)  // master process doesn't need to keep r_matrices
                 {
-                    if (taskType==0) cout<<"SVM selecting..."<<endl;
-                    if (taskType==1) cout<<"distance ratio selecting..."<<endl;
-                    if (taskType==3) cout<<"correlation sum..."<<endl;
+                    if (taskType==Corr_Based_SVM) cout<<"SVM selecting..."<<endl;
+                    if (taskType==Corr_Based_Dis) cout<<"distance ratio selecting..."<<endl;
+                    if (taskType==Corr_Sum) cout<<"correlation sum..."<<endl;
                 }
                 Scheduler(me, nprocs, step, r_matrices, r_matrices2, taskType, trials, nTrials, nHolds, nSubs, nFolds, output_file, mask_file1, mask_file2, shuffle, permute_book_file);
                 break;
-            case 2:
+            case Acti_Based_SVM:
                 cout<<"Searchlight selecting..."<<endl;
                 Searchlight(avg_matrices, nSubs, trials, nTrials, nHolds, nFolds, pts, output_file, mask_file1, shuffle, permute_book_file);  // doesn't need mpi
                 break;
-            case 9:
+            case Marginal_Screening:
                 if (me==0)
                 {
                   cout<<"marginal screening starting..."<<endl;

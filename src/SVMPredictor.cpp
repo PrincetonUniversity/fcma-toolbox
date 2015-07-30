@@ -29,7 +29,7 @@ predict a new sample based on a trained SVM model and a variation of the numbers
 input: the raw activation matrix arrays, the average activation matrix array, the number of subjects, the number of blocks(trials), the blocks, the number of test samples, the task type, the files to store the results, the mask file
 output: the results are displayed on the screen
 ****************************************/
-void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, int taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
+void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials, int nTests, Task taskType, const char* topVoxelFile, const char* mask_file, int is_quiet_mode)
 {
 #ifndef __MIC__
   RawMatrix** masked_matrices1=NULL;
@@ -47,8 +47,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg
     using std::cerr;
     using std::endl;
           
-    case 0:
-    case 1:
+    case Corr_Based_SVM:
+    case Corr_Based_Dis:
       if (mask_file!=NULL)
       {
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file);
@@ -70,7 +70,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2, RawMatrix** avg
       else
           cerr<<"less than "<<tops[0]<<"voxels!"<<endl;
       break;
-    case 2:
+    case Acti_Based_SVM:
       if (mask_file!=NULL)
         masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
       else

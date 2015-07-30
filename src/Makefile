@@ -32,7 +32,7 @@ TARGETS ?= pni_fcma $(OTHER_TARGETS)
 all: $(SOURCES) $(TARGETS)
 
 clean:
-	rm -f *.o *.MIC $(EXECUTABLE) *~
+	rm -f *.o *.MIC $(EXECUTABLE) *~ *.optrpt
 
 
 $(EXECUTABLE): $(OBJECTS)

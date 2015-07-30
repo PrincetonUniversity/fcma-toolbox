@@ -88,6 +88,11 @@ extern "C" {
 #define POSITIONTAG 5
 #define SECONDORDERTAG 6
 
+enum Task {Corr_Based_SVM=0, Corr_Based_Dis, Acti_Based_SVM, Corr_Sum, \
+           Corr_Mask_Classification, Corr_Mask_Cross_Validation, \
+           Acti_Mask_Classification, Acti_Mask_Cross_Validation, \
+           Corr_Visualization, Marginal_Screening, Error_Type=-1};
+
 typedef unsigned long long uint64;
 typedef unsigned short uint16;
 

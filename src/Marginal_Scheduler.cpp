@@ -17,7 +17,7 @@
 #include "ErrorHandling.h"
 
 // marginal screening computation only needs one mask file
-void Marginal_Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file)
+void Marginal_Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, Task taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file)
 {
   int i;
   RawMatrix** masked_matrices=NULL;
@@ -420,7 +420,7 @@ void Do_Marginal_Master(int nprocs, int step, int row, float* second_order, cons
 A task is a matrix multiplication to get the correlation vectors of some voxels. 
 The slave node also does some preprocessing on the correlation vectors then 
 analyzes the correlatrion vectors (either do classification or compute the average correlation coefficients.*/
-void Do_Marginal_Slave(int me, int masterId, float* data, int* labels, int row, int taskType, int nTrialsUsed)
+void Do_Marginal_Slave(int me, int masterId, float* data, int* labels, int row, Task taskType, int nTrialsUsed)
 {
   int recvMsg[2];
   MPI_Status status;
@@ -441,7 +441,7 @@ void Do_Marginal_Slave(int me, int masterId, float* data, int* labels, int row, 
       break;
     }
     float* second_order = new float[row*step];
-    if (taskType==9)
+    if (taskType==Marginal_Screening)
     {
       compute_second_order(data, labels, nTrialsUsed, row, second_order, sr, step);
     }

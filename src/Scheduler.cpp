@@ -18,7 +18,7 @@
 #include "ErrorHandling.h"
 
 // two mask files can be different
-void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
+void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices, RawMatrix** r_matrices2, Task taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, const char* output_file, const char* mask_file1, const char* mask_file2, int shuffle, const char* permute_book_file)
 {
   double tstart, tstop;
   RawMatrix** masked_matrices1=NULL;
@@ -304,7 +304,7 @@ void DoMaster(int nprocs, int step, int row, const char* output_file, const char
 A task is a matrix multiplication to get the correlation vectors of some voxels. 
 The slave node also does some preprocessing on the correlation vectors then 
 analyzes the correlatrion vectors (either do classification or compute the average correlation coefficients.*/
-void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, int preset_step)
+void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, Task taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, int preset_step)
 {
   int recvMsg[2];
   MPI_Status status;
@@ -344,7 +344,7 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType,
     VoxelScore* scores = NULL;
     switch (taskType)
     {
-      case 0:
+      case Corr_Based_SVM:
 #if __MEASURE_TIME__
     double t1 = MPI_Wtime();
 #endif
@@ -362,11 +362,11 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, int taskType,
         cout<<"svm processing: "<<t1-t2<<"s"<<endl;
 #endif
         break;
-      case 1:
+      case Corr_Based_Dis:
         // TODO
         // it was distance ratio before
         break;
-      case 3:
+      case Corr_Sum:
         //scores = GetCorrVecSum(me, c_matrices, nTrials);
         //voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs, nTrials-nHolds, sr, step, td1, td2);
         scores =  GetVoxelwiseCorrVecSum(me, voxels, step, sr, td1, td2);

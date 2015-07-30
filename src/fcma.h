@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
+
 typedef struct param_t
 {
     const char* fmri_directory;
@@ -24,7 +26,7 @@ typedef struct param_t
     int step;
     const char* output_file;
     int leave_out_id;
-    int taskType;
+    Task taskType;
     int nHolds;
     int nFolds;
     int visualized_block_id;
