@@ -79,6 +79,7 @@ extern "C" {
 #define MAXFILENAMELENGTH 300
 #define MAXSUBJS 100
 #define MAXTRIALPERSUBJ 64
+#define MAXSVMITERATION 20000000
 
 // MPI communication tags
 #define COMPUTATIONTAG 1

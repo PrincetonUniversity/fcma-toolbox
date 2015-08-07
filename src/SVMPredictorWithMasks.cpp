@@ -36,10 +36,15 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1, RawMatrix** r_matric
     masked_matrices2 = r_matrices2;
   cout<<"masked matrices generating done!"<<endl;
   cout<<"#voxels for mask1: "<<masked_matrices1[0]->row<<" #voxels for mask2: "<<masked_matrices2[0]->row<<endl;
+#if __MEASURE_TIME__
+  float t_sim=0.0f, t_train=0.0f;
+  struct timeval start, end;
+  gettimeofday(&start, 0);
+#endif
   float* simMatrix = new float[nTrials*nTrials];
   int corrRow = masked_matrices1[0]->row;
   memset((void*)simMatrix, 0, nTrials*nTrials*sizeof(float));
-  int sr = 0, rowLength = 100;
+  int sr = 0, rowLength = 500;
   int result = 0;
   while (sr<corrRow)
   {
@@ -52,9 +57,20 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1, RawMatrix** r_matric
     delete[] tempSimMatrix;
     sr += rowLength;
   }
+#if __MEASURE_TIME__
+    gettimeofday(&end, 0);
+    t_sim=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+    cout<<"similarity (kernel) matrix computation done! Takes "<<t_sim<<"s"<<endl;
+    gettimeofday(&start, 0);
+#endif
   SVMParameter* param = SetSVMParameter(PRECOMPUTED); //LINEAR or PRECOMPUTED
   SVMProblem* prob = GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials-nTests);
   struct svm_model *model = svm_train(prob, param);
+#if __MEASURE_TIME__
+    gettimeofday(&end, 0);
+    t_train=end.tv_sec-start.tv_sec+(end.tv_usec-start.tv_usec)*0.000001;
+    cout<<"SVM training done! Takes "<<t_train<<"s"<<endl;
+#endif
   int nTrainings = nTrials-nTests;
   SVMNode* x = new SVMNode[nTrainings+2];
   double predict_distances[nTrials-nTrainings];

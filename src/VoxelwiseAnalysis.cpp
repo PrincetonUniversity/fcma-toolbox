@@ -19,6 +19,8 @@ output: the voxel struct array
 *********************************/
 Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials, int nSubs, int nTrainings, int sr, int step, TrialData* td1, TrialData* td2)
 {
+  using std::cout;
+  using std::endl;
 #if __MEASURE_TIME__
   float t=0.0f, t_corr=0.0f;
   struct timeval start, end;

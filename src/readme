@@ -151,3 +151,7 @@ compiles using clang++ on os x again, ran llvm 3.6 static analyzer, added assert
 
 1.7.2
 further addressed 32-bit int issue by using longs where appropriate
+
+1.7.3
+change the SVM cross validation implementation in the correlation-based selection back to be LibSVM.
+add MAXSVMITERATION (20,000,000) to restrict the SVM training from doing forever for some data (too many iterations won't help)

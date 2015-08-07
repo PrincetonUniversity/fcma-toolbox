@@ -306,6 +306,9 @@ The slave node also does some preprocessing on the correlation vectors then
 analyzes the correlatrion vectors (either do classification or compute the average correlation coefficients.*/
 void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, Task taskType, Trial* trials, int nTrials, int nHolds, int nSubs, int nFolds, int preset_step)
 {
+  using std::cout;
+  using std::endl;
+  using std::flush;
   int recvMsg[2];
   MPI_Status status;
   size_t nVoxels = td2->nVoxels;
@@ -319,7 +322,7 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, Task taskType
   size_t dataSize = sizeof(float) * (size_t)nVoxels * (size_t)BLK2 * (size_t)nTrials;
   if (1 == me)
   {
-	  std::cout << "task 1: bytes for correlation vecs: " << dataSize << std::endl << std::flush;
+	  cout << "task 1: bytes for correlation vecs: " << dataSize << endl << flush;
 	  if (getenv("FCMA_DEBUG_TASK")) WaitForDebugAttach();
   }
   
@@ -354,8 +357,8 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2, Task taskType
         double t2 = MPI_Wtime();
         cout<<"computing: "<<t2-t1<<"s"<<endl<<flush;
 #endif
-        //scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
-        scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);
+        scores = GetVoxelwiseSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds);  // LibSVM
+        //scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, step, nTrials-nHolds, nFolds); // PhiSVM
         //scores = new VoxelScore[step];
 #if __MEASURE_TIME__
         t1 = MPI_Wtime();

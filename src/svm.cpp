@@ -496,13 +496,13 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
     }
 
     int i,j;
-    if(select_working_set(i,j)!=0)
+    if(select_working_set(i,j)!=0  || iter>MAXSVMITERATION)
     {
       // reconstruct the whole gradient
       reconstruct_gradient();
       // reset active set size and check
       active_size = l;
-      if(select_working_set(i,j)!=0)
+      if(select_working_set(i,j)!=0  || iter>MAXSVMITERATION)
         break;
       else
         counter = 1;	// do shrinking next iteration
