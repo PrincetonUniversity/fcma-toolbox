@@ -42,10 +42,17 @@ static const CMM_INT BLK2 = 30;
 static const CMM_INT COL = 12;
 static const CMM_INT MICTH = 240;
 
-void sgemmTranspose(float* mat1, float* mat2, const CMM_INT M, const CMM_INT N, const CMM_INT K, float* output, const CMM_INT ldc);
-void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M, const CMM_INT N, const CMM_INT K, const CMM_INT nPerSubj, const CMM_INT nSubjs, float* output, const CMM_INT ldc, CMM_INT sr);
+void sgemmTranspose(float* mat1, float* mat2, const CMM_INT M, const CMM_INT N,
+                    const CMM_INT K, float* output, const CMM_INT ldc);
+void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
+                         const CMM_INT N, const CMM_INT K,
+                         const CMM_INT nPerSubj, const CMM_INT nSubjs,
+                         float* output, const CMM_INT ldc, CMM_INT sr);
 void NormalizeBlkData(float* data, const CMM_INT MtBLK, const CMM_INT nPerSubj);
-void custom_ssyrk(const CMM_INT M, const CMM_INT K, float *A, const CMM_INT lda, float *C, widelock_t Clock, const CMM_INT ldc);
-void custom_ssyrk_old(const CMM_INT M, const CMM_INT K, float *A, const CMM_INT lda, float *C, const CMM_INT ldc);
-void sgemm_assembly(float* A, float* B, float* C, float* A_prefetch = NULL, float* B_prefetch = NULL, float* C_prefetch = NULL);
+void custom_ssyrk(const CMM_INT M, const CMM_INT K, float* A, const CMM_INT lda,
+                  float* C, widelock_t Clock, const CMM_INT ldc);
+void custom_ssyrk_old(const CMM_INT M, const CMM_INT K, float* A,
+                      const CMM_INT lda, float* C, const CMM_INT ldc);
+void sgemm_assembly(float* A, float* B, float* C, float* A_prefetch = NULL,
+                    float* B_prefetch = NULL, float* C_prefetch = NULL);
 #endif

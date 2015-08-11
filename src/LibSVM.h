@@ -9,7 +9,7 @@
 
 #include "svm.h"
 
-//libsvm
+// libsvm
 typedef struct svm_problem SVMProblem;
 typedef struct svm_parameter SVMParameter;
 typedef struct svm_node SVMNode;
@@ -18,8 +18,14 @@ typedef signed char schar;
 #ifdef __cplusplus
 extern "C" {
 #endif
-enum { C_SVC };	/* svm_type */ // only C_SVC is needed for now
-enum { LINEAR, PRECOMPUTED }; /* kernel_type */
+enum {
+  C_SVC
+};
+    /* svm_type */  // only C_SVC is needed for now
+enum {
+  LINEAR,
+  PRECOMPUTED
+}; /* kernel_type */
 #ifdef __cplusplus
 }
 #endif

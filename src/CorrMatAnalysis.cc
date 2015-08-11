@@ -10,13 +10,16 @@
 #include "common.h"
 
 /****************************************
-get the average correlation coefficients of correlation vectors accross blocks for every voxel
-input: the node id, the correlation matrix array (normally all belong to one subject), the number of blocks
+get the average correlation coefficients of correlation vectors accross blocks
+for every voxel
+input: the node id, the correlation matrix array (normally all belong to one
+subject), the number of blocks
 output: a list of voxels' scores in terms of average correlation coefficients
 *****************************************/
-VoxelScore* GetCorrVecSum(int me, CorrMatrix** c_matrices, int nTrials)  //scores for a c_matrix array
+VoxelScore* GetCorrVecSum(int me, CorrMatrix** c_matrices,
+                          int nTrials)  // scores for a c_matrix array
 {
-  if (me==0)  //sanity check
+  if (me == 0)  // sanity check
   {
     FATAL("the master node isn't supposed to do classification jobs");
   }
@@ -27,28 +30,30 @@ VoxelScore* GetCorrVecSum(int me, CorrMatrix** c_matrices, int nTrials)  //score
   // get the number of entries of a correlation matrix
   // notice the row here!!
   int length = row * c_matrices[0]->step;
-  VoxelScore* scores = new VoxelScore[c_matrices[0]->step];  // get step voxels' scores here
-  #pragma omp parallel for
-  for (int i=0; i<length; i+=row)
-  {
+  VoxelScore* scores =
+      new VoxelScore[c_matrices[0]->step];  // get step voxels' scores here
+#pragma omp parallel for
+  for (int i = 0; i < length; i += row) {
     int count = i / row;  // write count in this way for parallelization
-    (scores+count)->vid = rowBase+i/row;
-    (scores+count)->score = AllTrialsCorrVecSum(nTrials, i, c_matrices, row); // compute the sum for one voxel
+    (scores + count)->vid = rowBase + i / row;
+    (scores + count)->score = AllTrialsCorrVecSum(
+        nTrials, i, c_matrices, row);  // compute the sum for one voxel
   }
   return scores;
 }
 
 /*****************************************
-get the average correlation coefficients of correlation vectors across blocks for one voxel
-input: the number of blocks, the voxel id, the correlation matrix array, the number of entries in a partial correlation matrix
+get the average correlation coefficients of correlation vectors across blocks
+for one voxel
+input: the number of blocks, the voxel id, the correlation matrix array, the
+number of entries in a partial correlation matrix
 output: the average correlation coefficient of this voxel
 ******************************************/
-float AllTrialsCorrVecSum(int nTrials, int startIndex, CorrMatrix** c_matrices, int length)
-{
+float AllTrialsCorrVecSum(int nTrials, int startIndex, CorrMatrix** c_matrices,
+                          int length) {
   int i;
   float result = 0.0;
-  for (i=0; i<nTrials; i++)
-  {
+  for (i = 0; i < nTrials; i++) {
     result += GetVectorSum(&(c_matrices[i]->matrix[startIndex]), length);
   }
   result /= nTrials;
@@ -61,14 +66,11 @@ get the summation of all elements of a vector
 input: a vector and its length
 output: the summation of this vector
 ******************************************/
-float GetVectorSum(float* v, int length)
-{
+float GetVectorSum(float* v, int length) {
   int i;
   float result = 0.0;
-  for (i=0; i<length; i++)
-  {
-    if (!isnan(v[i]))
-    {
+  for (i = 0; i < length; i++) {
+    if (!isnan(v[i])) {
       result += fabs(v[i]);
     }
   }

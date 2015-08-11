@@ -35,11 +35,11 @@
 
 // SSE/AVX instrinsics
 #if defined(_MSC_VER)
-    // Microsoft C/C++-compatible compiler */
-#   include <intrin.h>
+// Microsoft C/C++-compatible compiler */
+#include <intrin.h>
 #elif defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
-    // GCC-compatible compiler (gcc,clang,icc) targeting x86/x86-64
-#   include <x86intrin.h>
+// GCC-compatible compiler (gcc,clang,icc) targeting x86/x86-64
+#include <x86intrin.h>
 #endif
 
 // OpenMP : gcc >= 4.7 or clang-omp http://clang-omp.github.io
@@ -47,30 +47,30 @@
 
 // Aligned memory blocks
 #ifdef __INTEL_COMPILER
-#   include <offload.h>
+#include <offload.h>
 #else
-#   include <mm_malloc.h>
+#include <mm_malloc.h>
 #endif
 #if defined(__GNUC__)
-    // gcc supports this syntax
-#   define ALIGNED(x) __attribute__ ((aligned(x)))
+// gcc supports this syntax
+#define ALIGNED(x) __attribute__((aligned(x)))
 #else
-    // visual c++, clang, icc
-#   define ALIGNED(x) __declspec(align(x))
+// visual c++, clang, icc
+#define ALIGNED(x) __declspec(align(x))
 #endif
 
 // BLAS dependency
 #ifdef USE_MKL
-#   include <mkl.h>
+#include <mkl.h>
 #else
 typedef int MKL_INT;
-#   if defined __APPLE__
-#       include <Accelerate/Accelerate.h>
-#   else
+#if defined __APPLE__
+#include <Accelerate/Accelerate.h>
+#else
 extern "C" {
-#       include <cblas.h>
+#include <cblas.h>
 }
-#   endif
+#endif
 #endif
 
 // Matrix multiplication parameters
@@ -89,26 +89,33 @@ extern "C" {
 #define POSITIONTAG 5
 #define SECONDORDERTAG 6
 
-enum Task {Corr_Based_SVM=0, Corr_Based_Dis, Acti_Based_SVM, Corr_Sum, \
-           Corr_Mask_Classification, Corr_Mask_Cross_Validation, \
-           Acti_Mask_Classification, Acti_Mask_Cross_Validation, \
-           Corr_Visualization, Marginal_Screening, Error_Type=-1};
+enum Task {
+  Corr_Based_SVM = 0,
+  Corr_Based_Dis,
+  Acti_Based_SVM,
+  Corr_Sum,
+  Corr_Mask_Classification,
+  Corr_Mask_Cross_Validation,
+  Acti_Mask_Classification,
+  Acti_Mask_Cross_Validation,
+  Corr_Visualization,
+  Marginal_Screening,
+  Error_Type = -1
+};
 
 typedef unsigned long long uint64;
 typedef unsigned short uint16;
 
-typedef struct raw_matrix_t
-{
+typedef struct raw_matrix_t {
   std::string sname;  // subject name (file name without extension)
-  int sid;  // subject id
+  int sid;            // subject id
   int row;
   int col;
   int nx, ny, nz;
   float* matrix;
-}RawMatrix;
+} RawMatrix;
 
-typedef struct trial_data_t
-{
+typedef struct trial_data_t {
   int nTrials;
   int nVoxels;
   int nCols;
@@ -116,21 +123,19 @@ typedef struct trial_data_t
   int* scs;
   float* data;  // normalized data for correlation
   trial_data_t(int x, int y) : nTrials(x), nVoxels(y) {}
-}TrialData;
+} TrialData;
 
-typedef struct corr_matrix_t
-{
+typedef struct corr_matrix_t {
   int sid;      // subject id
   int tlabel;   // trial label
   int sr;       // starting row id
   int step;     // row of this matrix
   int nVoxels;  // col of this matrix
   float* matrix;
-}CorrMatrix;
+} CorrMatrix;
 
 // Trial: data structure for the start and end point of a trial
-typedef struct trial_t
-{
+typedef struct trial_t {
   int tid;
   int sid;
   int label;
@@ -138,32 +143,28 @@ typedef struct trial_t
   // tid_withinsubj: block id within each subject,
   // to be used in averaged matrix of searchlight
   int tid_withinsubj;
-}Trial;
+} Trial;
 
-typedef struct voxel_t
-{
-  int* vid; // contains global voxel ids
+typedef struct voxel_t {
+  int* vid;  // contains global voxel ids
   float* corr_vecs;
-  float* kernel_matrices; // contains precomputed kernel matrix
-  int nTrials;  //row
-  int nVoxels;  //col
-  //voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
-}Voxel;
+  float* kernel_matrices;  // contains precomputed kernel matrix
+  int nTrials;  // row
+  int nVoxels;  // col
+  // voxel_t(int x, int y, int z) : vid(x), nTrials(y), nVoxels(z) {}
+} Voxel;
 
-typedef struct voxel_Score_t
-{
+typedef struct voxel_Score_t {
   int vid;
   float score;
-}VoxelScore;
+} VoxelScore;
 
 // VoxelXYZ: voxel's 3-d coordinates in mm
-typedef struct voxelxyz_t
-{
+typedef struct voxelxyz_t {
   int x, y, z;
-}VoxelXYZ;
+} VoxelXYZ;
 
-typedef ALIGNED(64) struct WIDELOCK_T
-{
+typedef ALIGNED(64) struct WIDELOCK_T {
   omp_lock_t lock;
 } widelock_t;
 
