@@ -17,13 +17,13 @@ LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -lniftiio -lznz -lz
 INCLUDES = $(BLASINCLUDE) $(OTHER_INCLUDES) -I$(NIFTILOC)/include
 CFLAGS = -std=c++11 -c -fPIC -g $(WARNFLAGS) $(OPTIMFLAGS) $(INCLUDES) $(BLASCFLAGS)# -D__MEASURE_TIME__
 
-SOURCES = main.cpp svm.cpp Preprocessing.cpp FileProcessing.cpp MatComputation.cpp CustomizedMatrixMultiply.cpp CorrMatAnalysis.cpp Classification.cpp LibSVM.cpp SVMClassification.cpp SVMPredictor.cpp Scheduler.cpp SVMPredictorWithMasks.cpp Searchlight.cpp CorrelationVisualization.cpp ErrorHandling.cpp FisherScoring.cpp Marginal_Scheduler.cpp VoxelwiseAnalysis.cpp new_svm.cpp
+SOURCES = main.cc svm.cc Preprocessing.cc FileProcessing.cc MatComputation.cc CustomizedMatrixMultiply.cc CorrMatAnalysis.cc Classification.cc LibSVM.cc SVMClassification.cc SVMPredictor.cc Scheduler.cc SVMPredictorWithMasks.cc Searchlight.cc CorrelationVisualization.cc ErrorHandling.cc FisherScoring.cc Marginal_Scheduler.cc VoxelwiseAnalysis.cc new_svm.cc
 
-OBJECTS = $(SOURCES:.cpp=.o)
-HEADERS = common.h $(SOURCES:.cpp=.h)
+OBJECTS = $(SOURCES:.cc=.o)
+HEADERS = common.h $(SOURCES:.cc=.h)
 
 CFLAGS_MIC = -mmic $(CFLAGS)
-OBJECTS_MIC = $(SOURCES:.cpp=.o.MIC)
+OBJECTS_MIC = $(SOURCES:.cc=.o.MIC)
 BLASLIBINC_MIC = $(BLASLIBINC:intel64=mic)
 LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC)
 
@@ -40,7 +40,7 @@ $(EXECUTABLE): $(OBJECTS)
 	$(MPICC) $(OBJECTS) $(LDFLAGS) -o $@
 	@echo "************ built    $@ **************"
 
-.cpp.o:
+.cc.o:
 	$(MPICC) $(CFLAGS) $< -o $@
 
 $(EXECUTABLE).MIC: $(OBJECTS_MIC)
@@ -48,7 +48,7 @@ $(EXECUTABLE).MIC: $(OBJECTS_MIC)
 	$(MPICC) $(OBJECTS_MIC) $(LDFLAGS_MIC) -o $@
 	@echo "************ built    $@ **************"
 
-%.o.MIC: %.cpp
+%.o.MIC: %.cc
 	$(MPICC) $(CFLAGS_MIC) $< -o $@
 
 niftilib:
