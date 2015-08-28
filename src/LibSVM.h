@@ -9,6 +9,7 @@
 
 #include "svm.h"
 
+#if 0
 // libsvm
 typedef struct svm_problem SVMProblem;
 typedef struct svm_parameter SVMParameter;
@@ -28,6 +29,7 @@ enum {
 }; /* kernel_type */
 #ifdef __cplusplus
 }
+#endif
 #endif
 
 void print_null(const char* s);

@@ -155,3 +155,7 @@ further addressed 32-bit int issue by using longs where appropriate
 1.7.3
 change the SVM cross validation implementation in the correlation-based selection back to be LibSVM.
 add MAXSVMITERATION (20,000,000) to restrict the SVM training from doing forever for some data (too many iterations won't help)
+
+1.8
+FCMA code refactor
+move simplified LibSVM and PhiSVM code out from this repo, make them be dynamic libraries to be linked

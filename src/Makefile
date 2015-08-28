@@ -13,11 +13,11 @@ WARNFLAGS ?= -Wall -Wextra
 OPTIMFLAGS ?= -O3 -fopenmp -pthread -ansi_alias
 EXECUTABLE ?= pni_fcma
 
-LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -lniftiio -lznz -lz
-INCLUDES = $(BLASINCLUDE) $(OTHER_INCLUDES) -I$(NIFTILOC)/include
+LDFLAGS = $(BLASLDFLAGS) $(BLASLIBINC) -L$(NIFTILOC)/lib -lniftiio -lznz -lz -L/home/yidawang/code/SVM-simple -lsimplesvm -L/home/yidawang/code/SVM-phi -lphisvm # SVM library paths are currently hard-coded
+INCLUDES = $(BLASINCLUDE) $(OTHER_INCLUDES) -I$(NIFTILOC)/include -I/home/yidawang/code/SVM-simple -I/home/yidawang/code/SVM-phi # SVM head file paths are currently hard-coded
 CFLAGS = -std=c++11 -c -fPIC -g $(WARNFLAGS) $(OPTIMFLAGS) $(INCLUDES) $(BLASCFLAGS)# -D__MEASURE_TIME__
 
-SOURCES = main.cc svm.cc Preprocessing.cc FileProcessing.cc MatComputation.cc CustomizedMatrixMultiply.cc CorrMatAnalysis.cc Classification.cc LibSVM.cc SVMClassification.cc SVMPredictor.cc Scheduler.cc SVMPredictorWithMasks.cc Searchlight.cc CorrelationVisualization.cc ErrorHandling.cc FisherScoring.cc Marginal_Scheduler.cc VoxelwiseAnalysis.cc new_svm.cc
+SOURCES = main.cc Preprocessing.cc FileProcessing.cc MatComputation.cc CustomizedMatrixMultiply.cc CorrMatAnalysis.cc Classification.cc LibSVM.cc SVMClassification.cc SVMPredictor.cc Scheduler.cc SVMPredictorWithMasks.cc Searchlight.cc CorrelationVisualization.cc ErrorHandling.cc FisherScoring.cc Marginal_Scheduler.cc VoxelwiseAnalysis.cc
 
 OBJECTS = $(SOURCES:.cc=.o)
 HEADERS = common.h $(SOURCES:.cc=.h)
@@ -25,7 +25,7 @@ HEADERS = common.h $(SOURCES:.cc=.h)
 CFLAGS_MIC = -mmic $(CFLAGS)
 OBJECTS_MIC = $(SOURCES:.cc=.o.MIC)
 BLASLIBINC_MIC = $(BLASLIBINC:intel64=mic)
-LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC)
+LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC) -L/home/yidawang/code/SVM-simple -lsimplesvm.MIC -L/home/yidawang/code/SVM-phi -lphisvm.MIC
 
 TARGETS ?= pni_fcma $(OTHER_TARGETS)
 
