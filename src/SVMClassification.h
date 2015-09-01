@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "LibSVM.h"
-#include "new_svm.h"
+#include "phisvm.h"
 
 VoxelScore* GetSVMPerformance(int me, CorrMatrix** c_matrices, int nTrainings,
                               int nFolds);

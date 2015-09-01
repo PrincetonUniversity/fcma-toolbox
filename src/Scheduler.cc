@@ -339,41 +339,40 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
       break;
     }
     VoxelScore* scores = NULL;
-    switch (taskType) {
-      case Corr_Based_SVM:
+    if (taskType == Corr_Based_SVM) {
 #if __MEASURE_TIME__
-        double t1 = MPI_Wtime();
+      double t1 = MPI_Wtime();
 #endif
-        voxels =
-            ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
+      voxels =
+          ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
                                          nTrials - nHolds, sr, step, td1, td2);
 // PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
 #if __MEASURE_TIME__
-        double t2 = MPI_Wtime();
-        cout << "computing: " << t2 - t1 << "s" << endl << flush;
+      double t2 = MPI_Wtime();
+      cout << "computing: " << t2 - t1 << "s" << endl << flush;
 #endif
-        //scores = GetVoxelwiseSVMPerformance(
-        //    me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
-        scores = GetVoxelwiseNewSVMPerformance(
-              me, trials, voxels, step, nTrials - nHolds, nFolds); // PhiSVM
-// scores = new VoxelScore[step];
+      scores = GetVoxelwiseSVMPerformance(
+          me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
+      //scores = GetVoxelwiseNewSVMPerformance(
+      //      me, trials, voxels, step, nTrials - nHolds, nFolds); // PhiSVM
+      // scores = new VoxelScore[step];
 #if __MEASURE_TIME__
-        t1 = MPI_Wtime();
-        cout << "svm processing: " << t1 - t2 << "s" << endl;
+      t1 = MPI_Wtime();
+      cout << "svm processing: " << t1 - t2 << "s" << endl;
 #endif
-        break;
-      case Corr_Based_Dis:
-        // TODO
-        // it was distance ratio before
-        break;
-      case Corr_Sum:
-        // scores = GetCorrVecSum(me, c_matrices, nTrials);
-        // voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
-        // nTrials-nHolds, sr, step, td1, td2);
-        scores = GetVoxelwiseCorrVecSum(me, voxels, step, sr, td1, td2);
-        break;
-      default:
-        FATAL("unknown task type");
+    }
+    else if (taskType == Corr_Based_Dis) {
+      // TODO
+      // it was distance ratio before
+    }
+    else if (taskType == Corr_Sum) {
+      // scores = GetCorrVecSum(me, c_matrices, nTrials);
+      // voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
+      // nTrials-nHolds, sr, step, td1, td2);
+      scores = GetVoxelwiseCorrVecSum(me, voxels, step, sr, td1, td2);
+    }
+    else {
+      FATAL("unknown task type");
     }
     double tstop = MPI_Wtime();
     float elapse = float(tstop - tstart);
