@@ -95,6 +95,7 @@ cat <<EOF > $tempfile
 #!/bin/sh
 #SBATCH -J $jobname
 #SBATCH -p fcma
+#SBATCH -t 1-00:00:00
 #SBATCH -n $num_processors
 #SBATCH -c $threads
 $command

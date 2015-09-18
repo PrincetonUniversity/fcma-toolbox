@@ -159,3 +159,9 @@ add MAXSVMITERATION (20,000,000) to restrict the SVM training from doing forever
 1.8
 FCMA code refactor
 move simplified LibSVM and PhiSVM code out from this repo, make them be dynamic libraries to be linked
+
+1.8.1
+Minor fixes and Makefile update
+Makefiles now generate a debug and profile version (makes all by default or do "make debug" "make release" "make profile" to only make one)
+Moved SVM paths from Makefile to Make.user by using OTHER_INCLUDES and OTHER_LDFLAGS
+note: can use "patchelf" command to update pni_fcma's ELF data on Linux to include location of svm shared libraries in case LD_LIBRARY_PATH not set up

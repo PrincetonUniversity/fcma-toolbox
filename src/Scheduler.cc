@@ -394,7 +394,10 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
              masterId,           /* destination process rank */
              VOXELCLASSIFIERTAG, /* user chosen message tag */
              MPI_COMM_WORLD);    /* default communicator */
-    delete scores;
+    if (scores) { 
+      delete [] scores;
+      scores = NULL;
+    }
   }
   _mm_free(voxels->corr_vecs);
   _mm_free(voxels->kernel_matrices);

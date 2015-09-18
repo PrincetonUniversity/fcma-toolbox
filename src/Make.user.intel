@@ -7,7 +7,8 @@ BLASINCLUDE = -I/opt/intel/mkl/include
 BLASCFLAGS = -DUSE_MKL -qopt-report-phase=vec -DCMM_INT_IS_LONG #-vec-report=1
 BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
-OTHER_INCLUDES = -I/opt/intel/include
+OTHER_INCLUDES = -I/opt/intel/include -I/home/yidawang/code/SVM-simple -I/home/yidawang/code/SVM-phi
+OTHER_LDFLAGS = -L/home/yidawang/code/SVM-simple -lsimplesvm -L/home/yidawang/code/SVM-phi -lphisvm
 MPICC = mpiicpc
 
 # to build for other supported architectures
