@@ -41,8 +41,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10,  20,   50,   100, 200,
-                500, 1000, 2000, 5000};  //, 10000, 20000, 40000};
+  int tops[] = {2000};//{10,  20,   50,   100, 200,
+                //500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
   switch (taskType) {
@@ -115,7 +115,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     // simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials,
     // r_matrices);
     for (j = 0; j < nTrials * nTrials; j++) simMatrix[j] = 0.0;
-    int sr = 0, rowLength = 500;
+    int sr = 0, rowLength = 2000;
     while (sr < tops[i]) {
       if (rowLength >= tops[i] - sr) {
         rowLength = tops[i] - sr;
@@ -138,6 +138,11 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     SVMProblem* prob =
         GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
     struct svm_model* model = svm_train(prob, param);
+    if (tops[i]==2000) {
+      svm_save_model("fs_2000_model.txt", model);
+      //save_training_sets
+    }
+    //if (tops[i]==2000) model = svm_load_model("fs_2000_model.txt");
     int nTrainings = nTrials - nTests;
     SVMNode* x = new SVMNode[nTrainings + 2];
     int result = 0;
@@ -368,7 +373,7 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
                                                           // the selected voxels
 {
   int i;
-  float* values = new float[nTrials * rowLength * row];
+  float* values = new float[nTrials * rowLength * row]; // too large rowLength with large row (#top voxels) will cause a malloc error here
   float* simMatrix = new float[nTrials * nTrials];
   for (i = 0; i < nTrials * nTrials; i++) simMatrix[i] = 0.0;
   for (i = 0; i < nTrials; i++) {
@@ -400,8 +405,12 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
     delete[] buf1;
     delete[] buf2;
   }
-  NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
+  //NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);
+  // write out the training correlation vectors, for 9/22 demo, no normalization as well
+  //FILE* fp = fopen("trainingSamples.bin", "wb");
+  //fwrite((const void*)values, sizeof(float), 204*row*rowLength, fp);  // hard-coded
+  //fclose(fp);
   delete[] values;
   return simMatrix;
 }

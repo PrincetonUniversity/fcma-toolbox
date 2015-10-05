@@ -40,10 +40,14 @@ OBJECTS_MIC = $(OBJECTS:.o=.o.MIC)
 OBJDBG_MIC = $(OBJDBG:.o=.o.MIC)
 OBJPRO_MIC = $(OBJPRO:.o=.o.MIC)
 BLASLIBINC_MIC = $(BLASLIBINC:intel64=mic)
-LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC)
+LDFLAGS_MIC = -mmic $(BLASLDFLAGS) $(BLASLIBINC_MIC) $(OTHER_LDFLAGS_MIC)
 EXEMIC = $(EXECUTABLE).MIC
 EXEDBG_MIC = $(EXEDBG).MIC
 EXEPRO_MIC = $(EXEPRO).MIC
+
+all: world world_mic
+
+release_all: release release_mic
 
 world: release debug profile
 release: $(SOURCES) $(EXECUTABLE)
@@ -56,7 +60,7 @@ debug_mic: $(SOURCES) $(EXEDBG_MIC)
 profile_mic: $(SOURCES) $(EXEPRO_MIC)
 
 clean:
-	rm -f *.o *~ $(EXECUTABLE) $(EXEDBG) $(EXEPRO) $(EXEMIC) $(EXEDBG_MIC) $(EXEPRO_MIC)
+	rm -f *.o *~ *.optrpt *.o.MIC $(EXECUTABLE) $(EXEDBG) $(EXEPRO) $(EXEMIC) $(EXEDBG_MIC) $(EXEPRO_MIC)
 
 
 $(EXECUTABLE): $(OBJECTS)

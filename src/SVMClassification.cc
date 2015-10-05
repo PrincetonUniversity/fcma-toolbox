@@ -342,6 +342,6 @@ float DOSVMNew(float* data, int nPoints, int nDimension, int nFolds,
   float epsilon = 1e-5f;
   float accuracy = crossValidationNoShuffle(
       data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod,
-      epsilon, tolerance, NULL, vid);  // transposedData is not used here
+      epsilon, tolerance, NULL);  // transposedData is not used here
   return accuracy;
 }

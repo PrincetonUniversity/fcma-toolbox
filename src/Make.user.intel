@@ -9,6 +9,7 @@ BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include -I/home/yidawang/code/SVM-simple -I/home/yidawang/code/SVM-phi
 OTHER_LDFLAGS = -L/home/yidawang/code/SVM-simple -lsimplesvm -L/home/yidawang/code/SVM-phi -lphisvm
+OTHER_LDFLAGS_MIC = -L/home/yidawang/code/SVM-simple -lsimplesvm.MIC -L/home/yidawang/code/SVM-phi -lphisvm.MIC
 MPICC = mpiicpc
 
 # to build for other supported architectures

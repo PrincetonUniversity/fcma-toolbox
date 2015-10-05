@@ -352,7 +352,7 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
       cout << "computing: " << t2 - t1 << "s" << endl << flush;
 #endif
       scores = GetVoxelwiseSVMPerformance(
-          me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
+         me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
       //scores = GetVoxelwiseNewSVMPerformance(
       //      me, trials, voxels, step, nTrials - nHolds, nFolds); // PhiSVM
       // scores = new VoxelScore[step];
