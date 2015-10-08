@@ -340,8 +340,8 @@ float DOSVMNew(float* data, int nPoints, int nDimension, int nFolds,
   SelectionHeuristic heuristicMethod = ADAPTIVE;
   float tolerance = 1e-3f;
   float epsilon = 1e-5f;
-  float accuracy = crossValidationNoShuffle(
+  float accuracy = crossValidation(
       data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod,
-      epsilon, tolerance, NULL);  // transposedData is not used here
+      epsilon, tolerance, NULL, false);  // transposedData is not used here
   return accuracy;
 }
