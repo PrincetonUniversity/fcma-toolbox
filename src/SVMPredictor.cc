@@ -41,8 +41,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {2000};//{10,  20,   50,   100, 200,
-                //500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
+  int tops[] = {10,  20,   50,   100, 200,
+                500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
   switch (taskType) {
@@ -133,15 +133,85 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
         simMatrix[k * nTrials + j] = simMatrix[j * nTrials + k];
       }
     }
+    for (j=0; j<nTrials*nTrials; j++) simMatrix[j] *= .001f;  // doens't do this will result in phiSVM errors
+#if 1
+    int nTrainingSamples = nTrials - nTests;
+    float* trainingData = new float[nTrainingSamples*nTrainingSamples];
+    for (j=0 ; j<nTrainingSamples; j++) {
+      for (k=0; k<nTrainingSamples; k++) {
+        trainingData[j*nTrainingSamples+k] = simMatrix[j*nTrials+k];
+      }
+    }
+    float* labels = new float[nTrainingSamples];
+    for (j=0 ; j<nTrainingSamples; j++) {
+      labels[j] = trials[j].label == 0 ? -1.0f : 1.0f;
+    }
+    Kernel_params kp;
+    kp.gamma = 0;
+    kp.coef0 = 0;
+    kp.degree = 3;
+    // kp.b doesn't need to be preset
+    kp.kernel_type = "precomputed";
+    float cost = 10.0f;
+    SelectionHeuristic heuristicMethod = ADAPTIVE;
+    float tolerance = 1e-3f;
+    float epsilon = 1e-5f;
+    PhiSVMModel* phi_svm_model = performTraining(trainingData, nTrainingSamples,
+                    nTrainingSamples, labels,
+                    &kp, cost, heuristicMethod, epsilon, tolerance, NULL);
+    float* testData = new float[nTests*nTrainingSamples];
+    for (j=0 ; j<nTests; j++) {
+      for (k=0; k<nTrainingSamples; k++) {
+        testData[j*nTrainingSamples+k] = simMatrix[(j+nTrainingSamples)*nTrials+k];
+      }
+    }
+    float* testLabels = new float[nTests];
+    for (j=0 ; j<nTests; j++) {
+      testLabels[j] = trials[j+nTrainingSamples].label == 0 ? -1.0f : 1.0f;
+    }
+    float* result;
+    performClassification(testData, nTests,
+                          nTrainingSamples, &kp, &result, phi_svm_model);
+    //delete phi_svm_model;
+    int nCorrects = 0;
+    for (j = 0; j < nTests; j++) {
+      nCorrects =
+          (testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < 0)
+              ? nCorrects + 1
+              : nCorrects;
+    }
+    std::cout << tops[i] << ": " << nCorrects << "/" << nTests << "="
+              << nCorrects * 1.0 / nTests << std::endl;
+    if (!is_quiet_mode) {
+      using std::cout;
+      using std::endl;
+
+      cout << "blocking testing confidence:" << endl;
+      for (j = 0; j < nTests; j++) {
+        cout << fabs(result[j]) << " (";
+        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[i] < j)) {
+          cout << "Correct) ";
+        } else {
+          cout << "Incorrect) ";
+        }
+      }
+      cout << endl;
+    }
+    delete result;
+    delete testData;
+    delete testLabels;
+    delete trainingData;
+    delete labels;
+#else
     SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or
                                                          // PRECOMPUTED
     SVMProblem* prob =
         GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
     struct svm_model* model = svm_train(prob, param);
-    if (tops[i]==2000) {
+    /*if (tops[i]==2000) {
       svm_save_model("fs_2000_model.txt", model);
       //save_training_sets
-    }
+    }*/
     //if (tops[i]==2000) model = svm_load_model("fs_2000_model.txt");
     int nTrainings = nTrials - nTests;
     SVMNode* x = new SVMNode[nTrainings + 2];
@@ -193,6 +263,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     delete[] prob->x;
     delete prob;
     svm_destroy_param(param);
+#endif
   }
   delete[] simMatrix;  // bds []
 }

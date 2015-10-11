@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "LibSVM.h"
+#include "phisvm.h"
 
 void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
                 RawMatrix** avg_matrices, int nSubs, int nTrials, Trial* trials,
