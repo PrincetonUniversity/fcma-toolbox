@@ -41,7 +41,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {2000}; //{10,  20,   50,   100, 200,
+  int tops[] = {500}; //{10,  20,   50,   100, 200,
                 //500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
@@ -198,8 +198,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       }
       cout << endl;
     }
-    //cout<<phiSVMModel->nSamples<<" "<<phiSVMModel->nDimension<<" "<<phiSVMModel->epsilon<<" "<<phiSVMModel->bLow<<" "<<phiSVMModel->bHigh<<endl;
-    //cout<<phiSVMModel->alpha[203]<<" "<<phiSVMModel->f[203]<<" "<<phiSVMModel->data[204*204-1]<<" "<<phiSVMModel->labels[203]<<endl;
+
 #ifndef __MIC__
     DumpModel* dumpModel = new DumpModel();
     dumpModel->nSamples = nTrainingSamples;
@@ -225,7 +224,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
                                              // the length of time points to be
                                              // computed
       cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tops[i], tops[i], ml,
-                  1.0, buf1 + sr * ml, ml, buf2, ml, 0.0,
+                  1.0, buf1, ml, buf2, ml, 0.0,
                   values + ii * tops[i] * tops[i], tops[i]);
       delete[] buf1;
       delete[] buf2;
