@@ -41,8 +41,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10,  20,   50,   100, 200,
-                500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
+  int tops[] = {2000}; //{10,  20,   50,   100, 200,
+                //500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
   switch (taskType) {
@@ -123,6 +123,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       float* tempSimMatrix =
           GetPartialInnerSimMatrix(tops[i], col, nSubs, nTrials, sr, rowLength,
                                    trials, r_matrices1, r_matrices2);
+      //cout<<"row: "<<tops[i]<<" col: "<<col<<" rowLength: "<<rowLength<<endl;
       for (j = 0; j < nTrials * nTrials; j++) simMatrix[j] += tempSimMatrix[j];
       // cout<<i<<" "<<sr<<" "<<tempSimMatrix[0]<<" "<<tempSimMatrix[1]<<endl;
       delete[] tempSimMatrix;
@@ -156,7 +157,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     SelectionHeuristic heuristicMethod = ADAPTIVE;
     float tolerance = 1e-3f;
     float epsilon = 1e-5f;
-    PhiSVMModel* phi_svm_model = performTraining(trainingData, nTrainingSamples,
+    PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
                     nTrainingSamples, labels,
                     &kp, cost, heuristicMethod, epsilon, tolerance, NULL);
     float* testData = new float[nTests*nTrainingSamples];
@@ -171,8 +172,8 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     }
     float* result;
     performClassification(testData, nTests,
-                          nTrainingSamples, &kp, &result, phi_svm_model);
-    //delete phi_svm_model;
+                          nTrainingSamples, &kp, &result, phiSVMModel);
+    //delete phiSVMModel;
     int nCorrects = 0;
     for (j = 0; j < nTests; j++) {
       nCorrects =
@@ -197,6 +198,45 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       }
       cout << endl;
     }
+    //cout<<phiSVMModel->nSamples<<" "<<phiSVMModel->nDimension<<" "<<phiSVMModel->epsilon<<" "<<phiSVMModel->bLow<<" "<<phiSVMModel->bHigh<<endl;
+    //cout<<phiSVMModel->alpha[203]<<" "<<phiSVMModel->f[203]<<" "<<phiSVMModel->data[204*204-1]<<" "<<phiSVMModel->labels[203]<<endl;
+#ifndef __MIC__
+    DumpModel* dumpModel = new DumpModel();
+    dumpModel->nSamples = nTrainingSamples;
+    dumpModel->nDimension = tops[i]*tops[i];
+
+    int ii;
+    float* values = new float[nTrainingSamples * tops[i] * tops[i]];
+    for (ii = 0; ii < nTrainingSamples; ii++) {
+      int sc = trials[ii].sc;
+      int ec = trials[ii].ec;
+      int sid = trials[ii].sid;
+      float* mat1 = r_matrices1[sid]->matrix;
+      float* mat2 = r_matrices2[sid]->matrix;
+      float* buf1 = new float[tops[i]*col];  // col is more than what really need,
+                                           // just in case
+      float* buf2 = new float[tops[i]*col];  // col is more than what really need,
+                                           // just in case
+      int ml = getBuf(sc, ec, tops[i], col, mat1, buf1);  // get the normalized
+                                                      // matrix, return the length
+                                                      // of time points to be
+                                                      // computed
+      getBuf(sc, ec, tops[i], col, mat2, buf2);  // get the normalized matrix, return
+                                             // the length of time points to be
+                                             // computed
+      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tops[i], tops[i], ml,
+                  1.0, buf1 + sr * ml, ml, buf2, ml, 0.0,
+                  values + ii * tops[i] * tops[i], tops[i]);
+      delete[] buf1;
+      delete[] buf2;
+    }
+    dumpModel->trainingData = values;
+    dumpModel->phiSVMModel = phiSVMModel;
+    std::string modelStr = serialize_DumpModel(dumpModel);
+    delete dumpModel;
+    delete values;
+    DumpModelToDisk(modelStr);
+#endif
     delete result;
     delete testData;
     delete testLabels;
