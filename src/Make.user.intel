@@ -10,6 +10,7 @@ BLASLDFLAGS = -mkl=parallel
 OTHER_INCLUDES = -I/opt/intel/include -I/home/yidawang/code/SVM-simple -I/home/yidawang/code/SVM-phi
 OTHER_LDFLAGS = -L/home/yidawang/code/SVM-simple -lsimplesvm -L/home/yidawang/code/SVM-phi -lphisvm
 OTHER_LDFLAGS_MIC = -L/home/yidawang/code/SVM-simple -lsimplesvm.MIC -L/home/yidawang/code/SVM-phi -lphisvm.MIC
+BOOSTLIBINC = -L/share/apps/boost/1.55.0/lib64 -lboost_serialization -lboost_iostreams
 MPICC = mpiicpc
 
 # to build for other supported architectures
