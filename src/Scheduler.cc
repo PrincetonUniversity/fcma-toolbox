@@ -77,6 +77,12 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
         sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
     assert(td2->data);
   }
+  /*if (me==0) { //output for real-time paper
+    FILE* fp = fopen("facesceneNorm_Acti.bin", "wb");
+    fwrite ((const void*)td1->data, sizeof(float), (size_t)td1->nCols * (size_t)td1->nVoxels, fp);
+    fclose(fp);
+    exit(1);
+  }*/
   MPI_Bcast((void*)(td1->trialLengths), td1->nTrials, MPI_INT, 0,
             MPI_COMM_WORLD);
   MPI_Bcast((void*)(td2->trialLengths), td2->nTrials, MPI_INT, 0,
@@ -394,7 +400,7 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
              masterId,           /* destination process rank */
              VOXELCLASSIFIERTAG, /* user chosen message tag */
              MPI_COMM_WORLD);    /* default communicator */
-    if (scores) { 
+    if (scores) {
       delete [] scores;
       scores = NULL;
     }

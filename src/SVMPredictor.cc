@@ -159,7 +159,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     float epsilon = 1e-5f;
     PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
                     nTrainingSamples, labels,
-                    &kp, cost, heuristicMethod, epsilon, tolerance, NULL);
+                    &kp, cost, heuristicMethod, epsilon, tolerance, NULL, NULL);
     float* testData = new float[nTests*nTrainingSamples];
     for (j=0 ; j<nTests; j++) {
       for (k=0; k<nTrainingSamples; k++) {
