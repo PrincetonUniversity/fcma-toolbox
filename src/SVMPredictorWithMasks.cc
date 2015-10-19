@@ -10,6 +10,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "SVMPredictor.h"
+#include "CustomizedMatrixMultiply.h"
 #include <nifti1_io.h>
 
 using namespace std;
@@ -28,7 +29,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
                                    int nTrials, Trial* trials, int nTests,
                                    int is_quiet_mode) {
 #ifndef __MIC__
-  int i, j;
+  int i, j, k;
   svm_set_print_string_function(&print_null);
   RawMatrix** masked_matrices1 = NULL;
   RawMatrix** masked_matrices2 = NULL;
@@ -48,7 +49,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   struct timeval start, end;
   gettimeofday(&start, 0);
 #endif
-  float* simMatrix = new float[nTrials * nTrials];
+  float* simMatrix = new float[(CMM_INT)nTrials * nTrials];
   int corrRow = masked_matrices1[0]->row;
   memset((void*)simMatrix, 0, nTrials * nTrials * sizeof(float));
   int sr = 0, rowLength = 500;
@@ -60,7 +61,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
     float* tempSimMatrix =
         GetPartialInnerSimMatrixWithMasks(nSubs, nTrials, sr, rowLength, trials,
                                           masked_matrices1, masked_matrices2);
-    for (i = 0; i < nTrials * nTrials; i++) simMatrix[i] += tempSimMatrix[i];
+    for (i = 0; i < (CMM_INT)nTrials * nTrials; i++) simMatrix[i] += tempSimMatrix[i];
     delete[] tempSimMatrix;
     sr += rowLength;
   }
@@ -71,6 +72,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
        << endl;
   gettimeofday(&start, 0);
 #endif
+/* LibSVM
   SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or PRECOMPUTED
   SVMProblem* prob =
       GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
@@ -128,6 +130,67 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   delete prob->x;
   delete prob;
   svm_destroy_param(param);
+  LibSVM done */
+  int nTrainingSamples = nTrials - nTests;
+  float* trainingData = new float[nTrainingSamples*nTrainingSamples];
+  for (j=0 ; j<nTrainingSamples; j++) {
+    for (k=0; k<nTrainingSamples; k++) {
+      trainingData[j*nTrainingSamples+k] = simMatrix[j*nTrials+k]*.001f;
+    }
+  }
+  float* labels = new float[nTrainingSamples];
+  for (j=0 ; j<nTrainingSamples; j++) {
+    labels[j] = trials[j].label == 0 ? -1.0f : 1.0f;
+  }
+  Kernel_params kp;
+  kp.gamma = 0;
+  kp.coef0 = 0;
+  kp.degree = 3;
+  // kp.b doesn't need to be preset
+  kp.kernel_type = "precomputed";
+  float cost = 10.0f;
+  SelectionHeuristic heuristicMethod = ADAPTIVE;
+  float tolerance = 1e-3f;
+  float epsilon = 1e-5f;
+  PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
+                  nTrainingSamples, labels,
+                  &kp, cost, heuristicMethod, epsilon, tolerance, NULL, NULL);
+  float* testData = new float[nTests*nTrainingSamples];
+  for (j=0 ; j<nTests; j++) {
+    for (k=0; k<nTrainingSamples; k++) {
+      testData[j*nTrainingSamples+k] = simMatrix[(j+nTrainingSamples)*nTrials+k]*.001f;
+    }
+  }
+  float* testLabels = new float[nTests];
+  for (j=0 ; j<nTests; j++) {
+    testLabels[j] = trials[j+nTrainingSamples].label == 0 ? -1.0f : 1.0f;
+  }
+  float* result_vec;
+  performClassification(testData, nTests,
+                        nTrainingSamples, &kp, &result_vec, phiSVMModel);
+  //delete phiSVMModel;
+  for (j = 0; j < nTests; j++) {
+    result =
+        (testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < 0)
+            ? result + 1
+            : result;
+  }
+  if (!is_quiet_mode) {
+    using std::cout;
+    using std::endl;
+
+    cout << "blocking testing confidence:" << endl;
+    for (j = 0; j < nTests; j++) {
+      cout << fabs(result_vec[j]) << " (";
+      if ((testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < j)) {
+        cout << "Correct) ";
+      } else {
+        cout << "Incorrect) ";
+      }
+    }
+    cout << endl;
+  }
+
   delete[] simMatrix;
   for (i = 0; i < nSubs; i++) {
     delete masked_matrices1[i]->matrix;
@@ -160,7 +223,7 @@ float* GetPartialInnerSimMatrixWithMasks(
   int row2 = masked_matrices2[0]->row;  // rows should be the same across
                                         // subjects since we are using the same
                                         // mask file to filter out voxels
-  float* values = new float[nTrials * rowLength * row2];
+  float* values = new float[(CMM_INT)nTrials * rowLength * row2];
   float* simMatrix = new float[nTrials * nTrials];
   memset((void*)simMatrix, 0, nTrials * nTrials * sizeof(float));
   for (i = 0; i < nTrials; i++) {
@@ -188,7 +251,7 @@ float* GetPartialInnerSimMatrixWithMasks(
                                                       // to be computed, m1==m2
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row2, ml1,
                 1.0, buf1 + sr * ml1, ml1, buf2, ml2, 0.0,
-                values + i * rowLength * row2, row2);
+                values + (CMM_INT)i * rowLength * row2, row2);
     delete[] buf1;
     delete[] buf2;
   }

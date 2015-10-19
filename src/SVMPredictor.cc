@@ -10,6 +10,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "ErrorHandling.h"
+#include "CustomizedMatrixMultiply.h"
 
 int getNumTopIndices(int* tops, int maxtops, int nvoxels) {
   int ntops = 0;
@@ -190,7 +191,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       cout << "blocking testing confidence:" << endl;
       for (j = 0; j < nTests; j++) {
         cout << fabs(result[j]) << " (";
-        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[i] < j)) {
+        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < j)) {
           cout << "Correct) ";
         } else {
           cout << "Incorrect) ";
@@ -515,7 +516,7 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
     delete[] buf1;
     delete[] buf2;
   }
-  //NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
+  NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);
   // write out the training correlation vectors, for 9/22 demo, no normalization as well
   //FILE* fp = fopen("trainingSamples.bin", "wb");
@@ -555,9 +556,9 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels,
   for (int i = 0; i < nSubs; i++)  // do normalization subject by subject
   {
 #ifdef __INTEL_COMPILER
-    float(*mat)[length] = (float(*)[length]) & (values[i * nPerSub * length]);
+    float(*mat)[length] = (float(*)[length]) & (values[(CMM_INT)i * nPerSub * length]);
 #else
-    float* rowptr = &(values[i * nPerSub * length]);
+    float* rowptr = &(values[(CMM_INT)i * nPerSub * length]);
     mattype& mat = *reinterpret_cast<mattype*>(rowptr);
 #endif
 #pragma simd
