@@ -70,11 +70,15 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
     td2->trialLengths = new int[td2->nTrials];
     td1->scs = new int[td1->nTrials];
     td2->scs = new int[td2->nTrials];
-    td1->data = (float*)_mm_malloc(
-        sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels, 64);
+    size_t dataSize = sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels;
+    //td1->data = (float*)_mm_malloc(
+    //    sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels, 64);
+    td1->data = (float*)malloc(dataSize);
     assert(td1->data);
-    td2->data = (float*)_mm_malloc(
-        sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
+    //td2->data = (float*)_mm_malloc(
+    //    sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
+    dataSize = sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels;
+    td2->data = (float*)malloc(dataSize);
     assert(td2->data);
   }
   /*if (me==0) { //output for real-time paper
@@ -123,8 +127,10 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   delete[] td2->trialLengths;
   delete[] td1->scs;
   delete[] td2->scs;
-  _mm_free(td1->data);
-  _mm_free(td2->data);
+  //_mm_free(td1->data);
+  //_mm_free(td2->data);
+  free(td1->data);
+  free(td2->data);
   delete td1;
   delete td2;
 }
@@ -315,19 +321,22 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
   voxels->nTrials = nTrials;
   voxels->nVoxels = nVoxels;
   voxels->vid = new int[preset_step];
-  voxels->kernel_matrices = (float*)_mm_malloc(
-      sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step,
-      64);
+  //voxels->kernel_matrices = (float*)_mm_malloc(
+  //    sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step,
+  //    64);
+  size_t dataSize = sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step;
+  voxels->kernel_matrices = (float*)malloc(dataSize);
   assert(voxels->kernel_matrices);
 
-  size_t dataSize =
+  dataSize =
       sizeof(float) * (size_t)nVoxels * (size_t)BLK2 * (size_t)nTrials;
   if (1 == me) {
     cout << "task 1: bytes for correlation vecs: " << dataSize << endl << flush;
     if (getenv("FCMA_DEBUG_TASK")) WaitForDebugAttach();
   }
 
-  voxels->corr_vecs = (float*)_mm_malloc(dataSize, 64);
+  //voxels->corr_vecs = (float*)_mm_malloc(dataSize, 64);
+  voxels->corr_vecs = (float*)malloc(dataSize);
   assert(voxels->corr_vecs);
   while (true) {
     MPI_Recv(recvMsg,        /* message buffer */
@@ -405,8 +414,10 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
       scores = NULL;
     }
   }
-  _mm_free(voxels->corr_vecs);
-  _mm_free(voxels->kernel_matrices);
+  //_mm_free(voxels->corr_vecs);
+  //_mm_free(voxels->kernel_matrices);
+  free(voxels->corr_vecs);
+  free(voxels->kernel_matrices);
   delete[] voxels->vid;
   delete voxels;
 }
