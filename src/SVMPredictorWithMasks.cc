@@ -182,7 +182,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
     cout << "blocking testing confidence:" << endl;
     for (j = 0; j < nTests; j++) {
       cout << fabs(result_vec[j]) << " (";
-      if ((testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < j)) {
+      if ((testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < 0)) {
         cout << "Correct) ";
       } else {
         cout << "Incorrect) ";
