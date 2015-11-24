@@ -24,6 +24,7 @@
 #include <cmath>
 #include <climits>
 #include <iomanip>
+#include <stdlib.h>
 // define NDEBUG here to disable assertions
 // if/when "release" builds are supported
 // #define NDEBUG

@@ -43,9 +43,9 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1,
        << " #voxels for mask2: " << masked_matrix2->row << endl;
   float* mat1 = masked_matrix1->matrix;
   float* mat2 = masked_matrix2->matrix;
-  int row1 = masked_matrix1->row;
-  int row2 = masked_matrix2->row;
-  int col = masked_matrix1->col;
+  long row1 = masked_matrix1->row;
+  long row2 = masked_matrix2->row;
+  long col = masked_matrix1->col;
   float* buf1 =
       new float[row1 * col];  // col is more than what really need, just in case
   float* buf2 = new float[row2 * col];
@@ -63,6 +63,7 @@ void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1,
               buf1, ml1, buf2, ml2, 0.0, corrMat, row2);
   delete[] buf1;
   delete[] buf2;
+  cout<<"Correlation computation is done!"<<endl<<std::flush;
   float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
   Write4DNiiGzData(output_file, refFile, (void*)wholeData, DT_FLOAT32, row1);
   return;

@@ -42,8 +42,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {500}; //{10,  20,   50,   100, 200,
-                //500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
+  int tops[] = {10,  20,   50,   100, 200,
+                500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
   switch (taskType) {

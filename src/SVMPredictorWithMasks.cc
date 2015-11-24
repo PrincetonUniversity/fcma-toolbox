@@ -72,7 +72,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
        << endl;
   gettimeofday(&start, 0);
 #endif
-/* LibSVM
+// LibSVM
   SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or PRECOMPUTED
   SVMProblem* prob =
       GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
@@ -81,7 +81,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   gettimeofday(&end, 0);
   t_train =
       end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
-  cout << "SVM training done! Takes " << t_train << "s" << endl;
+  cout << "LibSVM training done! Takes " << t_train << "s" << endl;
 #endif
   int nTrainings = nTrials - nTests;
   SVMNode* x = new SVMNode[nTrainings + 2];
@@ -130,8 +130,8 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   delete prob->x;
   delete prob;
   svm_destroy_param(param);
-  LibSVM done */
-  int nTrainingSamples = nTrials - nTests;
+  // LibSVM done
+  /*int nTrainingSamples = nTrials - nTests;
   float* trainingData = new float[nTrainingSamples*nTrainingSamples];
   for (j=0 ; j<nTrainingSamples; j++) {
     for (k=0; k<nTrainingSamples; k++) {
@@ -155,6 +155,12 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
                   nTrainingSamples, labels,
                   &kp, cost, heuristicMethod, epsilon, tolerance, NULL, NULL);
+  #if __MEASURE_TIME__
+    gettimeofday(&end, 0);
+    t_train =
+        end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
+    cout << "phiSVM training done! Takes " << t_train << "s" << endl;
+  #endif
   float* testData = new float[nTests*nTrainingSamples];
   for (j=0 ; j<nTests; j++) {
     for (k=0; k<nTrainingSamples; k++) {
@@ -189,8 +195,8 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
       }
     }
     cout << endl;
-  }
-
+  }*/
+  // phiSVM done
   delete[] simMatrix;
   for (i = 0; i < nSubs; i++) {
     delete masked_matrices1[i]->matrix;
