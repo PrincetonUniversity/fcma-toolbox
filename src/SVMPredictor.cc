@@ -201,7 +201,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     }
 
 #ifndef __MIC__
-    DumpModel* dumpModel = new DumpModel();
+    /*DumpModel* dumpModel = new DumpModel();
     dumpModel->nSamples = nTrainingSamples;
     dumpModel->nDimension = tops[i]*tops[i];
 
@@ -235,7 +235,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     std::string modelStr = serialize_DumpModel(dumpModel);
     delete dumpModel;
     delete values;
-    DumpModelToDisk(modelStr);
+    DumpModelToDisk(modelStr);*/
 #endif
     delete result;
     delete testData;
