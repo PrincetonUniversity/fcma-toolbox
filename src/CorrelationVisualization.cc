@@ -4,170 +4,182 @@
  For license terms, please see the LICENSE file.
 */
 
+#ifndef __MIC__
+
 #include "CorrelationVisualization.h"
 #include "FileProcessing.h"
-#include "MatComputation.h"
+#include "CustomizedMatrixMultiply.h"
 #include "ErrorHandling.h"
-#include <nifti1_io.h>
+
+static void mat2buf(float* buf, float* mat, int voxels, int alltrs, int trs, int sc, bool accum) {
+    long k=0;
+    for (int i=0; i<voxels; ++i) {
+        long voffset = alltrs * i + sc;
+        for (int j=0; j<trs; ++j) {
+            float val = mat[voffset + j];
+            if (accum) {
+                buf[k] += val;
+            } else {
+                buf[k] = val;
+            }
+            ++k;
+        }
+    }
+}
+                    
+
+static float matmean(float* mat, long n) {
+    double ac = 0.0f;
+    for (long i=0; i<n; ++i) {
+        ac += (double)mat[i];
+    }
+    ac /= (double)n;
+    return (float)ac;
+}
+
+static void normbuf(float* buf, int voxels, int trs) {
+    double trs_d = (double)trs;
+    for (int i = 0; i < voxels; ++i) {
+        double mean = 0.0f;
+        double sd = 0.0f;
+        long voffset = i * trs;
+        
+        for (int j = 0; j < trs; ++j) {
+            double val = (double)buf[voffset + j];
+            mean += val;
+            sd += val * val;
+        }
+        mean /= trs_d;
+    
+        ALIGNED(64) float inv_sd_f;
+        ALIGNED(64) float mean_f = mean;
+        sd = sqrt(sd - trs_d * mean * mean);
+        if (sd == 0.0f) {
+            inv_sd_f = 0.0f;
+        } else {
+            inv_sd_f = 1.0f / sd;
+        }
+#pragma simd
+        for (int j = 0; j < trs; ++j) {
+            buf[voffset + j] -= mean_f;
+            buf[voffset + j] *= inv_sd_f;
+        }
+    }
+}
+
+static void divmat(float* buf, long elements, float divisor) {
+    for (long i=0; i<elements; ++i) {
+        buf[i] /= divisor;
+    }
+}
 
 /***************************************
-Take a mask in (by default no masks),
-compute the correlation between two masks within brain,
-visualize the correlation results based on voxels in mask 1,
-generate a 4D nifti file, each time dimension depicts one voxel in mask 1,
-the 3D space dimensions depict the correlation between the corresonding voxel
-and the voxels in mask 2
-input: the raw matrix data, the number of subjects, the first mask file, the
-second mask file, the dedicated block, the output file name
-output: write the result to the nifti file
-****************************************/
-void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1,
-                                   const char* maskFile2, const char* refFile,
-                                   Trial trial, const char* output_file) {
-#ifndef __MIC__
-  using std::cout;
-  using std::endl;
+Compute an average correlation matrix constructed this way:
+   - correlate each subject with all other subjects
+           ie subject 1 with subjects 2...N
+              subject 2 with subjects 1, 3.. N
+       etc
+       by summing the values at each voxel across the other
+       N - 1 subjects, for the TRs in the given trial, and correlating.
+      (Where correlations are dot products between z-scored vectors)
+   - Then take mean of the N correlation matrices 
+ ****************************************/
+void WriteAverageCorrelations(int nSubs, RawMatrix** r_matrices,
+                              const char* maskFile1, const char* maskFile2,
+                              Trial trial, const char* output_file) {
+    using std::cout;
+    using std::endl;
+    using std::flush;
+    
+    // 1 get the dimensions of the problem
+    RawMatrix* masked_matrix1 = NULL;
+    RawMatrix* masked_matrix2 = NULL;
+    if (maskFile1 != NULL)
+        masked_matrix1 = GetMaskedMatrix(r_matrices[0], maskFile1);
+    else
+        masked_matrix1 = r_matrices[0];
+    
+    int voxels = masked_matrix1->row;
+    int alltrs = masked_matrix1->col;
+    int sc = trial.sc;
+    int ec = trial.ec;
+    assert(ec > sc);
+    int trs = ec - sc + 1;
 
-  RawMatrix* masked_matrix1 = NULL;
-  RawMatrix* masked_matrix2 = NULL;
-  if (maskFile1 != NULL)
-    masked_matrix1 = GetMaskedMatrix(r_matrix, maskFile1);
-  else
-    masked_matrix1 = r_matrix;
-  if (maskFile2 != NULL)
-    masked_matrix2 = GetMaskedMatrix(r_matrix, maskFile2);
-  else
-    masked_matrix2 = r_matrix;
-  cout << "masked matrix generating done!" << endl;
-  cout << "#voxels for mask1: " << masked_matrix1->row
-       << " #voxels for mask2: " << masked_matrix2->row << endl;
-  float* mat1 = masked_matrix1->matrix;
-  float* mat2 = masked_matrix2->matrix;
-  long row1 = masked_matrix1->row;
-  long row2 = masked_matrix2->row;
-  long col = masked_matrix1->col;
-  float* buf1 =
-      new float[row1 * col];  // col is more than what really need, just in case
-  float* buf2 = new float[row2 * col];
-  int sc = trial.sc, ec = trial.ec;
-  int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized
-                                                    // matrix, return the length
-                                                    // of time points to be
-                                                    // computed
-  int ml2 = getBuf(sc, ec, row2, col, mat2, buf2);  // get the normalized
-                                                    // matrix, return the length
-                                                    // of time points to be
-                                                    // computed, m1==m2
-  float* corrMat = new float[row1 * row2];
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, row1, row2, ml1, 1.0,
-              buf1, ml1, buf2, ml2, 0.0, corrMat, row2);
-  delete[] buf1;
-  delete[] buf2;
-  cout<<"Correlation computation is done!"<<endl<<std::flush;
-  float* wholeData = PutMaskedDataBack(maskFile2, corrMat, row1, row2);
-  Write4DNiiGzData(output_file, refFile, (void*)wholeData, DT_FLOAT32, row1);
-  return;
+    cout << "#voxels in mask:" << voxels << endl;
+    cout << "# TRs in trial: " << trs << endl;
+    
+    long correlations = (long)voxels * (long)voxels;
+    long elements = (long)voxels * (long)trs;
+    
+    // 2 allocate the matrices
+    float* buf1 = (float*)calloc(elements, sizeof(float));
+    float* acc = (float*)calloc(elements, sizeof(float));
+    // corrMat needs to be set to 0 since it will be accumulated
+    // - the other ones are initialized prior to use.
+    float* corrMat = (float*)calloc(correlations, sizeof(float));
+
+    int completed_correlations = 0;
+
+    // for all subjects ...
+    for (int s1=0; s1<nSubs; ++s1) {
+        
+        // get the data for that subject into our trial-specific matrix "buf1"
+        // first get the whole matrix, across all trials
+        if (maskFile1 != NULL)
+            masked_matrix1 = GetMaskedMatrix(r_matrices[s1], maskFile1);
+        else
+            masked_matrix1 = r_matrices[s1];
+        
+        // now pull out and normalize the data for the trial in question into buf1
+        mat2buf(buf1, masked_matrix1->matrix, voxels, alltrs, trs, sc, false);
+        normbuf(buf1, voxels, trs);
+        
+        memset((void*)acc, 0, elements*sizeof(float));
+        
+        for (int s2=0; s2<nSubs; ++s2) {
+            
+            // don't include same subject (the "1" in "N-1")
+            if (s1 == s2) continue;
+            
+            // get the matrix across all trials for next other subject
+            if (maskFile2 != NULL)
+                masked_matrix2 = GetMaskedMatrix(r_matrices[s2], maskFile2);
+            else
+                masked_matrix2 = r_matrices[s2];
+            
+            // now pull out this trial's data and add it to "acc"
+            mat2buf(acc, masked_matrix2->matrix, voxels, alltrs, trs, sc, true);
+            
+        } // loop accumulating N-1 brains
+        
+        // here we need to normalize the summed brain
+        normbuf(acc, voxels, trs);
+        
+        // now do the "correlation" (dot products between z-scored vectors), for this trial, between
+        // all voxel pairs, subject 1 ("buf1") vs all other subjects ("acc") and store in "corrMat"
+        // which will accumulate across the N subjects (since beta on it is 1.0, weights input C[orrmat])
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, voxels, voxels, trs, 1.0,
+                    buf1, trs, acc, trs, 1.0, corrMat, voxels);
+
+        
+        ++completed_correlations;
+
+#ifdef DEBUG
+        cout << "done correlating all other subjects with subject"  << s1 << endl << flush;
+ //       cout << "[ global average correlation = " << matmean(corrMat, correlations, completed_correlations) << " ]" << endl << flush;
 #endif
+        
+    } // loop acccumulating correlation matrix
+    free(buf1);
+    free(acc);
+    
+    divmat(corrMat, voxels*voxels, completed_correlations);
+    cout << "[ global average correlation for this trial = " << matmean(corrMat, correlations) << " ]" << endl << flush;
+   
+    WriteCorrMatToHDF5(voxels, voxels, corrMat, output_file);
+    
+    free(corrMat);
 }
 
-/*******************************
-generate data to be written to a nifti file based on a mask file, the input data
-is specifically from VoxelScore struct
-input: the mask nifti file name, the data (assuming to be float), the row of the
-data array (corresponding to the 4th dimension), the column of the data array
-(corresponding to the mask)
-output: the data that is ready to be written to a nifti file
-********************************/
-float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col) {
-#ifndef __MIC__
-  nifti_image* nim =
-      nifti_image_read(maskFile, 1);  // 1 means reading the data as well
-  if (nim == NULL) {
-    FATAL("mask file not found: " << maskFile << " in PutMaskedDataBack");
-  }
-  int* data_int = NULL;
-  short* data_short = NULL;
-  unsigned char* data_uchar = NULL;
-  float* data_float = NULL;
-  double* data_double = NULL;
-  switch (nim->datatype) {
-    case DT_SIGNED_INT:
-      data_int = (int*)nim->data;
-      break;
-    case DT_SIGNED_SHORT:
-      data_short = (short*)nim->data;
-      break;
-    case DT_UNSIGNED_CHAR:
-      data_uchar = (unsigned char*)nim->data;
-      break;
-    case DT_FLOAT:
-      data_float = (float*)nim->data;
-      break;
-    case DT_FLOAT64:
-      data_double = (double*)nim->data;
-      break;
-    default:
-      FATAL("wrong data type of mask file!"
-            << " in PutMaskedDataBack");
-  }
-  int nVoxels = nim->nx * nim->ny * nim->nz;
-  float* returnData = new float[nVoxels * row];
-  memset(returnData, 0, nVoxels * row * sizeof(float));
-
-  int count = 0;
-  // because of the count variable, no OMP here
-  for (int i = 0; i < row; i++) {
-    for (int j = 0; j < nVoxels; j++) {
-      if (data_int != NULL && data_int[j]) {
-        if (count == col * row) {
-          FATAL("number of scores is larger than number of masked voxels "
-                << col * row << "!"
-                << " in PutMaskedDataBack");
-        }
-        returnData[i * nVoxels + j] = data[count];
-        count++;
-      }
-      if (data_short != NULL && data_short[j]) {
-        if (count == col * row) {
-          FATAL("number of scores is larger than number of masked voxels "
-                << col * row << "!"
-                << " in PutMaskedDataBack");
-        }
-        returnData[i * nVoxels + j] = data[count];
-        count++;
-      }
-      if (data_uchar != NULL && data_uchar[j]) {
-        if (count == col * row) {
-          FATAL("number of scores is larger than number of masked voxels "
-                << col * row << "!"
-                << " in PutMaskedDataBack");
-        }
-        returnData[i * nVoxels + j] = data[count];
-        count++;
-      }
-      if (data_float != NULL && data_float[j] >= 1 - TINYNUM) {
-        if (count == col * row) {
-          FATAL("number of scores is larger than number of masked voxels "
-                << col * row << "!"
-                << " in PutMaskedDataBack");
-        }
-        returnData[i * nVoxels + j] = data[count];
-        count++;
-      }
-      if (data_double != NULL && data_double[j] >= 1 - TINYNUM) {
-        if (count == col * row) {
-          FATAL("number of scores is larger than number of masked voxels "
-                << col * row << "!"
-                << " in PutMaskedDataBack");
-        }
-        returnData[i * nVoxels + j] = data[count];
-        count++;
-      }
-    }
-  }
-  nifti_image_free(nim);
-  return returnData;
-#else
-  return 0;
 #endif
-}

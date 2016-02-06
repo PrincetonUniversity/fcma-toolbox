@@ -46,7 +46,7 @@ void exit_with_help() {
       "ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts "
       "correlation and test, 5 for cross validation of two parts correlation, "
       "6 for one part activation and test, 7 for cross validation of one part "
-      "activation, 8 for voxel correlation visualization, 9 for marginal "
+      "activation, 8 for N-1 voxel correlation visualization, 9 for marginal "
       "screening\n"
       "-t output file for task 0,1,2,3 in the voxel selection mode, input file "
       "for the same tasks in the test mode\n"
@@ -66,8 +66,6 @@ void exit_with_help() {
       "generally require mask1==mask2\n"
       "-v the block id that you want to visualize the correlation, must be "
       "specified in task 8\n"
-      "-r the referred file of the output file of task 8, must be a 4D file, "
-      "usually is the input data file\n"
       "-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 "
       "7, default 0\n"
       "-f randomly shuffle the voxel data, 0-no shuffling, 1-shuffle using a "
@@ -92,10 +90,9 @@ void set_default_parameters() {
   Parameters.leave_out_id = -1;
   Parameters.nHolds = 0;
   Parameters.nFolds = -1;
-  Parameters.visualized_block_id = -1;
+  Parameters.visualized_block_id = 0;
   Parameters.isTestMode = false;
   Parameters.mask_file1 = Parameters.mask_file2 = NULL;
-  Parameters.ref_file = NULL;
   Parameters.isQuietMode = false;
   Parameters.shuffle = 0;
   Parameters.permute_book_file = NULL;
@@ -137,17 +134,6 @@ void check_parameters() {
   }
   if (!Parameters.isTestMode && Parameters.nFolds == -1) {
     cout << "number of folds in the voxel selection must be specified" << endl;
-    exit_with_help();
-  }
-  if (Parameters.taskType == Corr_Visualization &&
-      Parameters.visualized_block_id == -1) {
-    cout << "the block to be visualized must be specified" << endl;
-    exit_with_help();
-  }
-  if (Parameters.taskType == Corr_Visualization &&
-      Parameters.ref_file == NULL) {
-    cout << "in the voxel correlation visualization task, a reference file "
-            "must be provided" << endl;
     exit_with_help();
   }
   if (Parameters.shuffle == 2 && Parameters.permute_book_file == NULL) {
@@ -245,9 +231,6 @@ void parse_command_line(int argc, char** argv) {
         break;
       case 'v':
         Parameters.visualized_block_id = atoi(argv[i]);
-        break;
-      case 'r':
-        Parameters.ref_file = argv[i];
         break;
       case 'q':
         Parameters.isQuietMode = (atoi(argv[i]) == 1);
@@ -353,9 +336,6 @@ static void params_from_keyvalues(char** keys_and_values,
           case FCMA_VISUALIZE_BLOCKID:
             Parameters.visualized_block_id = atoi(keys_and_values[v]);
             break;
-          case FCMA_VISUALIZE_REFERENCE:
-            Parameters.ref_file = keys_and_values[v];
-            break;
           default:
             break;
         }
@@ -396,7 +376,6 @@ void run_fcma(Param* param) {
   const char* output_file = param->output_file;
   const char* mask_file1 = param->mask_file1;
   const char* mask_file2 = param->mask_file2;
-  const char* ref_file = param->ref_file;
   int leave_out_id = param->leave_out_id;
   int nHolds =
       param->nHolds;  // the number of trials that being held from the analysis
@@ -580,9 +559,8 @@ void run_fcma(Param* param) {
           FATAL("Wrong visualized block id, you only provide " << nTrials
                                                                << " blocks!");
         }
-        VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2,
-                                      ref_file, trials[visualized_block_id],
-                                      output_file);
+        WriteAverageCorrelations(nSubs, r_matrices, mask_file1, mask_file2,
+                     trials[visualized_block_id], output_file);
         break;
       default:
         std::cerr << "Unknown task type" << std::endl;

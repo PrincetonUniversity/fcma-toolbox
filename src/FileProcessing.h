@@ -31,3 +31,5 @@ inline int getSizeByDataType(int datatype);
 const char* GetFilenameExtension(const char* filename);
 int ReadConfigFile(const char* fcma_file, const int& length,
                    char** keys_and_values);
+
+void WriteCorrMatToHDF5(int row1, int row2, float* corrMat, const char* outputfile);
