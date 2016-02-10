@@ -12,6 +12,8 @@
 #include <cassert>
 #include <sstream>
 #include "ErrorHandling.h"
+#include <hdf5.h>
+#include <hdf5_hl.h>
 
 /*************************
 read a bunch of raw matrix files
@@ -934,4 +936,49 @@ int ReadConfigFile(const char* fcma_file, const int& length,
   delete[] text;
   return count;
 }
+
+/* get filename prefix, without extension */
+/* Caller must free returned string */
+static char* GetFilenamePrefixAndFreeResult(const char* mystr) {
+    char *retstr;
+    char *lastdot;
+    if (mystr == NULL)
+        return NULL;
+    if ((retstr = (char*)malloc (strlen (mystr) + 1)) == NULL)
+        return NULL;
+    strcpy (retstr, mystr);
+    lastdot = strrchr (retstr, '.');
+    if (lastdot != NULL)
+        *lastdot = '\0';
+    return retstr;
+}
+
+/*******************************
+ write 4D data to an HDF5 file
+ input: the matrix dimensions and float matrix, and outputfile name
+ output: none, writes the data to HDF5 file
+ ********************************/
+void WriteCorrMatToHDF5(int row1, int row2, float* corrMat, const char* outputfile) {
+    hid_t       file_id;
+    hsize_t     dims[2];
+    
+    dims[0] = row1;
+    dims[1] = row2;
+    
+    char* prefix = GetFilenamePrefixAndFreeResult(outputfile);
+    char h5out[MAXFILENAMELENGTH];
+    sprintf(h5out,"%s.h5", prefix);
+    free(prefix);
+    
+    /* create a HDF5 file */
+    file_id = H5Fcreate (h5out, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    
+    /* create and write an integer type dataset named dset */
+    H5LTmake_dataset(file_id, "/dset", 2, dims, H5T_NATIVE_FLOAT, corrMat);
+    
+    /* close file */
+    H5Fclose (file_id);
+}
+
 #endif
+
