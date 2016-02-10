@@ -201,11 +201,11 @@ RawMatrix* ReadNiiGzData(std::string fileStr, int sid) {
 
 /************************************************
 Generate masked matrices using the mask file
-input: the raw data array, the number of subjects, the mask file
+input: the raw data array, the number of subjects, the mask file, bool value to determine if delete the raw data
 output: a masked data array
 *************************************************/
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
-                              const char* maskFile) {
+                              const char* maskFile, bool deleteData) {
   RawMatrix** masked_matrices = new RawMatrix* [nSubs];
   nifti_image* nim = nifti_image_read(maskFile, 1);
   int i;
@@ -284,6 +284,9 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
     }
     masked_matrix->row = count;  // update the row information
     masked_matrices[i] = masked_matrix;
+    if (deleteData) {
+      delete src_mat;
+    }
   }
   nifti_image_free(nim);
   return masked_matrices;

@@ -33,14 +33,35 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   svm_set_print_string_function(&print_null);
   RawMatrix** masked_matrices1 = NULL;
   RawMatrix** masked_matrices2 = NULL;
-  if (maskFile1 != NULL)
-    masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1);
+  if (maskFile1 != NULL) {
+    if (r_matrices1!=r_matrices2) {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, true);
+    }
+    else if (strcmp(maskFile1, maskFile2)) {  // masked_matrcies2 can reuse masked_matrices1
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, true);
+    }
+    else {
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, false);
+    }
+  }
   else
+  {
     masked_matrices1 = r_matrices1;
-  if (maskFile2 != NULL)
-    masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, maskFile2);
-  else
+  }
+  if (maskFile2 != NULL) {
+    // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
+    if (r_matrices1!=r_matrices2 || strcmp(maskFile1, maskFile2)) {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, maskFile2, true);
+    }
+    else {
+      masked_matrices2 = masked_matrices1;
+    }
+  }
+  else {
     masked_matrices2 = r_matrices2;
+  }
   cout << "masked matrices generating done!" << endl;
   cout << "#voxels for mask1: " << masked_matrices1[0]->row
        << " #voxels for mask2: " << masked_matrices2[0]->row << endl;
@@ -291,7 +312,7 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs,
 
   RawMatrix** masked_matrices = NULL;
   if (maskFile != NULL)
-    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile);
+    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile, true);
   else
     masked_matrices = avg_matrices;
   cout << "masked matrices generating done!" << endl;

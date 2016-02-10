@@ -12,7 +12,7 @@ RawMatrix** ReadGzDirectory(const char* filepath, const char* filetype,
 RawMatrix* ReadGzData(std::string fileStr, int sid);
 RawMatrix* ReadNiiGzData(std::string fileStr, int sid);
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
-                              const char* maskFile);
+                              const char* maskFile, bool deleteData);
 RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile);
 VoxelXYZ* GetMaskedPts(VoxelXYZ* pts, int nMaskedVoxels, const char* maskFile);
 Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file);

@@ -26,7 +26,7 @@ void Marginal_Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
 #ifndef __MIC__
   if (me == 0) {
     if (mask_file != NULL) {
-      masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file);
+      masked_matrices = GetMaskedMatrices(r_matrices, nSubs, mask_file, true);
       // MatrixPermutation(masked_matrices1, nSubs);
     } else
       masked_matrices = r_matrices;

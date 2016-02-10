@@ -327,7 +327,9 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs,
   td->nCols = total_cols;
 
   size_t dataSize = sizeof(float) * (size_t)td->nCols * (size_t)td->nVoxels;
-
+  //int tmp;
+  //std::cout<<"input some integer to continue: ";
+  //std::cin>>tmp;
   std::cout << "allocating raw data buffer bytes: " << dataSize << std::endl
             << std::flush;
 
@@ -386,6 +388,7 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs,
       }
       // so buffer data is organized as trialLength vectors (trs in a block)
     }
+    //delete matrix;
   }
   return td;
 }

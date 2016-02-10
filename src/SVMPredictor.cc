@@ -54,8 +54,13 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
     case Corr_Based_SVM:
     case Corr_Based_Dis:
       if (mask_file != NULL) {
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file);
-        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file);
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file, true);
+        if (r_matrices != r_matrices2) {
+          masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file, true);
+        }
+        else {
+          masked_matrices2 = masked_matrices1;
+        }
       } else {
         masked_matrices1 = r_matrices;
         masked_matrices2 = r_matrices2;
@@ -75,7 +80,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
       break;
     case Acti_Based_SVM:
       if (mask_file != NULL)
-        masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
+        masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file, true);
       else
         masked_matrices1 = avg_matrices;
       row = masked_matrices1[0]->row;
@@ -136,8 +141,6 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       }
     }
     for (j=0; j<nTrials*nTrials; j++) simMatrix[j] *= .001f;  // doens't do this will result in phiSVM errors
-    //for (j=0; j<204; j++) cout<<simMatrix[215*216+j]<<" ";
-    //cout<<endl;
 #if 1
     int nTrainingSamples = nTrials - nTests;
     float* trainingData = new float[nTrainingSamples*nTrainingSamples];
@@ -193,7 +196,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       cout << "blocking testing confidence:" << endl;
       for (j = 0; j < nTests; j++) {
         cout << fabs(result[j]) << " (";
-        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < 0)) {
+        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < j)) {
           cout << "Correct) ";
         } else {
           cout << "Incorrect) ";
@@ -519,8 +522,6 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
     delete[] buf2;
   }
   NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
-  //for (int ii=0; ii<204; ii++) cout<<values[ii]<<" ";
-  //cout<<endl;
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);
   // write out the training correlation vectors, for 9/22 demo, no normalization as well
   //FILE* fp = fopen("trainingSamples.bin", "wb");

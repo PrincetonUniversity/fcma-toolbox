@@ -32,7 +32,7 @@ void Searchlight(RawMatrix** avg_matrices, int nSubs, Trial* trials,
   RawMatrix** masked_matrices = NULL;
   VoxelXYZ* masked_pts = NULL;
   if (maskFile != NULL) {
-    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile);
+    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile, true);
     masked_pts = GetMaskedPts(pts, masked_matrices[0]->row, maskFile);
   } else {
     masked_matrices = avg_matrices;

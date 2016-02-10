@@ -37,12 +37,32 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   if (me == 0) {
     tstart = MPI_Wtime();
     if (mask_file1 != NULL) {
-      masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1);
-    } else
+      if (r_matrices!=r_matrices2) {
+        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
+      }
+      else if (strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
+      }
+      else {
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
+      }
+    }
+    else
+    {
       masked_matrices1 = r_matrices;
+    }
     if (mask_file2 != NULL) {
-      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2);
-    } else {
+      // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
+      if (r_matrices!=r_matrices2 || strcmp(mask_file1, mask_file2)) {
+        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
+      }
+      else {
+        masked_matrices2 = masked_matrices1;
+      }
+    }
+    else {
       masked_matrices2 = r_matrices2;
     }
     if (shuffle == 1 || shuffle == 2) {
