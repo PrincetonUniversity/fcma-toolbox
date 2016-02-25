@@ -45,7 +45,7 @@ static const CMM_INT MICTH = 240;
 void sgemmTranspose(float* mat1, float* mat2, const CMM_INT M, const CMM_INT N,
                     const CMM_INT K, float* output, const CMM_INT ldc);
 void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
-                         const CMM_INT N, const CMM_INT K,
+                         const CMM_INT N1, const CMM_INT N2, const CMM_INT K,
                          const CMM_INT nPerSubj, const CMM_INT nSubjs,
                          float* output, const CMM_INT ldc, CMM_INT sr);
 void NormalizeBlkData(float* data, const CMM_INT MtBLK, const CMM_INT nPerSubj);

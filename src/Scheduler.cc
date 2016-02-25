@@ -41,7 +41,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
       }
-      else if (strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
+      else if (!strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
       }
       else {
@@ -336,7 +336,8 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
   using std::flush;
   int recvMsg[2];
   MPI_Status status;
-  size_t nVoxels = td2->nVoxels;
+  size_t nVoxels = td1->nVoxels;
+  size_t nVoxels2 = td2->nVoxels;
   Voxel* voxels = new Voxel();
   voxels->nTrials = nTrials;
   voxels->nVoxels = nVoxels;
@@ -349,7 +350,7 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
   assert(voxels->kernel_matrices);
 
   dataSize =
-      sizeof(float) * (size_t)nVoxels * (size_t)BLK2 * (size_t)nTrials;
+      sizeof(float) * (size_t)nVoxels2 * (size_t)BLK2 * (size_t)nTrials;
   if (1 == me) {
     cout << "task 1: bytes for correlation vecs: " << dataSize << endl << flush;
     if (getenv("FCMA_DEBUG_TASK")) WaitForDebugAttach();

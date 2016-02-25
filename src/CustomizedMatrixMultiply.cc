@@ -123,12 +123,12 @@ void sgemmTranspose(float* mat1, float* mat2, const CMM_INT M, const CMM_INT N,
 // merge correlation computing and normalization together
 // assume that M is small enough so that we don't need to partition it
 void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
-                         const CMM_INT N, const CMM_INT K,
+                         const CMM_INT N1, const CMM_INT N2, const CMM_INT K,
                          const CMM_INT nPerSubj, const CMM_INT nSubjs,
                          float* output, const CMM_INT ldc, CMM_INT sr) {
   float* mat1 = td1->data + sr * K;
   float* mat2 = td2->data;
-  const CMM_INT n_max = (N / BLK) * BLK;
+  const CMM_INT n_max = (N2 / BLK) * BLK;
   const CMM_INT MtBLK = M * BLK;
   const CMM_INT KtBLK = K * BLK;
   const CMM_INT olsize = MtBLK * nPerSubj;
@@ -144,7 +144,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
 
 #pragma omp parallel for collapse(2)  // schedule(dynamic)
   for (CMM_INT s = 0; s < nSubjs; s++) {
-    for (CMM_INT n = 0; n < N; n += BLK) {
+    for (CMM_INT n = 0; n < N2; n += BLK) {
       float mat_T[mtsize];
       float output_local[olsize];
       if (n < n_max) {
@@ -154,7 +154,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
           for (CMM_INT cc = 0; cc < K; cc++) {
             for (CMM_INT rr = 0; rr < BLK; rr++) {
               mat_T[ss * KtBLK + cc * BLK + rr] =
-                  mat2[cur_col * N + cc + (n + rr) * K];
+                  mat2[cur_col * N2 + cc + (n + rr) * K];
             }
           }
         }
@@ -167,7 +167,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
             for (CMM_INT j = 0; j < BLK; j++) {
               for (CMM_INT k = 0; k < K; k++) {
                 output_local[ss * MtBLK + i * BLK + j] +=
-                    mat1[cur_col * N + i * K + k] *
+                    mat1[cur_col * N1 + i * K + k] *
                     mat_T[ss * KtBLK + k * BLK + j];
               }
             }
@@ -179,7 +179,7 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
           for (CMM_INT i = 0; i < M; i++) {
 #pragma vector nontemporal
             for (CMM_INT j = 0; j < BLK; j++) {
-              output[s * nPerSubj * N + ss * N + i * ldc + n + j] =
+              output[s * nPerSubj * N2 + ss * N2 + i * ldc + n + j] =
                   output_local[ss * MtBLK + i * BLK + j];  // i is vid
             }
           }
@@ -190,9 +190,9 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
         for (CMM_INT ss = 0; ss < nPerSubj; ss++) {
           CMM_INT cur_col = td1->scs[s * nPerSubj + ss];
           for (CMM_INT cc = 0; cc < K; cc++) {
-            for (CMM_INT rr = 0; rr < N - n_max; rr++) {
+            for (CMM_INT rr = 0; rr < N2 - n_max; rr++) {
               mat_T[ss * KtBLK + cc * BLK + rr] =
-                  mat2[cur_col * N + cc + (n + rr) * K];
+                  mat2[cur_col * N2 + cc + (n + rr) * K];
             }
           }
         }
@@ -202,10 +202,10 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
           }
           CMM_INT cur_col = td1->scs[s * nPerSubj + ss];
           for (CMM_INT i = 0; i < M; i++) {
-            for (CMM_INT j = 0; j < N - n_max; j++) {
+            for (CMM_INT j = 0; j < N2 - n_max; j++) {
               for (CMM_INT k = 0; k < K; k++) {
                 output_local[ss * MtBLK + i * BLK + j] +=
-                    mat1[cur_col * N + i * K + k] *
+                    mat1[cur_col * N1 + i * K + k] *
                     mat_T[ss * KtBLK + k * BLK + j];
               }
             }
@@ -216,8 +216,8 @@ void sgemmTransposeMerge(TrialData* td1, TrialData* td2, const CMM_INT M,
         for (CMM_INT ss = 0; ss < nPerSubj; ss++) {
           for (CMM_INT i = 0; i < M; i++) {
 #pragma vector nontemporal
-            for (CMM_INT j = 0; j < N - n_max; j++) {
-              output[s * nPerSubj * N + ss * N + i * ldc + n + j] =
+            for (CMM_INT j = 0; j < N2 - n_max; j++) {
+              output[s * nPerSubj * N2 + ss * N2 + i * ldc + n + j] =
                   output_local[ss * MtBLK + i * BLK + j];  // i is vid
             }
           }
