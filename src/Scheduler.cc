@@ -35,16 +35,17 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
 
 #ifndef __MIC__
   if (me == 0) {
+    //WaitForDebugAttach();
     tstart = MPI_Wtime();
     if (mask_file1 != NULL) {
       if (r_matrices!=r_matrices2) {
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
       }
-      else if (!strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
+      else if (mask_file2!=NULL && !strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
       }
-      else {
+      else {  // same raw data, different masks
         masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
       }
     }
@@ -53,8 +54,12 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
       masked_matrices1 = r_matrices;
     }
     if (mask_file2 != NULL) {
+      if (r_matrices==r_matrices2 && mask_file1==NULL) {  // same data, mask1 is null
+        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, false);
+      }
+      // same data, different masks; or different data
       // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
-      if (r_matrices!=r_matrices2 || strcmp(mask_file1, mask_file2)) {
+      else if (r_matrices!=r_matrices2 || strcmp(mask_file1, mask_file2)) {
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
       }
@@ -309,16 +314,21 @@ void DoMaster(int nprocs, int step, int row, const char* output_file,
     ofile << scores[j].vid << " " << scores[j].score << endl;
   }
   ofile.close();
-  int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, totalLength,
+  if (mask_file) {
+    int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, totalLength,
                                                 DT_SIGNED_INT);
-  sprintf(fullfilename, "%s", output_file);
-  strcat(fullfilename, "_seq.nii.gz");
-  WriteNiiGzData(fullfilename, mask_file, (void*)data_ids, DT_SIGNED_INT);
-  float* data_scores = (float*)GenerateNiiDataFromMask(mask_file, scores,
+    sprintf(fullfilename, "%s", output_file);
+    strcat(fullfilename, "_seq.nii.gz");
+    WriteNiiGzData(fullfilename, mask_file, (void*)data_ids, DT_SIGNED_INT);
+    float* data_scores = (float*)GenerateNiiDataFromMask(mask_file, scores,
                                                        totalLength, DT_FLOAT32);
-  sprintf(fullfilename, "%s", output_file);
-  strcat(fullfilename, "_score.nii.gz");
-  WriteNiiGzData(fullfilename, mask_file, (void*)data_scores, DT_FLOAT32);
+    sprintf(fullfilename, "%s", output_file);
+    strcat(fullfilename, "_score.nii.gz");
+    WriteNiiGzData(fullfilename, mask_file, (void*)data_scores, DT_FLOAT32);
+  }
+  else {
+    cout<<"the first mask is NULL, so no files in NIfTI format are generated"<<endl;
+  }
 #endif
 }
 

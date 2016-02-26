@@ -631,6 +631,10 @@ output: write the data to the file
 ********************************/
 void WriteNiiGzData(const char* outputFile, const char* refFile, void* data,
                     int dataType) {
+  if (refFile==NULL) {
+    std::cout<<"No NIfTI file to refer, do not write out NIfTI file"<<std::endl;
+    return;
+  }
   nifti_image* nim =
       nifti_image_read(refFile, 1);  // 1 means reading the data as well
   if (nim == NULL) {
@@ -663,6 +667,10 @@ output: write the data to the file
 ********************************/
 void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data,
                       int dataType, int nt) {
+  if (refFile==NULL) {
+    std::cout<<"No NIfTI file to refer, do not write out 4D NIfTI file"<<std::endl;
+    return;
+  }
   nifti_image* nim =
       nifti_image_read(refFile, 1);  // 1 means reading the data as well
   if (nim == NULL) {
@@ -961,24 +969,23 @@ static char* GetFilenamePrefixAndFreeResult(const char* mystr) {
 void WriteCorrMatToHDF5(int row1, int row2, float* corrMat, const char* outputfile) {
     hid_t       file_id;
     hsize_t     dims[2];
-    
+
     dims[0] = row1;
     dims[1] = row2;
-    
+
     char* prefix = GetFilenamePrefixAndFreeResult(outputfile);
     char h5out[MAXFILENAMELENGTH];
     sprintf(h5out,"%s.h5", prefix);
     free(prefix);
-    
+
     /* create a HDF5 file */
     file_id = H5Fcreate (h5out, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    
+
     /* create and write an integer type dataset named dset */
     H5LTmake_dataset(file_id, "/dset", 2, dims, H5T_NATIVE_FLOAT, corrMat);
-    
+
     /* close file */
     H5Fclose (file_id);
 }
 
 #endif
-
