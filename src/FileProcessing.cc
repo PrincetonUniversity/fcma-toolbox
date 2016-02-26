@@ -134,6 +134,12 @@ RawMatrix* ReadNiiGzData(std::string fileStr, int sid) {
   r_matrix->nx = nim->nx;
   r_matrix->ny = nim->ny;
   r_matrix->nz = nim->nz;
+  //std::cout << "DEBUG nim->datatype = " << nim->datatype << std::endl;
+  //std::cout << "DEBUG nim->nx = " << nim->nx << std::endl;
+  //std::cout << "DEBUG nim->ny = " << nim->ny << std::endl;
+  //std::cout << "DEBUG nim->nz = " << nim->nz << std::endl;
+  //std::cout << "DEBUG r_matrix->row = " << r_matrix->row << std::endl;
+  //std::cout << "DEBUG r_matrix->col = " << r_matrix->col << std::endl;
   r_matrix->matrix = new float[r_matrix->row * r_matrix->col];
   short* data_short = NULL;
   unsigned short* data_ushort = NULL;
@@ -287,7 +293,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
     masked_matrix->row = count;  // update the row information
     masked_matrices[i] = masked_matrix;
     if (deleteData) {
-      delete src_mat;
+      delete [] src_mat; // DEBUG tlw added brackets since deleting an array 2/23/2016 
     }
   }
   nifti_image_free(nim);

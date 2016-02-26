@@ -36,35 +36,40 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
 #ifndef __MIC__
   if (me == 0) {
     tstart = MPI_Wtime();
-    if (mask_file1 != NULL) {
-      if (r_matrices!=r_matrices2) {
-        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
-      }
-      else if (strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
-      }
-      else {
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
-      }
+    if (mask_file1 == NULL) {
+      masked_matrices1 = r_matrices;
     }
     else
     {
-      masked_matrices1 = r_matrices;
+      if (r_matrices2 == r_matrices) { 
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
+      }
+      else {
+        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
+      }
     }
-    if (mask_file2 != NULL) {
+    if (mask_file2 == NULL) {
+      masked_matrices2 = r_matrices2;
+    }
+    else {
       // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
-      if (r_matrices!=r_matrices2 || strcmp(mask_file1, mask_file2)) {
+      if (r_matrices == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
+        masked_matrices2 = masked_matrices1;
+      }
+      else {
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
       }
-      else {
-        masked_matrices2 = masked_matrices1;
-      }
     }
-    else {
-      masked_matrices2 = r_matrices2;
+
+    if ((mask_file1 != NULL) && (mask_file2 != NULL || r_matrices != r_matrices2)) {
+    	// DEBUG tlw added since it's now safe to delete r_matrices
+	for (int i = 0; i < nSubs; i++) {
+		delete [] r_matrices[i]->matrix;
+	}
     }
+
     if (shuffle == 1 || shuffle == 2) {
       unsigned int seed = (unsigned int)time(NULL);
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);

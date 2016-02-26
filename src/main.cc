@@ -176,6 +176,8 @@ void parse_command_line(int argc, char** argv) {
       int num_elements = ReadConfigFile(argv[1], max_elements, keys_and_values);
       params_from_keyvalues(keys_and_values, num_elements);
       start = 2;
+      delete keys_and_values; // Added by tlw 2/16/2016
+      keys_and_values = NULL; // Added by tlw 2/16/2016
     }
   }
 
