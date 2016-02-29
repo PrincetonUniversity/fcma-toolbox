@@ -16,6 +16,7 @@
 #include "SVMClassification.h"
 #include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
+using namespace std;
 
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
@@ -29,9 +30,6 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   RawMatrix** masked_matrices2 = NULL;
   TrialData* td1 = NULL;
   TrialData* td2 = NULL;
-
-  using std::cout;
-  using std::endl;
 
 #ifndef __MIC__
   if (me == 0) {
@@ -53,21 +51,18 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
       masked_matrices2 = r_matrices2;
     }
     else {
-      // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
+      // This is a special-case optimization (not required) 
       if (r_matrices == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
         masked_matrices2 = masked_matrices1;
+        // DEBUG tlw added since it's now safe to delete r_matrices
+        for (int i = 0; i < nSubs; i++) {
+        	delete [] r_matrices[i]->matrix;
+        }
       }
       else {
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
       }
-    }
-
-    if ((mask_file1 != NULL) && (mask_file2 != NULL || r_matrices != r_matrices2)) {
-    	// DEBUG tlw added since it's now safe to delete r_matrices
-	for (int i = 0; i < nSubs; i++) {
-		delete [] r_matrices[i]->matrix;
-	}
     }
 
     if (shuffle == 1 || shuffle == 2) {
