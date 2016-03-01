@@ -16,6 +16,7 @@
 #include "SVMClassification.h"
 #include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
+using namespace std;
 
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
@@ -30,46 +31,41 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   TrialData* td1 = NULL;
   TrialData* td2 = NULL;
 
-  using std::cout;
-  using std::endl;
-
 #ifndef __MIC__
   if (me == 0) {
     //WaitForDebugAttach();
     tstart = MPI_Wtime();
-    if (mask_file1 != NULL) {
-      if (r_matrices!=r_matrices2) {
-        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
-      }
-      else if (mask_file2!=NULL && !strcmp(mask_file1, mask_file2)) {  // masked_matrcies2 can reuse masked_matrices1
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
-      }
-      else {  // same raw data, different masks
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
-      }
+    if (mask_file1 == NULL) {
+      masked_matrices1 = r_matrices;
     }
     else
     {
-      masked_matrices1 = r_matrices;
-    }
-    if (mask_file2 != NULL) {
-      if (r_matrices==r_matrices2 && mask_file1==NULL) {  // same data, mask1 is null
-        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, false);
+      if (r_matrices2 == r_matrices) { 
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
       }
-      // same data, different masks; or different data
-      // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
-      else if (r_matrices!=r_matrices2 || strcmp(mask_file1, mask_file2)) {
+      else {
+        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
+      }
+    }
+    if (mask_file2 == NULL) {
+      masked_matrices2 = r_matrices2;
+    }
+    else {
+      // This is a special-case optimization (not required) 
+      if (r_matrices == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
+        masked_matrices2 = masked_matrices1;
+        // DEBUG tlw added since it's now safe to delete r_matrices
+        for (int i = 0; i < nSubs; i++) {
+        	delete [] r_matrices[i]->matrix;
+        }
+      }
+      else {
         // after GetMaskedMatrices, the data stored in r_matrices have been deleted
         masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
       }
-      else {
-        masked_matrices2 = masked_matrices1;
-      }
     }
-    else {
-      masked_matrices2 = r_matrices2;
-    }
+
     if (shuffle == 1 || shuffle == 2) {
       unsigned int seed = (unsigned int)time(NULL);
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
