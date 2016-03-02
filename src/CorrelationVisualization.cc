@@ -35,14 +35,14 @@ static fcma_timer* fcma_start_timer(const std::string& event_name) {
 static void fcma_stop_timer(fcma_timer* tm) {
     assert(tm);
     delete tm;
-    tm = nil;
+    tm = nullptr;
 }
 
 #   define START_TIMER(tm, event_name) fcma_timer* tm = fcma_start_timer(event_name)
 #   define STOP_TIMER(tm) fcma_stop_timer(tm)
 #else
-#   define START_TIMER(start) return nil
-#   define STOP_TIMER(end) ((void)0)
+#   define START_TIMER(tm, event_name) ((void)0)
+#   define STOP_TIMER(tm) ((void)0)
 #endif
 
 static void mat2buf(float* buf, float* mat, int voxels, int alltrs, int trs, int sc, bool accum) {
