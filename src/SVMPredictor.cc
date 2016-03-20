@@ -42,7 +42,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10,  20,   50,   100, 200,
+  int tops[] = {10, 20, 50, 100, 200,
                 500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
@@ -121,7 +121,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     // simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials,
     // r_matrices);
     for (j = 0; j < nTrials * nTrials; j++) simMatrix[j] = 0.0;
-    int sr = 0, rowLength = 2000;
+    int sr = 0, rowLength = 1000;
     while (sr < tops[i]) {
       if (rowLength >= tops[i] - sr) {
         rowLength = tops[i] - sr;

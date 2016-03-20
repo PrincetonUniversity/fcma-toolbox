@@ -25,7 +25,7 @@ output: the results are displayed on the screen and returned
 ****************************************/
 int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
                                    RawMatrix** r_matrices2, int nSubs,
-                                   const char* maskFile1, const char* maskFile2,
+                                   const char* mask_file1, const char* mask_file2,
                                    int nTrials, Trial* trials, int nTests,
                                    int is_quiet_mode) {
 #ifndef __MIC__
@@ -33,34 +33,35 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   svm_set_print_string_function(&print_null);
   RawMatrix** masked_matrices1 = NULL;
   RawMatrix** masked_matrices2 = NULL;
-  if (maskFile1 != NULL) {
-    if (r_matrices1!=r_matrices2) {
-      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, true);
-    }
-    else if (strcmp(maskFile1, maskFile2)) {  // masked_matrcies2 can reuse masked_matrices1
-      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, true);
-    }
-    else {
-      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1, false);
-    }
+  if (mask_file1 == NULL) {
+    masked_matrices1 = r_matrices1;
   }
   else
   {
-    masked_matrices1 = r_matrices1;
-  }
-  if (maskFile2 != NULL) {
-    // if masks are different, GetMaskedMatrices is still needed even if r_matrices==r_matrices2
-    if (r_matrices1!=r_matrices2 || strcmp(maskFile1, maskFile2)) {
-      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, maskFile2, true);
+    if (r_matrices2 == r_matrices1) { 
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, false);
     }
     else {
-      masked_matrices2 = masked_matrices1;
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, true);
     }
   }
-  else {
+  if (mask_file2 == NULL) {
     masked_matrices2 = r_matrices2;
+  }
+  else {
+    // This is a special-case optimization (not required) 
+    if (r_matrices1 == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
+      masked_matrices2 = masked_matrices1;
+      // DEBUG tlw added since it's now safe to delete r_matrices
+      for (int i = 0; i < nSubs; i++) {
+        delete [] r_matrices1[i]->matrix;
+      }
+    }
+    else {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
+    }
   }
   cout << "masked matrices generating done!" << endl;
   cout << "#voxels for mask1: " << masked_matrices1[0]->row
@@ -220,11 +221,11 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   // phiSVM done
   delete[] simMatrix;
   for (i = 0; i < nSubs; i++) {
-    delete masked_matrices1[i]->matrix;
-    if (maskFile2 != NULL) delete masked_matrices2[i]->matrix;
+    delete [] masked_matrices1[i]->matrix;
+    if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
   }
   delete masked_matrices1;
-  if (maskFile2 != NULL) delete masked_matrices2;
+  if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
   return result;
 #else
   return 0;

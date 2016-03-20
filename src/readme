@@ -175,3 +175,6 @@ add functionality to output correlation matrix in HDF5 format
 fix memory leak bugs when reading data, now FCMA can deal with datasets with high resolution fMRI images (91*109*91)
 fix bugs correlation computation bugs when the two masks are not identical
 allow null masks for correlation computation
+
+1.9.1
+fix the double delete bug in SVMPredictorWithMasks.cc which happens after restructuring the memory layout for fixing the memory leak bug
