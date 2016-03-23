@@ -39,7 +39,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** masked_matrices1,
   float* simMatrix = new float[(CMM_INT)nTrials * nTrials];
   int corrRow = masked_matrices1[0]->row;
   memset((void*)simMatrix, 0, nTrials * nTrials * sizeof(float));
-  int sr = 0, rowLength = 500;
+  CMM_INT sr = 0, rowLength = 100;
   int result = 0;
   while (sr < corrRow) {
     if (rowLength >= corrRow - sr) {
@@ -224,9 +224,9 @@ float* GetPartialInnerSimMatrixWithMasks(
                                            // subjects have different TRs
     float* mat1 = masked_matrices1[sid]->matrix;
     float* mat2 = masked_matrices2[sid]->matrix;
-    float* buf1 = new float[row1 * col];  // col is more than what really need,
+    float* buf1 = new float[(CMM_INT)row1 * col];  // col is more than what really need,
                                           // just in case
-    float* buf2 = new float[row2 * col];  // col is more than what really need,
+    float* buf2 = new float[(CMM_INT)row2 * col];  // col is more than what really need,
                                           // just in case
     int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized
                                                       // matrix, return the
