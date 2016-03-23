@@ -7,9 +7,8 @@
 #include "common.h"
 #include "LibSVM.h"
 
-int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
-                                   RawMatrix** r_matrices2, int nSubs,
-                                   const char* maskFile1, const char* maskFile2,
+int SVMPredictCorrelationWithMasks(RawMatrix** masked_matrices1,
+                                   RawMatrix** masked_matrices2, int nSubs,
                                    int nTrials, Trial* trials, int nTests,
                                    int is_quiet_mode);
 float* GetPartialInnerSimMatrixWithMasks(int nSubs, int nTrials, int sr,

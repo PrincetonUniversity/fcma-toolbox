@@ -53,18 +53,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
 
     case Corr_Based_SVM:
     case Corr_Based_Dis:
-      if (mask_file != NULL) {
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file, true);
-        if (r_matrices != r_matrices2) {
-          masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file, true);
-        }
-        else {
-          masked_matrices2 = masked_matrices1;
-        }
-      } else {
-        masked_matrices1 = r_matrices;
-        masked_matrices2 = r_matrices2;
-      }
+      GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file, mask_file, 
+          &masked_matrices1, &masked_matrices2);
       row = masked_matrices1[0]->row;
       col = masked_matrices1[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);

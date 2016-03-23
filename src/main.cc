@@ -487,7 +487,9 @@ void run_fcma(Param* param) {
       me == 0)  // program in test mode only uses one node to predict
   {
 
-    int l = 0, result = 0, f = 0;
+    int l = 0, result = 0, f = 0, i = 0;
+    RawMatrix** masked_matrices1 = NULL;
+    RawMatrix** masked_matrices2 = NULL;
     cout << "data directory: " << fmri_directory << endl;
     if (mask_file1 != NULL) {
       cout << "mask file(s): " << mask_file1 << " ";
@@ -505,28 +507,42 @@ void run_fcma(Param* param) {
                    is_quiet_mode);
         break;
       case Corr_Mask_Classification:
-        result = SVMPredictCorrelationWithMasks(r_matrices, r_matrices2, nSubs,
-                                                mask_file1, mask_file2, nTrials,
+        GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
+        result = SVMPredictCorrelationWithMasks(masked_matrices1, masked_matrices2, nSubs, nTrials,
                                                 trials, nHolds, is_quiet_mode);
+        for (i = 0; i < nSubs; i++) {
+          delete [] masked_matrices1[i]->matrix;
+          if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
+        }
+        delete masked_matrices1;
+        if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
         cout << "accuracy: " << result << "/" << nHolds << "="
              << result * 1.0 / nHolds << endl;
         break;
       case Corr_Mask_Cross_Validation:
         nHolds = param->nHolds;
+        GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
         while (l <= nTrials - nHolds)  // assume that nHolds*an integer==nTrials
         {
           leaveSomeTrialsOut(trials, nTrials, 0, nHolds);  // the setting of
                                                            // third parameter is
                                                            // tricky here
-          int curResult = SVMPredictCorrelationWithMasks(
-              r_matrices, r_matrices2, nSubs, mask_file1, mask_file2, nTrials,
-              trials, nHolds, is_quiet_mode);
+          int curResult = SVMPredictCorrelationWithMasks(masked_matrices1, masked_matrices2, nSubs, nTrials,
+                                                trials, nHolds, is_quiet_mode);
           f++;
           cout << "fold " << f << ": " << curResult << "/" << nHolds << "="
                << curResult * 1.0 / nHolds << endl;
           result += curResult;
           l += nHolds;
         }
+        for (i = 0; i < nSubs; i++) {
+          delete [] masked_matrices1[i]->matrix;
+          if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
+        }
+        delete masked_matrices1;
+        if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
         cout << "total accuracy: " << result << "/" << nTrials << "="
              << result * 1.0 / nTrials << endl;
         break;

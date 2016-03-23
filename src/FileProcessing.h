@@ -14,6 +14,9 @@ RawMatrix* ReadNiiGzData(std::string fileStr, int sid);
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
                               const char* maskFile, bool deleteData);
 RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile);
+void GenerateMaskedMatrices(int nSubs, RawMatrix** r_matrices1, RawMatrix** r_matrices2,
+                            const char* mask_file1, const char* mask_file2,
+                            RawMatrix*** p_masked_matrices1, RawMatrix*** p_masked_matrices2);
 VoxelXYZ* GetMaskedPts(VoxelXYZ* pts, int nMaskedVoxels, const char* maskFile);
 Trial* GenRegularTrials(int nSubs, int nShift, int& nTrials, const char* file);
 Trial* GenBlocksFromDir(int nSubs, int nShift, int& nTrials,

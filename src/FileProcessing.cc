@@ -301,7 +301,7 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
 }
 
 /************************************************
-Generate a masked matrix using the mask file
+Get a masked matrix using the mask file
 input: the raw data matrix, the mask file
 output: a masked matrix
 *************************************************/
@@ -381,6 +381,59 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile) {
   }
   nifti_image_free(nim);
   return masked_matrix;
+}
+
+/************************************************
+Generate masked matrices using the mask file
+input: the number of subjects, the raw data matrices, the mask file, the masked matrices
+output: write in the masked matrices, delete the raw data matrices
+*************************************************/
+void GenerateMaskedMatrices(int nSubs, RawMatrix** r_matrices1, RawMatrix** r_matrices2,
+                            const char* mask_file1, const char* mask_file2,
+                            RawMatrix*** p_masked_matrices1, RawMatrix*** p_masked_matrices2) {
+  float t = 0.0f;
+  struct timeval start, end;
+  gettimeofday(&start, 0);
+  RawMatrix** masked_matrices1 = NULL;
+  RawMatrix** masked_matrices2 = NULL;
+  if (mask_file1 == NULL) {
+    masked_matrices1 = r_matrices1;
+  }
+  else
+  {
+    if (r_matrices2 == r_matrices1) { 
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, false);
+    }
+    else {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, true);
+    }
+  }
+  if (mask_file2 == NULL) {
+    masked_matrices2 = r_matrices2;
+  }
+  else {
+    // This is a special-case optimization (not required) 
+    if (r_matrices1 == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
+      masked_matrices2 = masked_matrices1;
+      // DEBUG tlw added since it's now safe to delete r_matrices
+      for (int i = 0; i < nSubs; i++) {
+        delete [] r_matrices1[i]->matrix;
+      }
+    }
+    else {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
+    }
+  }
+  gettimeofday(&end, 0);
+  t += end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
+  std::cout << "masked matrices generating done! " << "takes " << t << " s"<< std::endl;
+  std::cout << "#voxels for mask1: " << masked_matrices1[0]->row
+       << " #voxels for mask2: " << masked_matrices2[0]->row << std::endl;
+  *p_masked_matrices1 = masked_matrices1;
+  *p_masked_matrices2 = masked_matrices2;
+  return;
 }
 
 /************************************************

@@ -15,57 +15,22 @@
 
 using namespace std;
 
+
 /***************************************
 Get two parts of the brain to compute the correlation and then use the
 correlation vectors to predict
-input: the raw activation matrix arrays, the number of subjects, the number of
-subjects, the first mask file, the second mask file, the number of
+input: the masked activation matrix arrays, the number of subjects, the number of
+subjects, the number of
 blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
-int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
-                                   RawMatrix** r_matrices2, int nSubs,
-                                   const char* mask_file1, const char* mask_file2,
+int SVMPredictCorrelationWithMasks(RawMatrix** masked_matrices1,
+                                   RawMatrix** masked_matrices2, int nSubs,
                                    int nTrials, Trial* trials, int nTests,
                                    int is_quiet_mode) {
 #ifndef __MIC__
   int i, j, k;
   svm_set_print_string_function(&print_null);
-  RawMatrix** masked_matrices1 = NULL;
-  RawMatrix** masked_matrices2 = NULL;
-  if (mask_file1 == NULL) {
-    masked_matrices1 = r_matrices1;
-  }
-  else
-  {
-    if (r_matrices2 == r_matrices1) { 
-      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, false);
-    }
-    else {
-      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, true);
-    }
-  }
-  if (mask_file2 == NULL) {
-    masked_matrices2 = r_matrices2;
-  }
-  else {
-    // This is a special-case optimization (not required) 
-    if (r_matrices1 == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
-      masked_matrices2 = masked_matrices1;
-      // DEBUG tlw added since it's now safe to delete r_matrices
-      for (int i = 0; i < nSubs; i++) {
-        delete [] r_matrices1[i]->matrix;
-      }
-    }
-    else {
-      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
-    }
-  }
-  cout << "masked matrices generating done!" << endl;
-  cout << "#voxels for mask1: " << masked_matrices1[0]->row
-       << " #voxels for mask2: " << masked_matrices2[0]->row << endl;
 #if __MEASURE_TIME__
   float t_sim = 0.0f, t_train = 0.0f;
   struct timeval start, end;
@@ -220,12 +185,6 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   }*/
   // phiSVM done
   delete[] simMatrix;
-  for (i = 0; i < nSubs; i++) {
-    delete [] masked_matrices1[i]->matrix;
-    if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
-  }
-  delete masked_matrices1;
-  if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
   return result;
 #else
   return 0;

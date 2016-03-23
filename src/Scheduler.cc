@@ -35,36 +35,8 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   if (me == 0) {
     //WaitForDebugAttach();
     tstart = MPI_Wtime();
-    if (mask_file1 == NULL) {
-      masked_matrices1 = r_matrices;
-    }
-    else
-    {
-      if (r_matrices2 == r_matrices) { 
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, false);
-      }
-      else {
-        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1, true);
-      }
-    }
-    if (mask_file2 == NULL) {
-      masked_matrices2 = r_matrices2;
-    }
-    else {
-      // This is a special-case optimization (not required) 
-      if (r_matrices == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
-        masked_matrices2 = masked_matrices1;
-        // DEBUG tlw added since it's now safe to delete r_matrices
-        for (int i = 0; i < nSubs; i++) {
-        	delete [] r_matrices[i]->matrix;
-        }
-      }
-      else {
-        // after GetMaskedMatrices, the data stored in r_matrices have been deleted
-        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
-      }
-    }
+    GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
 
     if (shuffle == 1 || shuffle == 2) {
       unsigned int seed = (unsigned int)time(NULL);

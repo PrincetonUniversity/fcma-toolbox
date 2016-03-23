@@ -178,3 +178,4 @@ allow null masks for correlation computation
 
 1.9.1
 fix the double delete bug in SVMPredictorWithMasks.cc which happens after restructuring the memory layout for fixing the memory leak bug
+add GenerateMaskedMatrices function to FileProcessing.cc, extract masked_matrices before cross validation in task 5
