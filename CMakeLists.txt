@@ -7,6 +7,10 @@ set (CMAKE_VERBOSE_MAKEFILE OFF)
 # so that we will find TutorialConfig.h
 include_directories("${PROJECT_BINARY_DIR}")
 
+link_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+
+set (LD_LIBRARY_PATH "${LD_LIBRARY_PATH}:${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+
 # configure a header file to pass some of the CMake settings
 # to the source code
 #configure_file (
@@ -15,36 +19,35 @@ include_directories("${PROJECT_BINARY_DIR}")
 #  )
 
 # should we use MKL? otherwise we use OpenBLAS
-option (USE_MKL "Use Intel MKL" OFF)
+option (USE_MKL "Use Intel MKL" ON)
 
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lznz -lz -lniftiio -lhdf5 -lhdf5_hl -lboost_serialization -lboost_iostreams -lmpi -lomp")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lz -lhdf5 -lhdf5_hl -lboost_serialization -lboost_iostreams -lmpi")
 # set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -DCMM_INT_IS_LONG")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -DCMM_INT_IS_LONG -std=c++11 -fPIC")
 
 if (USE_MKL)
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_MKL")
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mkl=parallel")
 else ()
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lopenblas")
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lopenblas -lomp")
 endif (USE_MKL)
 
-set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
-set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
-set(LD_LIBRARY_PATH "$CMAKE_LIBRARY_PATH:$LD_LIBRARY_PATH")
+#set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
+#set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+#set(LD_LIBRARY_PATH "$CMAKE_LIBRARY_PATH:$LD_LIBRARY_PATH")
 
-# set(CMAKE_C_COMPILER clang)
-# set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_C_COMPILER ${CC})
+set(CMAKE_CXX_COMPILER ${CXX})
 
-include_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_INCLUDE_PATH}")  # either this or last line
-
-link_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
 
 include_directories ("${PROJECT_SOURCE_DIR}/deps/SVM-phi")
 add_subdirectory (deps/SVM-phi)
-include_directories ("${PROJECT_SOURCE_DIR}/deps/SVM-simple")
-add_subdirectory (deps/SVM-simple)
-set (EXTRA_LIBS ${EXTRA_LIBS} svmphi svmsimple)
+include_directories ("${PROJECT_SOURCE_DIR}/deps/SVM-Simple")
+add_subdirectory (deps/SVM-Simple)
+include_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_INCLUDE_PATH}")  # either this or last line
+link_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+set (EXTRA_LIBS ${EXTRA_LIBS} svmphi svmsimple niftiio znz)
 
 # get all *.cc files recursively
 file(GLOB_RECURSE SRC_FILES src/*.cc)
