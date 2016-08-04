@@ -103,7 +103,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
     d2ptr += dataChunk2;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Barrier(MPI_COMM_WORLD);
 
   tstop = MPI_Wtime();
   if (me == 0) {

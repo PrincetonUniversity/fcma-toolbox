@@ -1,0 +1,44 @@
+cmake_minimum_required (VERSION 2.6)
+project (FCMA)
+
+# set (CMAKE_VERBOSE_MAKEFILE on)
+
+# add the binary tree to the search path for include files
+# so that we will find TutorialConfig.h
+include_directories("${PROJECT_BINARY_DIR}")
+
+# configure a header file to pass some of the CMake settings
+# to the source code
+#configure_file (
+#  "${PROJECT_SOURCE_DIR}/FCMAConfig.h.in"
+#  "${PROJECT_BINARY_DIR}/FCMAConfig.h"
+#  )
+
+set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lznz -lz -lniftiio -lhdf5 -lhdf5_hl -lboost_serialization -lboost_iostreams -lopenblas -lmpi -lomp")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp")
+
+set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
+set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+set(LD_LIBRARY_PATH "$CMAKE_LIBRARY_PATH:$LD_LIBRARY_PATH")
+
+#set(CMAKE_C_COMPILER clang)
+#set(CMAKE_CXX_COMPILER clang++)
+
+include_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_INCLUDE_PATH}")  # either this or last line
+
+link_directories ("${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
+
+include_directories ("${PROJECT_SOURCE_DIR}/deps/SVM-phi")
+add_subdirectory (deps/SVM-phi)
+include_directories ("${PROJECT_SOURCE_DIR}/deps/SVM-simple")
+add_subdirectory (deps/SVM-simple)
+set (EXTRA_LIBS ${EXTRA_LIBS} svmphi svmsimple)
+
+# get all *.cc files recursively
+file(GLOB_RECURSE SRC_FILES src/*.cc)
+
+# add the executable
+add_executable (FCMA ${SRC_FILES})
+target_link_libraries (FCMA  ${EXTRA_LIBS})

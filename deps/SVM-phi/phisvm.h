@@ -161,6 +161,13 @@ float crossValidation(float* data, int nPoints, int nDimension,
                                float cost, SelectionHeuristic heuristicMethod,
                                float epsilon, float tolerance,
                                float* transposedData, bool shuffle);
+
+float incrementalCrossValidation(PhiSVMModel** models, float* data, int nPoints, int nDimension,
+                               int nFolds, float* labels, Kernel_params* kp,
+                               float cost, SelectionHeuristic heuristicMethod,
+                               float epsilon, float tolerance,
+                               float* transposedData, int maxNPoints);
+
 void svmGroupClasses(int nPoints, float* labels, int** start_ret,
                      int** count_ret, int* perm);
 PhiSVMModel* performTraining(float* data, int nPoints, int nDimension, float* labels,

@@ -304,6 +304,277 @@ float crossValidation(float* data, int nPoints, int nDimension,
   return 1.0 * nCorrects / nPoints;
 }
 
+// assuming that nFolds-1 models are ready to use in models, except nFolds=2
+float incrementalCrossValidation(PhiSVMModel** models, float* data, int nPoints, int nDimension,
+                               int nFolds, float* labels, Kernel_params* kp,
+                               float cost, SelectionHeuristic heuristicMethod,
+                               float epsilon, float tolerance,
+                               float* transposedData, int maxNPoints) {
+  /**
+    get kernel type
+  **/
+  int kType = NEWGAUSSIAN;
+  if (kp->kernel_type.compare(0, 3, "rbf") == 0) {
+    kType = NEWGAUSSIAN;
+    // printf("Gaussian kernel: gamma = %f\n", kp->gamma);
+  } else if (kp->kernel_type.compare(0, 6, "linear") == 0) {
+    kType = NEWLINEAR;
+    // printf("Linear kernel\n");
+  } else if (kp->kernel_type.compare(0, 11, "precomputed") == 0) {
+    kType = NEWPRECOMPUTED;
+    // printf("Precomputed kernel\n");
+  }
+#ifdef __SVM_BREAKDOWN__
+  struct timeval start_time, end_time;
+  float t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+  gettimeofday(&start_time, 0);
+#endif
+  /**
+    group folds
+  **/
+  assert(nPoints > 0);
+  assert(nFolds > 0);
+
+  float target[nPoints];
+  int i;
+  int fold_start[nFolds + 1];
+  int perm[nPoints];
+  int nr_class = 2;
+  // stratified cv may not give leave-one-out rate
+  // Each class to l folds -> some folds may have zero elements
+  if (nFolds < nPoints) {
+    int* start = NULL;
+    int* count = NULL;
+    // put the same class to be adjacent to each other
+    svmGroupClasses(nPoints, labels, &start, &count, perm);
+    assert(start && count && count[0] > 0 && count[1] > 0);
+
+    // data grouped by fold using the array perm
+    int* fold_count = Calloc(int, nFolds);
+    int c;
+    int* index = Calloc(int, nPoints);
+    for (i = 0; i < nPoints; i++) index[i] = perm[i];
+    // according to the number of folds, assign each fold with same number of
+    // different classes
+    for (i = 0; i < nFolds; i++) {
+      fold_count[i] = 0;
+      for (c = 0; c < nr_class; c++)
+        fold_count[i] += (i + 1) * count[c] / nFolds - i * count[c] / nFolds;
+    }
+    fold_start[0] = 0;
+    for (i = 1; i <= nFolds; i++)
+      fold_start[i] = fold_start[i - 1] + fold_count[i - 1];
+    for (c = 0; c < nr_class; c++)
+      for (i = 0; i < nFolds; i++) {
+        int begin = start[c] + i * count[c] / nFolds;
+        int end = start[c] + (i + 1) * count[c] / nFolds;
+        for (int j = begin; j < end; j++) {
+          perm[fold_start[i]] = index[j];
+          fold_start[i]++;
+        }
+      }
+    fold_start[0] = 0;
+    for (i = 1; i <= nFolds; i++)
+      fold_start[i] = fold_start[i - 1] + fold_count[i - 1];
+    free(start);
+    free(count);
+    free(index);
+    free(fold_count);
+  } else {
+    //FATAL("too many folds in SVM cross validation");
+    cerr<<"too many folds in SVM cross validation"<<endl;
+    exit(1);
+  }
+
+  /**
+    cross validation
+  **/
+  float* sub_data = (float*)malloc(
+      sizeof(float) * nPoints *
+      nDimension);  // trade off space to avoid allocating spaces multiple times
+  float* sub_labels = (float*)malloc(sizeof(float) * nPoints);  // ditto
+  float* test_data = (float*)malloc(sizeof(float) * nPoints * nDimension);
+  float* test_labels = (float*)malloc(sizeof(float) * nPoints);
+  bool* bit_map = nullptr;
+  if (kType == NEWPRECOMPUTED) {
+    bit_map = Calloc(bool, nPoints);
+  }
+#ifdef __SVM_BREAKDOWN__
+  gettimeofday(&end_time, 0);
+  t0 = end_time.tv_sec - start_time.tv_sec +
+       (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+  for (i = 0; i < nFolds; i++) {
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
+    int begin = fold_start[i];
+    int end = fold_start[i + 1];
+    assert(begin >= 0 && end >= 0 && end >= begin);
+
+    int j, k, l;
+    int sub_nPoints = nPoints - (end - begin);
+    if (kType == NEWPRECOMPUTED) {
+      for (j = 0; j < begin; j++) {
+        bit_map[perm[j]] = true;
+      }
+      for (j = begin; j < end; j++) {
+        bit_map[perm[j]] = false;
+      }
+      for (j = end; j < nPoints; j++) {
+        bit_map[perm[j]] = true;
+      }
+    }
+    k = 0;
+    for (j = 0; j < begin; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            sub_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(sub_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      sub_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+    for (j = end; j < nPoints; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            sub_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(sub_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      sub_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t1 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+    gettimeofday(&start_time, 0);
+#endif
+    int sub_nDimension = nDimension;
+    if (kType == NEWPRECOMPUTED) {
+      sub_nDimension = sub_nPoints;
+    }
+    if (nFolds==2 || i==nFolds-1) {  // we need to create the model from scratch
+      models[i] = performTraining(sub_data, sub_nPoints,
+                    sub_nDimension, sub_labels,
+                    kp, cost, heuristicMethod, epsilon, tolerance, transposedData, NULL);
+      models[i]->data = new float[maxNPoints*maxNPoints]; // get enough space for the incremental request
+      models[i]->labels = new float[maxNPoints];
+      // make the space exclusive to the model
+      memcpy((void*)(models[i]->data), (const void*)sub_data, sizeof(float)*sub_nPoints*sub_nDimension);
+      memcpy((void*)(models[i]->labels), (const void*)sub_labels, sizeof(float)*sub_nPoints);
+    }
+    else {  // we can do incremental learning
+      memcpy((void*)(models[i]->data), (const void*)sub_data, sizeof(float)*sub_nPoints*sub_nDimension);
+      memcpy((void*)(models[i]->labels), (const void*)sub_labels, sizeof(float)*sub_nPoints);
+      int nOldPoints = models[i]->nSamples;
+      models[i]->nSamples = sub_nPoints;
+      models[i]->nDimension = sub_nDimension;
+      models[i] = performOnlineTraining(nOldPoints, kp, cost,
+                       heuristicMethod, epsilon, tolerance, models[i]);
+    }
+    PhiSVMModel* phi_svm_model = models[i];
+
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t2 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+
+/**
+  generate test_data and test_labels
+**/
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
+    int nTests = end - begin;
+    k = 0;
+    for (j = begin; j < end; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            test_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(test_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      test_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+    float* result;
+    performClassification(test_data, nTests,
+                          sub_nDimension, kp, &result, phi_svm_model);
+    //#pragma simd
+    for (j = begin; j < end; j++) {
+      target[perm[j]] = result[j - begin];
+    }
+    free(result);
+
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t3 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+  }
+#ifdef __SVM_BREAKDOWN__
+  if (omp_get_thread_num() == 0) {
+    printf("SVM time breakdown:\n");
+    printf("preparing folds: %fs\n", t0);
+    printf("generating training/test sets: %fs\n", t1);
+    printf("training: %fs\n", t2);
+    printf("test: %fs\n", t3);
+  }
+#endif
+  int nCorrects = 0;
+  for (i = 0; i < nPoints; i++) {
+    nCorrects =
+        (labels[i] == 1 && target[i] >= 0) || (labels[i] == 0 && target[i] < 0)
+            ? nCorrects + 1
+            : nCorrects;
+  }
+  free(sub_data);
+  free(sub_labels);
+  free(test_data);
+  free(test_labels);
+  if (kType == NEWPRECOMPUTED) {
+    free(bit_map);
+  }
+  return 1.0 * nCorrects / nPoints;
+}
+
 bool hasTwoTypes(float* labels, int n) {
   int a = labels[0];
   for (int i=1; i<n; i++) {
@@ -632,14 +903,12 @@ if (kType == NEWPRECOMPUTED)
   /*struct sysinfo info;
   sysinfo(&info);
   unsigned long long int free_ram = info.freeram; //bytes
-
   size_t rowPitch = nPoints*sizeof(float);
   float* cache = NULL;
   size_t cachePitch = rowPitch;
   int CachePitchInFloats = nPoints;// (int)cachePitch/(sizeof(float));
   float free_fraction = 0.8f;
   size_t sizeOfCache;
-
   do {
     sizeOfCache = (size_t)(free_ram*free_fraction); //80% of free space
     //sizeOfCache = (10*1024*1024*1024L); //10GB cache
@@ -648,14 +917,11 @@ if (kType == NEWPRECOMPUTED)
       sizeOfCache = nPoints;
     }
     printf("Trying to alloc %.2f percent of free ram %.2f GB\n", free_fraction*100.0, sizeOfCache * nPoints *sizeof(float)/(1024.0*1024.0*1024.0));
-
     cache = (float*)malloc(sizeOfCache * nPoints *sizeof(float));
     free_fraction *= 0.9;
   } while(cache == NULL);
   float ff = 0;
-
   printf("%Zu rows of kernel matrix will be cached (%Zu bytes per row) %f\n", sizeOfCache, rowPitch, ff);
-
   char* str_num_threads = getenv("OMP_NUM_THREADS");
   int nthreads = (str_num_threads == NULL)?(1):(atoi(str_num_threads));
   if (nthreads <= 0) nthreads = 1;
@@ -795,7 +1061,7 @@ if (kType == NEWPRECOMPUTED)
     progress.addIteration(bLow - bHigh);
   }
 
-  printf("%d iterations, incremental\n", iteration);
+  //printf("%d iterations, incremental\n", iteration);
   //state->niter = iteration;
   //printf("bLow: %f, bHigh: %f\n", r.bLow, r.bHigh);
   kp->b = (bLow + bHigh) / 2;

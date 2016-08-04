@@ -233,10 +233,10 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     DumpModelToDisk(modelStr);*/
 #endif
     delete result;
-    delete testData;
-    delete testLabels;
-    delete trainingData;
-    delete labels;
+    delete [] testData;
+    delete [] testLabels;
+    delete [] trainingData;
+    delete [] labels;
 #else
     SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or
                                                          // PRECOMPUTED
@@ -547,9 +547,8 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels,
   int nPerSub = nTrials / nSubs;               // should be dividable
   typedef float mattype[][length];
 
-#pragma omp parallel for
-  for (int i = 0; i < nSubs; i++)  // do normalization subject by subject
-  {
+//#pragma omp parallel for
+  for (int i = 0; i < nSubs; i++) { // do normalization subject by subject
 #ifdef __INTEL_COMPILER
     float(*mat)[length] = (float(*)[length]) & (values[(CMM_INT)i * nPerSub * length]);
 #else

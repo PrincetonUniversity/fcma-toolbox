@@ -176,7 +176,7 @@ void parse_command_line(int argc, char** argv) {
       int num_elements = ReadConfigFile(argv[1], max_elements, keys_and_values);
       params_from_keyvalues(keys_and_values, num_elements);
       start = 2;
-      delete keys_and_values; // Added by tlw 2/16/2016
+      delete [] keys_and_values; // Added by tlw 2/16/2016
       keys_and_values = NULL; // Added by tlw 2/16/2016
     }
   }
@@ -415,7 +415,9 @@ void run_fcma(Param* param) {
   MPI_Bcast((void*)&nSubs, 1, MPI_INT, 0, MPI_COMM_WORLD);
   // VoxelXYZ* temp_pts=new VoxelXYZ[r_matrices[0]->row];
   // int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
-  MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //cout<<"here1"<<endl;
+  //MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //cout<<"here2"<<endl;
   VoxelXYZ* pts = NULL;
 #ifndef __MIC__
   if (me == 0) {
@@ -453,7 +455,7 @@ void run_fcma(Param* param) {
     if (nHolds > nTrials)
       FATAL("More holds (" << nHolds << ") than trials (" << nTrials << ")!");
   }
-  MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
   if (me == 0) {
     cout << "data reading done! ";
     gettimeofday(&end, 0);
