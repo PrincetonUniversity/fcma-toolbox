@@ -1,7 +1,9 @@
 cmake_minimum_required (VERSION 2.6)
 project (FCMA)
 
-set (CMAKE_VERBOSE_MAKEFILE OFF)
+if ($ENV{VERBOSE})
+  set (CMAKE_VERBOSE_MAKEFILE ON)
+endif ($ENV{VERBOSE})
 
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
@@ -19,22 +21,18 @@ set (LD_LIBRARY_PATH "${LD_LIBRARY_PATH}:${PROJECT_SOURCE_DIR}/deps/nifticlib-2.
 #  )
 
 # should we use MKL? otherwise we use OpenBLAS
-option (USE_MKL "Use Intel MKL" ON)
+#option (USE_MKL "Use Intel MKL" ON)
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lz -lhdf5 -lhdf5_hl -lboost_serialization -lboost_iostreams -lmpi")
 # set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -DCMM_INT_IS_LONG -std=c++11 -fPIC")
 
-if (USE_MKL)
+if ($ENV{USE_MKL})
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_MKL")
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mkl=parallel")
-else ()
+else ($ENV{USE_MKL})
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lopenblas -lomp")
-endif (USE_MKL)
-
-#set(CMAKE_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/include")
-#set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/deps/nifticlib-2.0.0/lib")
-#set(LD_LIBRARY_PATH "$CMAKE_LIBRARY_PATH:$LD_LIBRARY_PATH")
+endif ($ENV{USE_MKL})
 
 set(CMAKE_C_COMPILER ${CC})
 set(CMAKE_CXX_COMPILER ${CXX})
