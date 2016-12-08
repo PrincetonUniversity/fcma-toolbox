@@ -16,6 +16,7 @@
 #include "SVMClassification.h"
 #include "VoxelwiseAnalysis.h"
 #include "ErrorHandling.h"
+using namespace std;
 
 // two mask files can be different
 void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
@@ -30,21 +31,13 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   TrialData* td1 = NULL;
   TrialData* td2 = NULL;
 
-  using std::cout;
-  using std::endl;
-
 #ifndef __MIC__
   if (me == 0) {
+    //WaitForDebugAttach();
     tstart = MPI_Wtime();
-    if (mask_file1 != NULL) {
-      masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file1);
-    } else
-      masked_matrices1 = r_matrices;
-    if (mask_file2 != NULL) {
-      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2);
-    } else {
-      masked_matrices2 = r_matrices2;
-    }
+    GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
+
     if (shuffle == 1 || shuffle == 2) {
       unsigned int seed = (unsigned int)time(NULL);
       MatrixPermutation(masked_matrices1, nSubs, seed, permute_book_file);
@@ -70,13 +63,23 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
     td2->trialLengths = new int[td2->nTrials];
     td1->scs = new int[td1->nTrials];
     td2->scs = new int[td2->nTrials];
-    td1->data = (float*)_mm_malloc(
-        sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels, 64);
+    size_t dataSize = sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels;
+    //td1->data = (float*)_mm_malloc(
+    //    sizeof(float) * (size_t)td1->nCols * (size_t)td1->nVoxels, 64);
+    td1->data = (float*)malloc(dataSize);
     assert(td1->data);
-    td2->data = (float*)_mm_malloc(
-        sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
+    //td2->data = (float*)_mm_malloc(
+    //    sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels, 64);
+    dataSize = sizeof(float) * (size_t)td2->nCols * (size_t)td2->nVoxels;
+    td2->data = (float*)malloc(dataSize);
     assert(td2->data);
   }
+  /*if (me==0) { //output for real-time paper
+    FILE* fp = fopen("facesceneNorm_Acti.bin", "wb");
+    fwrite ((const void*)td1->data, sizeof(float), (size_t)td1->nCols * (size_t)td1->nVoxels, fp);
+    fclose(fp);
+    exit(1);
+  }*/
   MPI_Bcast((void*)(td1->trialLengths), td1->nTrials, MPI_INT, 0,
             MPI_COMM_WORLD);
   MPI_Bcast((void*)(td2->trialLengths), td2->nTrials, MPI_INT, 0,
@@ -100,7 +103,7 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
     d2ptr += dataChunk2;
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Barrier(MPI_COMM_WORLD);
 
   tstop = MPI_Wtime();
   if (me == 0) {
@@ -117,8 +120,10 @@ void Scheduler(int me, int nprocs, int step, RawMatrix** r_matrices,
   delete[] td2->trialLengths;
   delete[] td1->scs;
   delete[] td2->scs;
-  _mm_free(td1->data);
-  _mm_free(td2->data);
+  //_mm_free(td1->data);
+  //_mm_free(td2->data);
+  free(td1->data);
+  free(td2->data);
   delete td1;
   delete td2;
 }
@@ -277,16 +282,21 @@ void DoMaster(int nprocs, int step, int row, const char* output_file,
     ofile << scores[j].vid << " " << scores[j].score << endl;
   }
   ofile.close();
-  int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, totalLength,
+  if (mask_file) {
+    int* data_ids = (int*)GenerateNiiDataFromMask(mask_file, scores, totalLength,
                                                 DT_SIGNED_INT);
-  sprintf(fullfilename, "%s", output_file);
-  strcat(fullfilename, "_seq.nii.gz");
-  WriteNiiGzData(fullfilename, mask_file, (void*)data_ids, DT_SIGNED_INT);
-  float* data_scores = (float*)GenerateNiiDataFromMask(mask_file, scores,
+    sprintf(fullfilename, "%s", output_file);
+    strcat(fullfilename, "_seq.nii.gz");
+    WriteNiiGzData(fullfilename, mask_file, (void*)data_ids, DT_SIGNED_INT);
+    float* data_scores = (float*)GenerateNiiDataFromMask(mask_file, scores,
                                                        totalLength, DT_FLOAT32);
-  sprintf(fullfilename, "%s", output_file);
-  strcat(fullfilename, "_score.nii.gz");
-  WriteNiiGzData(fullfilename, mask_file, (void*)data_scores, DT_FLOAT32);
+    sprintf(fullfilename, "%s", output_file);
+    strcat(fullfilename, "_score.nii.gz");
+    WriteNiiGzData(fullfilename, mask_file, (void*)data_scores, DT_FLOAT32);
+  }
+  else {
+    cout<<"the first mask is NULL, so no files in NIfTI format are generated"<<endl;
+  }
 #endif
 }
 
@@ -304,24 +314,28 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
   using std::flush;
   int recvMsg[2];
   MPI_Status status;
-  size_t nVoxels = td2->nVoxels;
+  size_t nVoxels = td1->nVoxels;
+  size_t nVoxels2 = td2->nVoxels;
   Voxel* voxels = new Voxel();
   voxels->nTrials = nTrials;
   voxels->nVoxels = nVoxels;
   voxels->vid = new int[preset_step];
-  voxels->kernel_matrices = (float*)_mm_malloc(
-      sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step,
-      64);
+  //voxels->kernel_matrices = (float*)_mm_malloc(
+  //    sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step,
+  //    64);
+  size_t dataSize = sizeof(float) * (size_t)nTrials * (size_t)nTrials * (size_t)preset_step;
+  voxels->kernel_matrices = (float*)malloc(dataSize);
   assert(voxels->kernel_matrices);
 
-  size_t dataSize =
-      sizeof(float) * (size_t)nVoxels * (size_t)BLK2 * (size_t)nTrials;
+  dataSize =
+      sizeof(float) * (size_t)nVoxels2 * (size_t)BLK2 * (size_t)nTrials;
   if (1 == me) {
     cout << "task 1: bytes for correlation vecs: " << dataSize << endl << flush;
     if (getenv("FCMA_DEBUG_TASK")) WaitForDebugAttach();
   }
 
-  voxels->corr_vecs = (float*)_mm_malloc(dataSize, 64);
+  //voxels->corr_vecs = (float*)_mm_malloc(dataSize, 64);
+  voxels->corr_vecs = (float*)malloc(dataSize);
   assert(voxels->corr_vecs);
   while (true) {
     MPI_Recv(recvMsg,        /* message buffer */
@@ -339,41 +353,40 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
       break;
     }
     VoxelScore* scores = NULL;
-    switch (taskType) {
-      case Corr_Based_SVM:
+    if (taskType == Corr_Based_SVM) {
 #if __MEASURE_TIME__
-        double t1 = MPI_Wtime();
+      double t1 = MPI_Wtime();
 #endif
-        voxels =
-            ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
+      voxels =
+          ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
                                          nTrials - nHolds, sr, step, td1, td2);
 // PreprocessAllVoxelsAnalysisData_flat(voxels, step, nSubs);
 #if __MEASURE_TIME__
-        double t2 = MPI_Wtime();
-        cout << "computing: " << t2 - t1 << "s" << endl << flush;
+      double t2 = MPI_Wtime();
+      cout << "computing: " << t2 - t1 << "s" << endl << flush;
 #endif
-        scores = GetVoxelwiseSVMPerformance(
-            me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
-// scores = GetVoxelwiseNewSVMPerformance(me, trials, voxels, step,
-// nTrials-nHolds, nFolds); // PhiSVM
-// scores = new VoxelScore[step];
+      //scores = GetVoxelwiseSVMPerformance(
+      //   me, trials, voxels, step, nTrials - nHolds, nFolds);  // LibSVM
+      scores = GetVoxelwiseNewSVMPerformance(
+            me, trials, voxels, step, nTrials - nHolds, nFolds); // PhiSVM
+      // scores = new VoxelScore[step];
 #if __MEASURE_TIME__
-        t1 = MPI_Wtime();
-        cout << "svm processing: " << t1 - t2 << "s" << endl;
+      t1 = MPI_Wtime();
+      cout << "svm processing: " << t1 - t2 << "s" << endl;
 #endif
-        break;
-      case Corr_Based_Dis:
-        // TODO
-        // it was distance ratio before
-        break;
-      case Corr_Sum:
-        // scores = GetCorrVecSum(me, c_matrices, nTrials);
-        // voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
-        // nTrials-nHolds, sr, step, td1, td2);
-        scores = GetVoxelwiseCorrVecSum(me, voxels, step, sr, td1, td2);
-        break;
-      default:
-        FATAL("unknown task type");
+    }
+    else if (taskType == Corr_Based_Dis) {
+      // TODO
+      // it was distance ratio before
+    }
+    else if (taskType == Corr_Sum) {
+      // scores = GetCorrVecSum(me, c_matrices, nTrials);
+      // voxels = ComputeAllVoxelsAnalysisData(voxels, trials, nTrials, nSubs,
+      // nTrials-nHolds, sr, step, td1, td2);
+      scores = GetVoxelwiseCorrVecSum(me, voxels, step, sr, td1, td2);
+    }
+    else {
+      FATAL("unknown task type");
     }
     double tstop = MPI_Wtime();
     float elapse = float(tstop - tstart);
@@ -395,10 +408,15 @@ void DoSlave(int me, int masterId, TrialData* td1, TrialData* td2,
              masterId,           /* destination process rank */
              VOXELCLASSIFIERTAG, /* user chosen message tag */
              MPI_COMM_WORLD);    /* default communicator */
-    delete scores;
+    if (scores) {
+      delete [] scores;
+      scores = NULL;
+    }
   }
-  _mm_free(voxels->corr_vecs);
-  _mm_free(voxels->kernel_matrices);
+  //_mm_free(voxels->corr_vecs);
+  //_mm_free(voxels->kernel_matrices);
+  free(voxels->corr_vecs);
+  free(voxels->kernel_matrices);
   delete[] voxels->vid;
   delete voxels;
 }

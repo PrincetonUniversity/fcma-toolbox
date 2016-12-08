@@ -44,8 +44,41 @@
 #define _SVM_H
 
 #define LIBSVM_VERSION 310
+#define MAXSVMITERATION 20000000
 
-#include "LibSVM.h"
+#if defined(__GNUC__)
+// gcc supports this syntax
+#define ALIGNED(x) __attribute__((aligned(x)))
+#else
+// visual c++, clang, icc
+#define ALIGNED(x) __declspec(align(x))
+#endif
+
+//#include "LibSVM.h"
+#include <cassert>
+
+// BLAS dependency
+#ifdef USE_MKL
+#include <mkl.h>
+#else
+typedef int MKL_INT;
+#if defined __APPLE__
+#include <Accelerate/Accelerate.h>
+#else
+extern "C" {
+#include <cblas.h>
+}
+#endif
+#endif
+
+// SSE/AVX instrinsics
+#if defined(_MSC_VER)
+// Microsoft C/C++-compatible compiler */
+#include <intrin.h>
+#elif defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+// GCC-compatible compiler (gcc,clang,icc) targeting x86/x86-64
+#include <x86intrin.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -93,7 +126,6 @@ struct svm_parameter {
 //
 // svm_model
 //
-// SV is a one-step pointer now
 struct svm_model {
   struct svm_parameter param; /* parameter */
   int nr_class;         /* number of classes, = 2 in regression/one class svm */
@@ -113,8 +145,25 @@ struct svm_model {
                /* 0 if svm_model is created by svm_train */
 };
 
+enum {
+  C_SVC
+};
+    /* svm_type */  // only C_SVC is needed for now
+enum {
+  LINEAR,
+  PRECOMPUTED
+}; /* kernel_type */
+
+typedef struct svm_problem SVMProblem;
+typedef struct svm_parameter SVMParameter;
+typedef struct svm_node SVMNode;
+
 struct svm_model *svm_train(const struct svm_problem *prob,
                             const struct svm_parameter *param);
+void svm_cross_validation(const struct svm_problem *prob,
+                          const struct svm_parameter *param,
+                          int nr_fold, double *target);
+
 void svm_cross_validation_no_shuffle(const struct svm_problem *prob,
                                      const struct svm_parameter *param,
                                      int nr_fold, double *target);
@@ -138,6 +187,9 @@ const char *svm_check_parameter(const struct svm_problem *prob,
 int svm_check_probability_model(const struct svm_model *model);
 
 void svm_set_print_string_function(void (*print_func)(const char *));
+
+int svm_save_model(const char *model_file_name, const struct svm_model *model);
+struct svm_model *svm_load_model(const char *model_file_name);
 
 #ifdef __cplusplus
 }

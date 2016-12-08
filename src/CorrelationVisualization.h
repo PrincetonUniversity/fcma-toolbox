@@ -6,7 +6,8 @@
 
 #include "common.h"
 
-void VisualizeCorrelationWithMasks(RawMatrix* r_matrix, const char* maskFile1,
-                                   const char* maskFile2, const char* refFile,
-                                   Trial trial, const char* output_file);
-float* PutMaskedDataBack(const char* maskFile, float* data, int row, int col);
+/* correlates all subjects in a directory, using N-1 combinations,
+ * and writes out resulting average matrix. Done for a given trial. */
+void WriteAverageCorrelations(int nSubs, RawMatrix** r_matrix,
+			    const char* maskFile1, const char* maskFile2,
+                            Trial trial, const char* output_file);

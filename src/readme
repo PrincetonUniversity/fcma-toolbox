@@ -155,3 +155,27 @@ further addressed 32-bit int issue by using longs where appropriate
 1.7.3
 change the SVM cross validation implementation in the correlation-based selection back to be LibSVM.
 add MAXSVMITERATION (20,000,000) to restrict the SVM training from doing forever for some data (too many iterations won't help)
+
+1.8
+FCMA code refactor
+move simplified LibSVM and PhiSVM code out from this repo, make them be dynamic libraries to be linked
+
+1.8.1
+Minor fixes and Makefile update
+Makefiles now generate a debug and profile version (makes all by default or do "make debug" "make release" "make profile" to only make one)
+Moved SVM paths from Makefile to Make.user by using OTHER_INCLUDES and OTHER_LDFLAGS
+note: can use "patchelf" command to update pni_fcma's ELF data on Linux to include location of svm shared libraries in case LD_LIBRARY_PATH not set up
+
+1.8.2
+fix an INT_MAX bug in SVMPredictorWithMasks, use CMM_INT (long) to cast the numbers when they are big
+replace LIBSVM with PhiSVM in SVMPredictorWithMasks
+
+1.9
+add functionality to output correlation matrix in HDF5 format
+fix memory leak bugs when reading data, now FCMA can deal with datasets with high resolution fMRI images (91*109*91)
+fix bugs correlation computation bugs when the two masks are not identical
+allow null masks for correlation computation
+
+1.9.1
+fix the double delete bug in SVMPredictorWithMasks.cc which happens after restructuring the memory layout for fixing the memory leak bug
+add GenerateMaskedMatrices function to FileProcessing.cc, extract masked_matrices before cross validation in task 5

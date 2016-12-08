@@ -57,7 +57,7 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials,
       gettimeofday(&start, 0);
 #endif
       // cout<<td1->scs[0]<<" "<<td1->scs[10]<<endl<<flush;
-      sgemmTransposeMerge(td1, td2, BLK2, row, ml, nPerSubj, nSubs,
+      sgemmTransposeMerge(td1, td2, BLK2, td1->nVoxels, row, ml, nPerSubj, nSubs,
                           voxels->corr_vecs, row * nTrials, sr + m);
 #if __MEASURE_TIME__
       gettimeofday(&end, 0);
@@ -113,7 +113,7 @@ Voxel* ComputeAllVoxelsAnalysisData(Voxel* voxels, Trial* trials, int nTrials,
 #if __MEASURE_TIME__
       gettimeofday(&start, 0);
 #endif
-      sgemmTransposeMerge(td1, td2, step - m_max, row, ml, nPerSubj, nSubs,
+      sgemmTransposeMerge(td1, td2, step - m_max, td1->nVoxels, row, ml, nPerSubj, nSubs,
                           voxels->corr_vecs, row * nTrials, sr + m);
 #if __MEASURE_TIME__
       gettimeofday(&end, 0);

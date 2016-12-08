@@ -1,5 +1,2 @@
-.snapshot/
-*.[oa]
-*.MIC
-*~
-!.gitignore
+build
+proj

@@ -5,9 +5,12 @@
 #  (assumes subdirs include and lib for each)
 BLASINCLUDE = -I/opt/intel/mkl/include
 BLASCFLAGS = -DUSE_MKL -qopt-report-phase=vec -DCMM_INT_IS_LONG #-vec-report=1
-BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64 -L$(HOME)/tools/nifticlib-2.0.0/lib
+BLASLIBINC = -L/opt/intel/mkl/lib/intel64 -L/opt/intel/lib/intel64
 BLASLDFLAGS = -mkl=parallel
-OTHER_INCLUDES = -I/opt/intel/include -I$(HOME)/tools/nifticlib-2.0.0/include
+OTHER_INCLUDES = -I/opt/intel/include -I/home/yidawang/code/SVM-simple -I/home/yidawang/code/SVM-phi
+OTHER_LDFLAGS = -L/home/yidawang/code/SVM-simple -lsimplesvm -L/home/yidawang/code/SVM-phi -lphisvm
+OTHER_LDFLAGS_MIC = -L/home/yidawang/code/SVM-simple -lsimplesvm.MIC -L/home/yidawang/code/SVM-phi -lphisvm.MIC
+BOOSTLIBINC = -L/share/apps/boost/1.55.0/lib64 -lboost_serialization -lboost_iostreams
 MPICC = mpiicpc
 
 # to build for other supported architectures

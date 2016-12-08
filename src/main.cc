@@ -46,7 +46,7 @@ void exit_with_help() {
       "ratio, 2 for searchlight, 3 for correlation sum, 4 for two parts "
       "correlation and test, 5 for cross validation of two parts correlation, "
       "6 for one part activation and test, 7 for cross validation of one part "
-      "activation, 8 for voxel correlation visualization, 9 for marginal "
+      "activation, 8 for N-1 voxel correlation visualization, 9 for marginal "
       "screening\n"
       "-t output file for task 0,1,2,3 in the voxel selection mode, input file "
       "for the same tasks in the test mode\n"
@@ -66,8 +66,6 @@ void exit_with_help() {
       "generally require mask1==mask2\n"
       "-v the block id that you want to visualize the correlation, must be "
       "specified in task 8\n"
-      "-r the referred file of the output file of task 8, must be a 4D file, "
-      "usually is the input data file\n"
       "-q bool, being quiet (1) or not (0) in test mode for task type 2 4 5 6 "
       "7, default 0\n"
       "-f randomly shuffle the voxel data, 0-no shuffling, 1-shuffle using a "
@@ -92,10 +90,9 @@ void set_default_parameters() {
   Parameters.leave_out_id = -1;
   Parameters.nHolds = 0;
   Parameters.nFolds = -1;
-  Parameters.visualized_block_id = -1;
+  Parameters.visualized_block_id = 0;
   Parameters.isTestMode = false;
   Parameters.mask_file1 = Parameters.mask_file2 = NULL;
-  Parameters.ref_file = NULL;
   Parameters.isQuietMode = false;
   Parameters.shuffle = 0;
   Parameters.permute_book_file = NULL;
@@ -139,17 +136,6 @@ void check_parameters() {
     cout << "number of folds in the voxel selection must be specified" << endl;
     exit_with_help();
   }
-  if (Parameters.taskType == Corr_Visualization &&
-      Parameters.visualized_block_id == -1) {
-    cout << "the block to be visualized must be specified" << endl;
-    exit_with_help();
-  }
-  if (Parameters.taskType == Corr_Visualization &&
-      Parameters.ref_file == NULL) {
-    cout << "in the voxel correlation visualization task, a reference file "
-            "must be provided" << endl;
-    exit_with_help();
-  }
   if (Parameters.shuffle == 2 && Parameters.permute_book_file == NULL) {
     cout << "the permute book file should be specified" << endl;
     exit_with_help();
@@ -190,6 +176,8 @@ void parse_command_line(int argc, char** argv) {
       int num_elements = ReadConfigFile(argv[1], max_elements, keys_and_values);
       params_from_keyvalues(keys_and_values, num_elements);
       start = 2;
+      delete [] keys_and_values; // Added by tlw 2/16/2016
+      keys_and_values = NULL; // Added by tlw 2/16/2016
     }
   }
 
@@ -245,9 +233,6 @@ void parse_command_line(int argc, char** argv) {
         break;
       case 'v':
         Parameters.visualized_block_id = atoi(argv[i]);
-        break;
-      case 'r':
-        Parameters.ref_file = argv[i];
         break;
       case 'q':
         Parameters.isQuietMode = (atoi(argv[i]) == 1);
@@ -353,9 +338,6 @@ static void params_from_keyvalues(char** keys_and_values,
           case FCMA_VISUALIZE_BLOCKID:
             Parameters.visualized_block_id = atoi(keys_and_values[v]);
             break;
-          case FCMA_VISUALIZE_REFERENCE:
-            Parameters.ref_file = keys_and_values[v];
-            break;
           default:
             break;
         }
@@ -396,7 +378,6 @@ void run_fcma(Param* param) {
   const char* output_file = param->output_file;
   const char* mask_file1 = param->mask_file1;
   const char* mask_file2 = param->mask_file2;
-  const char* ref_file = param->ref_file;
   int leave_out_id = param->leave_out_id;
   int nHolds =
       param->nHolds;  // the number of trials that being held from the analysis
@@ -434,7 +415,9 @@ void run_fcma(Param* param) {
   MPI_Bcast((void*)&nSubs, 1, MPI_INT, 0, MPI_COMM_WORLD);
   // VoxelXYZ* temp_pts=new VoxelXYZ[r_matrices[0]->row];
   // int row_tmp = AlignMatrices(r_matrices, nSubs, temp_pts);
-  MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //cout<<"here1"<<endl;
+  //MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //cout<<"here2"<<endl;
   VoxelXYZ* pts = NULL;
 #ifndef __MIC__
   if (me == 0) {
@@ -472,7 +455,7 @@ void run_fcma(Param* param) {
     if (nHolds > nTrials)
       FATAL("More holds (" << nHolds << ") than trials (" << nTrials << ")!");
   }
-  MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
+  //MPI_Barrier(MPI_COMM_WORLD);  // wait for all nodes to finish reading the data
   if (me == 0) {
     cout << "data reading done! ";
     gettimeofday(&end, 0);
@@ -506,7 +489,9 @@ void run_fcma(Param* param) {
       me == 0)  // program in test mode only uses one node to predict
   {
 
-    int l = 0, result = 0, f = 0;
+    int l = 0, result = 0, f = 0, i = 0;
+    RawMatrix** masked_matrices1 = NULL;
+    RawMatrix** masked_matrices2 = NULL;
     cout << "data directory: " << fmri_directory << endl;
     if (mask_file1 != NULL) {
       cout << "mask file(s): " << mask_file1 << " ";
@@ -524,28 +509,42 @@ void run_fcma(Param* param) {
                    is_quiet_mode);
         break;
       case Corr_Mask_Classification:
-        result = SVMPredictCorrelationWithMasks(r_matrices, r_matrices2, nSubs,
-                                                mask_file1, mask_file2, nTrials,
+        GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
+        result = SVMPredictCorrelationWithMasks(masked_matrices1, masked_matrices2, nSubs, nTrials,
                                                 trials, nHolds, is_quiet_mode);
+        for (i = 0; i < nSubs; i++) {
+          delete [] masked_matrices1[i]->matrix;
+          if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
+        }
+        delete masked_matrices1;
+        if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
         cout << "accuracy: " << result << "/" << nHolds << "="
              << result * 1.0 / nHolds << endl;
         break;
       case Corr_Mask_Cross_Validation:
         nHolds = param->nHolds;
+        GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file1, mask_file2, 
+          &masked_matrices1, &masked_matrices2);
         while (l <= nTrials - nHolds)  // assume that nHolds*an integer==nTrials
         {
           leaveSomeTrialsOut(trials, nTrials, 0, nHolds);  // the setting of
                                                            // third parameter is
                                                            // tricky here
-          int curResult = SVMPredictCorrelationWithMasks(
-              r_matrices, r_matrices2, nSubs, mask_file1, mask_file2, nTrials,
-              trials, nHolds, is_quiet_mode);
+          int curResult = SVMPredictCorrelationWithMasks(masked_matrices1, masked_matrices2, nSubs, nTrials,
+                                                trials, nHolds, is_quiet_mode);
           f++;
           cout << "fold " << f << ": " << curResult << "/" << nHolds << "="
                << curResult * 1.0 / nHolds << endl;
           result += curResult;
           l += nHolds;
         }
+        for (i = 0; i < nSubs; i++) {
+          delete [] masked_matrices1[i]->matrix;
+          if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete [] masked_matrices2[i]->matrix;
+        }
+        delete masked_matrices1;
+        if (mask_file2 != NULL && masked_matrices1 != masked_matrices2) delete masked_matrices2;
         cout << "total accuracy: " << result << "/" << nTrials << "="
              << result * 1.0 / nTrials << endl;
         break;
@@ -580,9 +579,8 @@ void run_fcma(Param* param) {
           FATAL("Wrong visualized block id, you only provide " << nTrials
                                                                << " blocks!");
         }
-        VisualizeCorrelationWithMasks(r_matrices[0], mask_file1, mask_file2,
-                                      ref_file, trials[visualized_block_id],
-                                      output_file);
+        WriteAverageCorrelations(nSubs, r_matrices, mask_file1, mask_file2,
+                     trials[visualized_block_id], output_file);
         break;
       default:
         std::cerr << "Unknown task type" << std::endl;

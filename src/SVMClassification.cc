@@ -202,7 +202,11 @@ VoxelScore* GetVoxelwiseSVMPerformance(int me, Trial* trials, Voxel* voxels,
     delete param[i];
     delete[] prob[i]->y;
     for (int j = 0; j < nTrainings; j++) {
+#ifdef __ICC
       kmp_free(prob[i]->x[j]);
+#else
+      delete [] prob[i]->x[j];
+#endif
     }
     delete[] prob[i]->x;
     delete prob[i];
@@ -227,7 +231,11 @@ SVMProblem* GetSVMProblemWithPreKernel2(Trial* trials, Voxel* voxel,
   float* simMatrix = voxel->kernel_matrices + step_id * nTrainings * nTrainings;
   for (i = 0; i < nTrainings; i++) {
     prob->y[i] = trials[i].label;
+#ifdef __ICC
     prob->x[i] = (SVMNode*)kmp_malloc(sizeof(SVMNode) * (nTrainings + 2));
+#else
+    prob->x[i] = new SVMNode[nTrainings + 2];
+#endif
     prob->x[i][0].index = 0;
     prob->x[i][0].value = i + 1;
     for (j = 0; j < nTrainings; j++) {
@@ -340,8 +348,8 @@ float DOSVMNew(float* data, int nPoints, int nDimension, int nFolds,
   SelectionHeuristic heuristicMethod = ADAPTIVE;
   float tolerance = 1e-3f;
   float epsilon = 1e-5f;
-  float accuracy = crossValidationNoShuffle(
+  float accuracy = crossValidation(
       data, nPoints, nDimension, nFolds, labels, &kp, cost, heuristicMethod,
-      epsilon, tolerance, NULL, vid);  // transposedData is not used here
+      epsilon, tolerance, NULL, false);  // transposedData is not used here
   return accuracy;
 }

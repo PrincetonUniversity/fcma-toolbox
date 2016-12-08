@@ -1,7 +1,5 @@
 #include <climits>
-#include "common.h"
-#include "ErrorHandling.h"
-#include "new_svm.h"
+#include "phisvm.h"
 
 #ifndef Calloc
 #define Calloc(type, n) (type*) calloc(n, sizeof(type))
@@ -44,11 +42,11 @@ void svmGroupClasses(int nPoints, float* labels, int** start_ret,
 // Kernel_params* kp, float cost, SelectionHeuristic heuristicMethod, float
 // epsilon, float tolerance, float* transposedData
 // only works for binary classification now, i.e. two classes
-float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
+float crossValidation(float* data, int nPoints, int nDimension,
                                int nFolds, float* labels, Kernel_params* kp,
                                float cost, SelectionHeuristic heuristicMethod,
                                float epsilon, float tolerance,
-                               float* transposedData, int vid) {
+                               float* transposedData, bool shuffle) {
   /**
     get kernel type
   **/
@@ -93,6 +91,14 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
     int c;
     int* index = Calloc(int, nPoints);
     for (i = 0; i < nPoints; i++) index[i] = perm[i];
+    if (shuffle) {
+      for (c=0; c<nr_class; c++) {
+        for(i=0;i<count[c];i++) {
+          int j = i+rand()%(count[c]-i);
+          swap(index[start[c]+j],index[start[c]+i]);
+        }
+      }
+    }
     // according to the number of folds, assign each fold with same number of
     // different classes
     for (i = 0; i < nFolds; i++) {
@@ -120,7 +126,9 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
     free(index);
     free(fold_count);
   } else {
-    FATAL("too many folds in SVM cross validation");
+    //FATAL("too many folds in SVM cross validation");
+    cerr<<"too many folds in SVM cross validation"<<endl;
+    exit(1);
   }
 
   /**
@@ -133,8 +141,6 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
   float* test_data = (float*)malloc(sizeof(float) * nPoints * nDimension);
   float* test_labels = (float*)malloc(sizeof(float) * nPoints);
   bool* bit_map = nullptr;
-  float sv_alpha[nPoints];  // normally nSV<<sub_nPoints
-  float supportVectors[nPoints * nDimension];
   if (kType == NEWPRECOMPUTED) {
     bit_map = Calloc(bool, nPoints);
   }
@@ -213,36 +219,14 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
           (end_time.tv_usec - start_time.tv_usec) * 0.000001;
     gettimeofday(&start_time, 0);
 #endif
-    float* alpha;
     int sub_nDimension = nDimension;
     if (kType == NEWPRECOMPUTED) {
       sub_nDimension = sub_nPoints;
     }
-    performTraining(sub_data, sub_nPoints, sub_nDimension, sub_labels, &alpha,
-                    kp, cost, heuristicMethod, epsilon, tolerance,
-                    transposedData, i, vid);
-    /**
-       generate support vectors
-    **/
-    int nSV = 0;
-    // float* sv_alpha=(float*)kmp_malloc(sizeof(float)*sub_nPoints);  //
-    // normally nSV<<sub_nPoints
-    // float*
-    // supportVectors=(float*)kmp_malloc(sizeof(float)*sub_nPoints*sub_nDimension);
-    int SV_index = 0;
-    for (j = 0; j < sub_nPoints; j++) {
-      if (alpha[j] > epsilon) {
-        sv_alpha[nSV] = alpha[j] * sub_labels[j];
-        if (kType == NEWPRECOMPUTED) {
-          supportVectors[SV_index++] = j;
-        } else {
-          memcpy((void*)(supportVectors + nSV * sub_nDimension),
-                 (const void*)(sub_data + j * sub_nDimension),
-                 sizeof(float) * sub_nDimension);
-        }
-        nSV++;
-      }
-    }
+    PhiSVMModel* phi_svm_model = performTraining(sub_data, sub_nPoints,
+                    sub_nDimension, sub_labels,
+                    kp, cost, heuristicMethod, epsilon, tolerance, transposedData, NULL);
+
 #ifdef __SVM_BREAKDOWN__
     gettimeofday(&end_time, 0);
     t2 += end_time.tv_sec - start_time.tv_sec +
@@ -279,16 +263,15 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
       ++k;
     }
     float* result;
-    performClassification(test_data, nTests, supportVectors, nSV,
-                          sub_nDimension, sv_alpha, kp, &result);
+    performClassification(test_data, nTests,
+                          sub_nDimension, kp, &result, phi_svm_model);
     //#pragma simd
     for (j = begin; j < end; j++) {
       target[perm[j]] = result[j - begin];
     }
-    free(alpha);
     free(result);
-// kmp_free(sv_alpha);
-// kmp_free(supportVectors);
+    delete phi_svm_model;
+
 #ifdef __SVM_BREAKDOWN__
     gettimeofday(&end_time, 0);
     t3 += end_time.tv_sec - start_time.tv_sec +
@@ -321,11 +304,307 @@ float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
   return 1.0 * nCorrects / nPoints;
 }
 
-void performTraining(float* data, int nPoints, int nDimension, float* labels,
-                     float** p_alpha, Kernel_params* kp, float cost,
+// assuming that nFolds-1 models are ready to use in models, except nFolds=2
+float incrementalCrossValidation(PhiSVMModel** models, float* data, int nPoints, int nDimension,
+                               int nFolds, float* labels, Kernel_params* kp,
+                               float cost, SelectionHeuristic heuristicMethod,
+                               float epsilon, float tolerance,
+                               float* transposedData, int maxNPoints) {
+  /**
+    get kernel type
+  **/
+  int kType = NEWGAUSSIAN;
+  if (kp->kernel_type.compare(0, 3, "rbf") == 0) {
+    kType = NEWGAUSSIAN;
+    // printf("Gaussian kernel: gamma = %f\n", kp->gamma);
+  } else if (kp->kernel_type.compare(0, 6, "linear") == 0) {
+    kType = NEWLINEAR;
+    // printf("Linear kernel\n");
+  } else if (kp->kernel_type.compare(0, 11, "precomputed") == 0) {
+    kType = NEWPRECOMPUTED;
+    // printf("Precomputed kernel\n");
+  }
+#ifdef __SVM_BREAKDOWN__
+  struct timeval start_time, end_time;
+  float t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+  gettimeofday(&start_time, 0);
+#endif
+  /**
+    group folds
+  **/
+  assert(nPoints > 0);
+  assert(nFolds > 0);
+
+  float target[nPoints];
+  int i;
+  int fold_start[nFolds + 1];
+  int perm[nPoints];
+  int nr_class = 2;
+  // stratified cv may not give leave-one-out rate
+  // Each class to l folds -> some folds may have zero elements
+  if (nFolds < nPoints) {
+    int* start = NULL;
+    int* count = NULL;
+    // put the same class to be adjacent to each other
+    svmGroupClasses(nPoints, labels, &start, &count, perm);
+    assert(start && count && count[0] > 0 && count[1] > 0);
+
+    // data grouped by fold using the array perm
+    int* fold_count = Calloc(int, nFolds);
+    int c;
+    int* index = Calloc(int, nPoints);
+    for (i = 0; i < nPoints; i++) index[i] = perm[i];
+    // according to the number of folds, assign each fold with same number of
+    // different classes
+    for (i = 0; i < nFolds; i++) {
+      fold_count[i] = 0;
+      for (c = 0; c < nr_class; c++)
+        fold_count[i] += (i + 1) * count[c] / nFolds - i * count[c] / nFolds;
+    }
+    fold_start[0] = 0;
+    for (i = 1; i <= nFolds; i++)
+      fold_start[i] = fold_start[i - 1] + fold_count[i - 1];
+    for (c = 0; c < nr_class; c++)
+      for (i = 0; i < nFolds; i++) {
+        int begin = start[c] + i * count[c] / nFolds;
+        int end = start[c] + (i + 1) * count[c] / nFolds;
+        for (int j = begin; j < end; j++) {
+          perm[fold_start[i]] = index[j];
+          fold_start[i]++;
+        }
+      }
+    fold_start[0] = 0;
+    for (i = 1; i <= nFolds; i++)
+      fold_start[i] = fold_start[i - 1] + fold_count[i - 1];
+    free(start);
+    free(count);
+    free(index);
+    free(fold_count);
+  } else {
+    //FATAL("too many folds in SVM cross validation");
+    cerr<<"too many folds in SVM cross validation"<<endl;
+    exit(1);
+  }
+
+  /**
+    cross validation
+  **/
+  float* sub_data = (float*)malloc(
+      sizeof(float) * nPoints *
+      nDimension);  // trade off space to avoid allocating spaces multiple times
+  float* sub_labels = (float*)malloc(sizeof(float) * nPoints);  // ditto
+  float* test_data = (float*)malloc(sizeof(float) * nPoints * nDimension);
+  float* test_labels = (float*)malloc(sizeof(float) * nPoints);
+  bool* bit_map = nullptr;
+  if (kType == NEWPRECOMPUTED) {
+    bit_map = Calloc(bool, nPoints);
+  }
+#ifdef __SVM_BREAKDOWN__
+  gettimeofday(&end_time, 0);
+  t0 = end_time.tv_sec - start_time.tv_sec +
+       (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+  for (i = 0; i < nFolds; i++) {
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
+    int begin = fold_start[i];
+    int end = fold_start[i + 1];
+    assert(begin >= 0 && end >= 0 && end >= begin);
+
+    int j, k, l;
+    int sub_nPoints = nPoints - (end - begin);
+    if (kType == NEWPRECOMPUTED) {
+      for (j = 0; j < begin; j++) {
+        bit_map[perm[j]] = true;
+      }
+      for (j = begin; j < end; j++) {
+        bit_map[perm[j]] = false;
+      }
+      for (j = end; j < nPoints; j++) {
+        bit_map[perm[j]] = true;
+      }
+    }
+    k = 0;
+    for (j = 0; j < begin; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            sub_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(sub_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      sub_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+    for (j = end; j < nPoints; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            sub_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(sub_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      sub_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t1 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+    gettimeofday(&start_time, 0);
+#endif
+    int sub_nDimension = nDimension;
+    if (kType == NEWPRECOMPUTED) {
+      sub_nDimension = sub_nPoints;
+    }
+    if (nFolds==2 || i==nFolds-1) {  // we need to create the model from scratch
+      models[i] = performTraining(sub_data, sub_nPoints,
+                    sub_nDimension, sub_labels,
+                    kp, cost, heuristicMethod, epsilon, tolerance, transposedData, NULL);
+      models[i]->data = new float[maxNPoints*maxNPoints]; // get enough space for the incremental request
+      models[i]->labels = new float[maxNPoints];
+      // make the space exclusive to the model
+      memcpy((void*)(models[i]->data), (const void*)sub_data, sizeof(float)*sub_nPoints*sub_nDimension);
+      memcpy((void*)(models[i]->labels), (const void*)sub_labels, sizeof(float)*sub_nPoints);
+    }
+    else {  // we can do incremental learning
+      memcpy((void*)(models[i]->data), (const void*)sub_data, sizeof(float)*sub_nPoints*sub_nDimension);
+      memcpy((void*)(models[i]->labels), (const void*)sub_labels, sizeof(float)*sub_nPoints);
+      int nOldPoints = models[i]->nSamples;
+      models[i]->nSamples = sub_nPoints;
+      models[i]->nDimension = sub_nDimension;
+      models[i] = performOnlineTraining(nOldPoints, kp, cost,
+                       heuristicMethod, epsilon, tolerance, models[i]);
+    }
+    PhiSVMModel* phi_svm_model = models[i];
+
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t2 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+
+/**
+  generate test_data and test_labels
+**/
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&start_time, 0);
+#endif
+    int nTests = end - begin;
+    k = 0;
+    for (j = begin; j < end; j++) {
+      if (kType ==
+          NEWPRECOMPUTED)  // take the left-out data out, inefficient now
+      {
+        int k1 = 0;
+        for (l = 0; l < nPoints; l++) {
+          if (bit_map[perm[l]]) {
+            test_data[k * sub_nPoints + k1] =
+                data[perm[j] * nDimension + perm[l]];
+            k1++;
+          }
+        }
+      } else  // deep copy the data
+      {
+        memcpy((void*)(test_data + k * nDimension),
+               (const void*)(data + perm[j] * nDimension),
+               sizeof(float) * nDimension);
+      }
+      test_labels[k] = labels[perm[j]] == 0 ? -1.0f : 1.0f;
+      ++k;
+    }
+    float* result;
+    performClassification(test_data, nTests,
+                          sub_nDimension, kp, &result, phi_svm_model);
+    //#pragma simd
+    for (j = begin; j < end; j++) {
+      target[perm[j]] = result[j - begin];
+    }
+    free(result);
+
+#ifdef __SVM_BREAKDOWN__
+    gettimeofday(&end_time, 0);
+    t3 += end_time.tv_sec - start_time.tv_sec +
+          (end_time.tv_usec - start_time.tv_usec) * 0.000001;
+#endif
+  }
+#ifdef __SVM_BREAKDOWN__
+  if (omp_get_thread_num() == 0) {
+    printf("SVM time breakdown:\n");
+    printf("preparing folds: %fs\n", t0);
+    printf("generating training/test sets: %fs\n", t1);
+    printf("training: %fs\n", t2);
+    printf("test: %fs\n", t3);
+  }
+#endif
+  int nCorrects = 0;
+  for (i = 0; i < nPoints; i++) {
+    nCorrects =
+        (labels[i] == 1 && target[i] >= 0) || (labels[i] == 0 && target[i] < 0)
+            ? nCorrects + 1
+            : nCorrects;
+  }
+  free(sub_data);
+  free(sub_labels);
+  free(test_data);
+  free(test_labels);
+  if (kType == NEWPRECOMPUTED) {
+    free(bit_map);
+  }
+  return 1.0 * nCorrects / nPoints;
+}
+
+bool hasTwoTypes(float* labels, int n) {
+  int a = labels[0];
+  for (int i=1; i<n; i++) {
+    if (a!=labels[i])
+      return true;
+  }
+  return false;
+}
+
+PhiSVMModel* performTraining(float* data, int nPoints, int nDimension, float* labels,
+                     Kernel_params* kp, float cost,
                      SelectionHeuristic heuristicMethod, float epsilon,
-                     float tolerance, float* transposedData, int fold_id,
-                     int vid) {
+                     float tolerance, float* transposedData, PhiSVMModel* curModel) {
+
+  // initialize the model struct
+  PhiSVMModel* phi_svm_model=curModel;
+  if (phi_svm_model==NULL) {
+    phi_svm_model = new PhiSVMModel();
+    phi_svm_model->alpha = new float[MAX_POINTS];
+    phi_svm_model->f = new float[MAX_POINTS];
+    phi_svm_model->kernelDiag = new float[MAX_POINTS];
+  }
+  phi_svm_model->nSamples = nPoints;
+  phi_svm_model->nDimension = nDimension;
+  phi_svm_model->epsilon = epsilon;
+  phi_svm_model->bLow = -1;
+  phi_svm_model->bHigh = -1;
+  phi_svm_model->data = data;
+  phi_svm_model->labels = labels; // if the curModel is not null and contains data and label
+                                  // this may cause a memory leak
 
   float cEpsilon = cost - epsilon;
   Controller progress(2.0, heuristicMethod, 64, nPoints);
@@ -355,11 +634,10 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
   devTransposedData = transposedData;
   int devTransposedDataPitchInFloats = nDimension;
   float* devLabels = labels;
-  float devKernelDiag[nPoints];
-  float* alpha = (float*)malloc(sizeof(float) * nPoints);
-  *p_alpha = alpha;
+  float* devKernelDiag = phi_svm_model->kernelDiag;
+  float* alpha = phi_svm_model->alpha;
   float* devAlpha = alpha;
-  float devF[nPoints];
+  float* devF = phi_svm_model->f;
   float* hostResult = (float*)malloc(8 * sizeof(float));
   void* devResult = (void*)hostResult;
 
@@ -404,23 +682,310 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
   int iteration = 0;
   int iLow = -1;
   int iHigh = -1;
+  if (hasTwoTypes(labels, nPoints)) { // else directly return the initial model
+    for (int i = 0; i < nPoints; i++) {
+      if (labels[i] < 0) {
+        if (iLow == -1) {
+          iLow = i;
+          if (iHigh > -1) {
+            i = nPoints;  // Terminate
+          }
+        }
+      } else {
+        if (iHigh == -1) {
+          iHigh = i;
+          if (iLow > -1) {
+            i = nPoints;  // Terminate
+          }
+        }
+      }
+    }
+    launchTakeFirstStep(devResult, devKernelDiag, devData, devDataPitchInFloats,
+                      devCache, devCachePitchInFloats, devAlpha, cost,
+                      nDimension, iLow, iHigh, kType, parameterA, parameterB,
+                      parameterC, nthreads);
+
+    float alpha2Old = *(hostResult + 0);
+    float alpha1Old = *(hostResult + 1);
+    bLow = *(hostResult + 2);
+    bHigh = *(hostResult + 3);
+    float alpha2New = *(hostResult + 6);
+    float alpha1New = *(hostResult + 7);
+
+    float alpha1Diff = alpha1New - alpha1Old;
+    float alpha2Diff = alpha2New - alpha2Old;
+
+    int iLowCacheIndex = -INT_MAX;
+    int iHighCacheIndex = -INT_MAX;
+    bool iLowCompute = false;
+    bool iHighCompute = false;
+
+    // printf("Starting iterations\n");
+    for (iteration = 1; iteration<MAXITERATIONS; iteration++) {
+      if (bLow <= bHigh + 2 * tolerance ||
+          (bLow == 1.0f && bHigh == -1.0f && iteration >= 200)) {
+        // printf("Converged\n");
+        break;  // Convergence!!
+      }
+
+      if ((iteration & 0x7ff) == 0) {
+        // printf("iteration: %d; gap: %f\n",iteration, bLow - bHigh);
+      }
+
+      if ((iteration & 0x7f) == 0) {
+        heuristicMethod = progress.getMethod();
+      }
+
+      if (kType != NEWPRECOMPUTED) {
+        kernelCache.findData(iHigh, iHighCacheIndex, iHighCompute);
+        kernelCache.findData(iLow, iLowCacheIndex, iLowCompute);
+      }
+
+      if (heuristicMethod == FIRSTORDER) {
+        launchFirstOrder(iLowCompute, iHighCompute, kType, nPoints, nDimension,
+                       devData, devDataPitchInFloats, devTransposedData,
+                       devTransposedDataPitchInFloats, devLabels, epsilon,
+                       cEpsilon, devAlpha, devF, alpha1Diff * labels[iHigh],
+                       alpha2Diff * labels[iLow], iLow, iHigh, parameterA,
+                       parameterB, parameterC, devCache, devCachePitchInFloats,
+                       iLowCacheIndex, iHighCacheIndex, devKernelDiag,
+                       devResult, cost, nthreads);
+      } else {
+        launchSecondOrder(iLowCompute, iHighCompute, kType, nPoints, nDimension,
+                        devData, devDataPitchInFloats, devTransposedData,
+                        devTransposedDataPitchInFloats, devLabels, epsilon,
+                        cEpsilon, devAlpha, devF, alpha1Diff * labels[iHigh],
+                        alpha2Diff * labels[iLow], iLow, iHigh, parameterA,
+                        parameterB, parameterC, &kernelCache, devCache,
+                        devCachePitchInFloats, iLowCacheIndex, iHighCacheIndex,
+                        devKernelDiag, devResult, cost, iteration, nthreads);
+      }
+
+      alpha2Old = *(hostResult + 0);
+      alpha1Old = *(hostResult + 1);
+      bLow = *(hostResult + 2);
+      bHigh = *(hostResult + 3);
+      iLow = *((int*)hostResult + 6);
+      iHigh = *((int*)hostResult + 7);
+      alpha2New = *(hostResult + 4);
+      alpha1New = *(hostResult + 5);
+      alpha1Diff = alpha1New - alpha1Old;
+      alpha2Diff = alpha2New - alpha2Old;
+      progress.addIteration(bLow - bHigh);
+    }
+  }
+
+  //printf("%d iterations, batch\n", iteration);
+  // printf("bLow: %f, bHigh: %f\n", bLow, bHigh);
+  kp->b = (bLow + bHigh) / 2;
+  // kernelCache.printStatistics();
+  free(hostResult);
+  if (kType != NEWPRECOMPUTED) {
+    delete[] devCache;
+  }
+  phi_svm_model->bLow = bLow;
+  phi_svm_model->bHigh = bHigh;
+  return phi_svm_model;
+}
+
+PhiSVMModel* performOnlineTraining(int nOldPoints, Kernel_params* kp, float cost,
+                     SelectionHeuristic heuristicMethod, float epsilon,
+                     float tolerance, PhiSVMModel* curModel) {  // assuming curModel is not NULL
+  // curModel contains new nPoints, nDimention, new data
+  float* data = curModel->data; // could be the precomputed kernel
+  int nPoints = curModel->nSamples;
+  int nDimension = curModel->nDimension;  // nDimension==nPoints in precomputed kernel
+  float* labels = curModel->labels;
+
+  float cEpsilon = cost - epsilon;
+  Controller progress(2.0, heuristicMethod, 64, nPoints);
+
+  int kType = NEWGAUSSIAN;
+  float parameterA = -FLT_MAX;
+  float parameterB = -FLT_MAX;
+  float parameterC = -FLT_MAX;
+  if (kp->kernel_type.compare(0,3,"rbf") == 0) {
+    parameterA = -kp->gamma;
+    kType = NEWGAUSSIAN;
+    printf("Gaussian kernel: gamma = %f\n", -parameterA);
+  } else if (kp->kernel_type.compare(0,11,"precomputed") == 0) {
+    kType = NEWPRECOMPUTED;
+    //printf("Precomputed kernel\n");
+  }
+  //printf("Cost: %f, Tolerance: %f, Epsilon: %f\n", state->cost, state->tolerance, state->epsilon);
+
+  // Check labels
+  /*bool has_1 = false;
+  bool has_n1 = false;
+  for(int i = 0 ; i < nPoints ; i++)
+  {
+    if(labels[i] == 1.0f) has_1 = true;
+    else if(labels[i] == -1.0f) has_n1 = true;
+    else
+    {
+      printf("Error: Improper label %f\n", labels[i]);
+      return;
+    }
+  }
+  if(!has_1 || !has_n1)
+  {
+    printf("Error: Must have both 1 and -1\n");
+    return;
+  }*/
+
+
+  // Set Alpha
+  for(int i = nOldPoints ; i < nPoints ; i++)
+  {
+    curModel->alpha[i] = 0.0;
+  }
+
+if (kType == NEWPRECOMPUTED)
+  {
+    // Set KernelDiag
+    for(int i = nOldPoints ; i < nPoints ; i++)
+    {
+      curModel->kernelDiag[i] = data[i + i * nDimension];
+    }
+
+    // Set F
+    for(int i = nOldPoints ; i < nPoints ; i++)
+    {
+      float f_local = 0.0f;
+      for(int j = 0 ; j < nPoints ; j++)
+      {
+        f_local += (curModel->alpha[j] * labels[j] * data[i + j * nDimension]);
+      }
+      curModel->f[i] = f_local - labels[i];
+    }
+    /*for(int i = 0 ; i < nPoints ; i++) {  // clear F state
+      curModel->f[i] = - labels[i];
+    }*/
+  }
+
+
+  // Update bLow and bHigh
+  for(int i = nOldPoints ; i < nPoints ; i++)
+  {
+    if(labels[i] > 0) // in I_high, update bHigh
+    {
+      if(curModel->f[i] < curModel->bHigh)
+      {
+        curModel->bHigh = curModel->f[i];
+      }
+    }
+    else if(labels[i] < 0) // in I_low, update bLow
+    {
+      if(curModel->f[i] > curModel->bLow)
+      {
+        curModel->bLow = curModel->f[i];
+      }
+    }
+  }
+  if (!hasTwoTypes(labels, nPoints)) {  // no need to update the model
+    return curModel;
+  }
+
+  size_t rowPitch = nPoints * sizeof(float);
+  size_t sizeOfCache = (10 * 1024 * 1024 * 1024L) / (rowPitch);  // 10GB cache
+  if (nPoints < sizeOfCache) {
+    sizeOfCache = nPoints;
+  }
+
+  // printf("%Zu rows of kernel matrix will be cached (%Zu bytes per row)\n",
+  // sizeOfCache, rowPitch);
+
+  char* str_num_threads = getenv("OMP_NUM_THREADS");
+  int nthreads = (str_num_threads == NULL) ? (1) : (atoi(str_num_threads));
+  if (nthreads <= 0) nthreads = 1;
+  // printf("Number of threads = %d \n", nthreads);
+
+  /*struct sysinfo info;
+  sysinfo(&info);
+  unsigned long long int free_ram = info.freeram; //bytes
+  size_t rowPitch = nPoints*sizeof(float);
+  float* cache = NULL;
+  size_t cachePitch = rowPitch;
+  int CachePitchInFloats = nPoints;// (int)cachePitch/(sizeof(float));
+  float free_fraction = 0.8f;
+  size_t sizeOfCache;
+  do {
+    sizeOfCache = (size_t)(free_ram*free_fraction); //80% of free space
+    //sizeOfCache = (10*1024*1024*1024L); //10GB cache
+    sizeOfCache = sizeOfCache/rowPitch;
+    if (nPoints < sizeOfCache) {
+      sizeOfCache = nPoints;
+    }
+    printf("Trying to alloc %.2f percent of free ram %.2f GB\n", free_fraction*100.0, sizeOfCache * nPoints *sizeof(float)/(1024.0*1024.0*1024.0));
+    cache = (float*)malloc(sizeOfCache * nPoints *sizeof(float));
+    free_fraction *= 0.9;
+  } while(cache == NULL);
+  float ff = 0;
+  printf("%Zu rows of kernel matrix will be cached (%Zu bytes per row) %f\n", sizeOfCache, rowPitch, ff);
+  char* str_num_threads = getenv("OMP_NUM_THREADS");
+  int nthreads = (str_num_threads == NULL)?(1):(atoi(str_num_threads));
+  if (nthreads <= 0) nthreads = 1;
+  printf("Number of threads = %d \n", nthreads);*/
+
+  float* devCache;
+  size_t cachePitch = rowPitch;
+  NewCache kernelCache(nPoints, (int)sizeOfCache);
+  int devCachePitchInFloats = (int)cachePitch / (sizeof(float));
+  float* devData;
+
+  devData = data;
+  int devDataPitchInFloats = nPoints;
+  float* devLabels = labels;
+  float* devKernelDiag = curModel->kernelDiag;
+  float* alpha = curModel->alpha;
+  float* devAlpha = alpha;
+  float* devF = curModel->f;
+  float* hostResult = (float*)malloc(8 * sizeof(float));
+  void* devResult = (void*)hostResult;
+  if (kType == NEWPRECOMPUTED) {
+    if (nPoints != nDimension) {
+      printf("Not a kernel matrix (not square) \n");
+      exit(1);
+    }
+    devCache = devData;
+  } else {
+    devCache = new float[sizeOfCache * nPoints];
+  }
+
+  // assume that we always have a model at hand, no need to do intialization
+  /*if(state->nPoints == 0)
+  {
+    launchInitialization(inputData, cache, CachePitchInFloats, (state->kp), state->KernelDiag,
+      state->alpha, state->F, labels, nthreads);
+    printf("Initialization complete\n");
+  }*/
+
+  //struct timeval start;
+  //gettimeofday(&start, 0);
+  //Choose initial points
+  float bLow = 1;
+  float bHigh = -1;
+  int iteration = 0;
+  int iLow = -1;
+  int iHigh = -1;
   for (int i = 0; i < nPoints; i++) {
     if (labels[i] < 0) {
       if (iLow == -1) {
         iLow = i;
         if (iHigh > -1) {
-          i = nPoints;  // Terminate
+          i = nPoints; //Terminate
         }
       }
     } else {
       if (iHigh == -1) {
         iHigh = i;
         if (iLow > -1) {
-          i = nPoints;  // Terminate
+          i = nPoints; //Terminate
         }
       }
     }
   }
+
   launchTakeFirstStep(devResult, devKernelDiag, devData, devDataPitchInFloats,
                       devCache, devCachePitchInFloats, devAlpha, cost,
                       nDimension, iLow, iHigh, kType, parameterA, parameterB,
@@ -441,16 +1006,18 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
   bool iLowCompute = false;
   bool iHighCompute = false;
 
-  // printf("Starting iterations\n");
-  for (iteration = 1; true; iteration++) {
-    if (bLow <= bHigh + 2 * tolerance ||
-        (bLow == 1.0f && bHigh == -1.0f && iteration >= 200)) {
-      // printf("Converged\n");
-      break;  // Convergence!!
+  //printf("Starting iterations\n");
+
+  //for (iteration = 1; true; iteration++) {
+  for (iteration = 1; iteration < MAXITERATIONS; iteration++) {
+
+    if (bLow <= bHigh + 2*tolerance) {
+      //printf("Converged\n");
+      break; //Convergence!!
     }
 
     if ((iteration & 0x7ff) == 0) {
-      // printf("iteration: %d; gap: %f\n",iteration, bLow - bHigh);
+      //printf("iteration: %d; gap: %f\n",iteration, r.bLow - r.bHigh);
     }
 
     if ((iteration & 0x7f) == 0) {
@@ -464,8 +1031,8 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
 
     if (heuristicMethod == FIRSTORDER) {
       launchFirstOrder(iLowCompute, iHighCompute, kType, nPoints, nDimension,
-                       devData, devDataPitchInFloats, devTransposedData,
-                       devTransposedDataPitchInFloats, devLabels, epsilon,
+                       devData, devDataPitchInFloats, NULL,
+                       nDimension, devLabels, epsilon,
                        cEpsilon, devAlpha, devF, alpha1Diff * labels[iHigh],
                        alpha2Diff * labels[iLow], iLow, iHigh, parameterA,
                        parameterB, parameterC, devCache, devCachePitchInFloats,
@@ -473,15 +1040,14 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
                        devResult, cost, nthreads);
     } else {
       launchSecondOrder(iLowCompute, iHighCompute, kType, nPoints, nDimension,
-                        devData, devDataPitchInFloats, devTransposedData,
-                        devTransposedDataPitchInFloats, devLabels, epsilon,
+                        devData, devDataPitchInFloats, NULL,
+                        nDimension, devLabels, epsilon,
                         cEpsilon, devAlpha, devF, alpha1Diff * labels[iHigh],
                         alpha2Diff * labels[iLow], iLow, iHigh, parameterA,
                         parameterB, parameterC, &kernelCache, devCache,
                         devCachePitchInFloats, iLowCacheIndex, iHighCacheIndex,
                         devKernelDiag, devResult, cost, iteration, nthreads);
     }
-
     alpha2Old = *(hostResult + 0);
     alpha1Old = *(hostResult + 1);
     bLow = *(hostResult + 2);
@@ -495,14 +1061,26 @@ void performTraining(float* data, int nPoints, int nDimension, float* labels,
     progress.addIteration(bLow - bHigh);
   }
 
-  // printf("%d iterations\n", iteration);
-  // printf("bLow: %f, bHigh: %f\n", bLow, bHigh);
+  //printf("%d iterations, incremental\n", iteration);
+  //state->niter = iteration;
+  //printf("bLow: %f, bHigh: %f\n", r.bLow, r.bHigh);
   kp->b = (bLow + bHigh) / 2;
-  // kernelCache.printStatistics();
+  //kernelCache.printStatistics();
+
+  /*struct timeval finish;
+  gettimeofday(&finish, 0);
+  float trainingTime = (float)(finish.tv_sec - start.tv_sec) + ((float)(finish.tv_usec - start.tv_usec)) * 1e-6;
+  printf("MVM count = %d \n", mvm_count);
+  printf("Training time (only MVM): %f seconds\n", mvm_time);
+  printf("Training time (excluding malloc/free/init): %f seconds\n", trainingTime);*/
+
   free(hostResult);
   if (kType != NEWPRECOMPUTED) {
     delete[] devCache;
   }
+  curModel->bLow = bLow;
+  curModel->bHigh = bHigh;
+  return curModel;
 }
 
 void QP(float* devKernelDiag, float kernelEval, float* devAlpha,
@@ -1272,9 +1850,9 @@ void launchTakeFirstStep(void* devResult, float* devKernelDiag, float* devData,
   }
 }
 
-void performClassification(float* data, int nData, float* supportVectors,
-                           int nSV, int nDimension, float* alpha,
-                           Kernel_params* kp, float** p_result) {
+void performClassification(float* data, int nData, int nDimension,
+                           Kernel_params* kp, float** p_result, PhiSVMModel* model) {
+
   int total_nPoints = nData;
   int nPoints;
   float gamma = 0.0;
@@ -1294,11 +1872,35 @@ void performClassification(float* data, int nData, float* supportVectors,
     kType = NEWLINEAR;
   } else if (kp->kernel_type.compare(0, 11, "precomputed") == 0) {
     // printf("Found precomputed kernel\n");
-    b = kp->b;
+    b = (model->bLow+model->bHigh)/2;
     kType = NEWPRECOMPUTED;
   } else {
     printf("Error: Unknown kernel type - %s\n", kp->kernel_type.c_str());
     exit(0);
+  }
+
+  /**
+    generate support vectors
+  **/
+  int nSV = 0;
+  int trainingPoints = model->nSamples;
+  int trainingDimension = model->nDimension;
+  float* supportVectors = new float[trainingPoints * trainingDimension];
+  float* sv_alpha = new float[trainingPoints];
+  int SV_index = 0;
+  int j;
+  for (j = 0; j < trainingPoints; j++) {
+    if (model->alpha[j] > model->epsilon) {
+      sv_alpha[nSV] = model->alpha[j] * model->labels[j];
+      if (kType == NEWPRECOMPUTED) {
+        supportVectors[SV_index++] = j;
+      } else {
+        memcpy((void*)(supportVectors + nSV * trainingDimension),
+        (const void*)(model->data + j * trainingDimension),
+          sizeof(float) * trainingDimension);
+      }
+      nSV++;
+    }
   }
 
   int nBlocksSV = intDivideRoundUp(nSV, BLOCKSIZE);
@@ -1308,7 +1910,7 @@ void performClassification(float* data, int nData, float* supportVectors,
   int devSVPitchInFloats = nDimension;
 
   float* devAlpha;
-  devAlpha = alpha;
+  devAlpha = sv_alpha;
 
   float* devResult;
   assert(total_nPoints > 0);
@@ -1408,6 +2010,8 @@ void performClassification(float* data, int nData, float* supportVectors,
   delete[] devSVDots;
   delete[] devDataDots;
   delete[] devDots;
+  delete[] supportVectors;
+  delete[] sv_alpha;
 }
 
 void makeSelfDots(float* devSource, int devSourcePitchInFloats, float* devDest,
@@ -1462,4 +2066,28 @@ void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha,
     }
     devResult[j] = res + b;
   }
+}
+
+std::string serialize_DumpModel(DumpModel* model_ptr) { // potentially can be merged with serialize_data
+  std::string serial_str;
+  boost::iostreams::back_insert_device<std::string> inserter(serial_str);
+  boost::iostreams::stream<boost::iostreams::back_insert_device<std::string> > s(inserter);
+  boost::archive::binary_oarchive oa(s);
+  oa << *model_ptr;
+  s.flush();  // flush the stream to finish writing into the buffer
+  return serial_str;
+}
+DumpModel* serialize_DumpModel(std::string serial_str, int nSamples, int nDimension) {
+  DumpModel* model_ptr = new DumpModel(nSamples, nDimension);
+  boost::iostreams::basic_array_source<char> device(serial_str.data(), serial_str.size());
+  boost::iostreams::stream<boost::iostreams::basic_array_source<char> > s(device);
+  boost::archive::binary_iarchive ia(s);
+  ia >> *model_ptr;
+  return model_ptr;
+}
+
+void DumpModelToDisk(std::string modelStr) {
+  ofstream fout("phisvmmodel.bin", std::ios::binary);
+  fout.write(modelStr.c_str(), sizeof(char) * (modelStr.size()));
+  fout.close();
 }

@@ -10,6 +10,7 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "ErrorHandling.h"
+#include "CustomizedMatrixMultiply.h"
 
 int getNumTopIndices(int* tops, int maxtops, int nvoxels) {
   int ntops = 0;
@@ -41,8 +42,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
   int col = 0;
   svm_set_print_string_function(&print_null);
   VoxelScore* scores = NULL;
-  int tops[] = {10,  20,   50,   100, 200,
-                500, 1000, 2000, 5000};  //, 10000, 20000, 40000};
+  int tops[] = {10, 20, 50, 100, 200,
+                500, 1000, 2000};//, 5000};  //, 10000, 20000, 40000};
   int maxtops = sizeof(tops) / sizeof((tops)[0]);
   int ntops;
   switch (taskType) {
@@ -52,13 +53,8 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
 
     case Corr_Based_SVM:
     case Corr_Based_Dis:
-      if (mask_file != NULL) {
-        masked_matrices1 = GetMaskedMatrices(r_matrices, nSubs, mask_file);
-        masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file);
-      } else {
-        masked_matrices1 = r_matrices;
-        masked_matrices2 = r_matrices2;
-      }
+      GenerateMaskedMatrices(nSubs, r_matrices, r_matrices2, mask_file, mask_file, 
+          &masked_matrices1, &masked_matrices2);
       row = masked_matrices1[0]->row;
       col = masked_matrices1[0]->col;
       scores = ReadTopVoxelFile(topVoxelFile, row);
@@ -74,7 +70,7 @@ void SVMPredict(RawMatrix** r_matrices, RawMatrix** r_matrices2,
       break;
     case Acti_Based_SVM:
       if (mask_file != NULL)
-        masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file);
+        masked_matrices1 = GetMaskedMatrices(avg_matrices, nSubs, mask_file, true);
       else
         masked_matrices1 = avg_matrices;
       row = masked_matrices1[0]->row;
@@ -115,7 +111,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     // simMatrix = GetInnerSimMatrix(tops[i], col, nSubs, nTrials, trials,
     // r_matrices);
     for (j = 0; j < nTrials * nTrials; j++) simMatrix[j] = 0.0;
-    int sr = 0, rowLength = 500;
+    int sr = 0, rowLength = 1000;
     while (sr < tops[i]) {
       if (rowLength >= tops[i] - sr) {
         rowLength = tops[i] - sr;
@@ -123,6 +119,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
       float* tempSimMatrix =
           GetPartialInnerSimMatrix(tops[i], col, nSubs, nTrials, sr, rowLength,
                                    trials, r_matrices1, r_matrices2);
+      //cout<<"row: "<<tops[i]<<" col: "<<col<<" rowLength: "<<rowLength<<endl;
       for (j = 0; j < nTrials * nTrials; j++) simMatrix[j] += tempSimMatrix[j];
       // cout<<i<<" "<<sr<<" "<<tempSimMatrix[0]<<" "<<tempSimMatrix[1]<<endl;
       delete[] tempSimMatrix;
@@ -133,11 +130,124 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
         simMatrix[k * nTrials + j] = simMatrix[j * nTrials + k];
       }
     }
+    for (j=0; j<nTrials*nTrials; j++) simMatrix[j] *= .001f;  // doens't do this will result in phiSVM errors
+#if 1
+    int nTrainingSamples = nTrials - nTests;
+    float* trainingData = new float[nTrainingSamples*nTrainingSamples];
+    for (j=0 ; j<nTrainingSamples; j++) {
+      for (k=0; k<nTrainingSamples; k++) {
+        trainingData[j*nTrainingSamples+k] = simMatrix[j*nTrials+k];
+      }
+    }
+    float* labels = new float[nTrainingSamples];
+    for (j=0 ; j<nTrainingSamples; j++) {
+      labels[j] = trials[j].label == 0 ? -1.0f : 1.0f;
+    }
+    Kernel_params kp;
+    kp.gamma = 0;
+    kp.coef0 = 0;
+    kp.degree = 3;
+    // kp.b doesn't need to be preset
+    kp.kernel_type = "precomputed";
+    float cost = 10.0f;
+    SelectionHeuristic heuristicMethod = ADAPTIVE;
+    float tolerance = 1e-3f;
+    float epsilon = 1e-5f;
+    PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
+                    nTrainingSamples, labels,
+                    &kp, cost, heuristicMethod, epsilon, tolerance, NULL, NULL);
+    float* testData = new float[nTests*nTrainingSamples];
+    for (j=0 ; j<nTests; j++) {
+      for (k=0; k<nTrainingSamples; k++) {
+        testData[j*nTrainingSamples+k] = simMatrix[(j+nTrainingSamples)*nTrials+k];
+      }
+    }
+    float* testLabels = new float[nTests];
+    for (j=0 ; j<nTests; j++) {
+      testLabels[j] = trials[j+nTrainingSamples].label == 0 ? -1.0f : 1.0f;
+    }
+    float* result;
+    performClassification(testData, nTests,
+                          nTrainingSamples, &kp, &result, phiSVMModel);
+    //delete phiSVMModel;
+    int nCorrects = 0;
+    for (j = 0; j < nTests; j++) {
+      nCorrects =
+          (testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < 0)
+              ? nCorrects + 1
+              : nCorrects;
+    }
+    std::cout << tops[i] << ": " << nCorrects << "/" << nTests << "="
+              << nCorrects * 1.0 / nTests << std::endl;
+    if (!is_quiet_mode) {
+      using std::cout;
+      using std::endl;
+
+      cout << "blocking testing confidence:" << endl;
+      for (j = 0; j < nTests; j++) {
+        cout << fabs(result[j]) << " (";
+        if ((testLabels[j] == 1 && result[j] >= 0) || (testLabels[j] == -1 && result[j] < j)) {
+          cout << "Correct) ";
+        } else {
+          cout << "Incorrect) ";
+        }
+      }
+      cout << endl;
+    }
+
+#ifndef __MIC__
+    /*DumpModel* dumpModel = new DumpModel();
+    dumpModel->nSamples = nTrainingSamples;
+    dumpModel->nDimension = tops[i]*tops[i];
+
+    int ii;
+    float* values = new float[nTrainingSamples * tops[i] * tops[i]];
+    for (ii = 0; ii < nTrainingSamples; ii++) {
+      int sc = trials[ii].sc;
+      int ec = trials[ii].ec;
+      int sid = trials[ii].sid;
+      float* mat1 = r_matrices1[sid]->matrix;
+      float* mat2 = r_matrices2[sid]->matrix;
+      float* buf1 = new float[tops[i]*col];  // col is more than what really need,
+                                           // just in case
+      float* buf2 = new float[tops[i]*col];  // col is more than what really need,
+                                           // just in case
+      int ml = getBuf(sc, ec, tops[i], col, mat1, buf1);  // get the normalized
+                                                      // matrix, return the length
+                                                      // of time points to be
+                                                      // computed
+      getBuf(sc, ec, tops[i], col, mat2, buf2);  // get the normalized matrix, return
+                                             // the length of time points to be
+                                             // computed
+      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tops[i], tops[i], ml,
+                  1.0, buf1, ml, buf2, ml, 0.0,
+                  values + ii * tops[i] * tops[i], tops[i]);
+      delete[] buf1;
+      delete[] buf2;
+    }
+    dumpModel->trainingData = values;
+    dumpModel->phiSVMModel = phiSVMModel;
+    std::string modelStr = serialize_DumpModel(dumpModel);
+    delete dumpModel;
+    delete values;
+    DumpModelToDisk(modelStr);*/
+#endif
+    delete result;
+    delete [] testData;
+    delete [] testLabels;
+    delete [] trainingData;
+    delete [] labels;
+#else
     SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or
                                                          // PRECOMPUTED
     SVMProblem* prob =
         GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
     struct svm_model* model = svm_train(prob, param);
+    /*if (tops[i]==2000) {
+      svm_save_model("fs_2000_model.txt", model);
+      //save_training_sets
+    }*/
+    //if (tops[i]==2000) model = svm_load_model("fs_2000_model.txt");
     int nTrainings = nTrials - nTests;
     SVMNode* x = new SVMNode[nTrainings + 2];
     int result = 0;
@@ -188,6 +298,7 @@ void CorrelationBasedClassification(int* tops, int ntops, int nSubs,
     delete[] prob->x;
     delete prob;
     svm_destroy_param(param);
+#endif
   }
   delete[] simMatrix;  // bds []
 }
@@ -368,7 +479,7 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
                                                           // the selected voxels
 {
   int i;
-  float* values = new float[nTrials * rowLength * row];
+  float* values = new float[nTrials * rowLength * row]; // too large rowLength with large row (#top voxels) will cause a malloc error here
   float* simMatrix = new float[nTrials * nTrials];
   for (i = 0; i < nTrials * nTrials; i++) simMatrix[i] = 0.0;
   for (i = 0; i < nTrials; i++) {
@@ -402,6 +513,10 @@ float* GetPartialInnerSimMatrix(int row, int col, int nSubs, int nTrials,
   }
   NormalizeCorrValues(values, nTrials, rowLength, row, nSubs);
   GetDotProductUsingMatMul(simMatrix, values, nTrials, rowLength, row);
+  // write out the training correlation vectors, for 9/22 demo, no normalization as well
+  //FILE* fp = fopen("trainingSamples.bin", "wb");
+  //fwrite((const void*)values, sizeof(float), 204*row*rowLength, fp);  // hard-coded
+  //fclose(fp);
   delete[] values;
   return simMatrix;
 }
@@ -432,13 +547,12 @@ void NormalizeCorrValues(float* values, int nTrials, int nVoxels,
   int nPerSub = nTrials / nSubs;               // should be dividable
   typedef float mattype[][length];
 
-#pragma omp parallel for
-  for (int i = 0; i < nSubs; i++)  // do normalization subject by subject
-  {
+//#pragma omp parallel for
+  for (int i = 0; i < nSubs; i++) { // do normalization subject by subject
 #ifdef __INTEL_COMPILER
-    float(*mat)[length] = (float(*)[length]) & (values[i * nPerSub * length]);
+    float(*mat)[length] = (float(*)[length]) & (values[(CMM_INT)i * nPerSub * length]);
 #else
-    float* rowptr = &(values[i * nPerSub * length]);
+    float* rowptr = &(values[(CMM_INT)i * nPerSub * length]);
     mattype& mat = *reinterpret_cast<mattype*>(rowptr);
 #endif
 #pragma simd

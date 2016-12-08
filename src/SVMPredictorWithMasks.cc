@@ -10,48 +10,36 @@
 #include "Preprocessing.h"
 #include "FileProcessing.h"
 #include "SVMPredictor.h"
+#include "CustomizedMatrixMultiply.h"
 #include <nifti1_io.h>
 
 using namespace std;
 
+
 /***************************************
 Get two parts of the brain to compute the correlation and then use the
 correlation vectors to predict
-input: the raw activation matrix arrays, the number of subjects, the number of
-subjects, the first mask file, the second mask file, the number of
+input: the masked activation matrix arrays, the number of subjects, the number of
+subjects, the number of
 blocks(trials), the blocks, the number of test samples
 output: the results are displayed on the screen and returned
 ****************************************/
-int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
-                                   RawMatrix** r_matrices2, int nSubs,
-                                   const char* maskFile1, const char* maskFile2,
+int SVMPredictCorrelationWithMasks(RawMatrix** masked_matrices1,
+                                   RawMatrix** masked_matrices2, int nSubs,
                                    int nTrials, Trial* trials, int nTests,
                                    int is_quiet_mode) {
 #ifndef __MIC__
-  int i, j;
+  int i, j, k;
   svm_set_print_string_function(&print_null);
-  RawMatrix** masked_matrices1 = NULL;
-  RawMatrix** masked_matrices2 = NULL;
-  if (maskFile1 != NULL)
-    masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, maskFile1);
-  else
-    masked_matrices1 = r_matrices1;
-  if (maskFile2 != NULL)
-    masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, maskFile2);
-  else
-    masked_matrices2 = r_matrices2;
-  cout << "masked matrices generating done!" << endl;
-  cout << "#voxels for mask1: " << masked_matrices1[0]->row
-       << " #voxels for mask2: " << masked_matrices2[0]->row << endl;
 #if __MEASURE_TIME__
   float t_sim = 0.0f, t_train = 0.0f;
   struct timeval start, end;
   gettimeofday(&start, 0);
 #endif
-  float* simMatrix = new float[nTrials * nTrials];
+  float* simMatrix = new float[(CMM_INT)nTrials * nTrials];
   int corrRow = masked_matrices1[0]->row;
   memset((void*)simMatrix, 0, nTrials * nTrials * sizeof(float));
-  int sr = 0, rowLength = 500;
+  CMM_INT sr = 0, rowLength = 100;
   int result = 0;
   while (sr < corrRow) {
     if (rowLength >= corrRow - sr) {
@@ -60,7 +48,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
     float* tempSimMatrix =
         GetPartialInnerSimMatrixWithMasks(nSubs, nTrials, sr, rowLength, trials,
                                           masked_matrices1, masked_matrices2);
-    for (i = 0; i < nTrials * nTrials; i++) simMatrix[i] += tempSimMatrix[i];
+    for (i = 0; i < (CMM_INT)nTrials * nTrials; i++) simMatrix[i] += tempSimMatrix[i];
     delete[] tempSimMatrix;
     sr += rowLength;
   }
@@ -71,6 +59,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
        << endl;
   gettimeofday(&start, 0);
 #endif
+// LibSVM
   SVMParameter* param = SetSVMParameter(PRECOMPUTED);  // LINEAR or PRECOMPUTED
   SVMProblem* prob =
       GetSVMTrainingSet(simMatrix, nTrials, trials, nTrials - nTests);
@@ -79,7 +68,7 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   gettimeofday(&end, 0);
   t_train =
       end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
-  cout << "SVM training done! Takes " << t_train << "s" << endl;
+  cout << "LibSVM training done! Takes " << t_train << "s" << endl;
 #endif
   int nTrainings = nTrials - nTests;
   SVMNode* x = new SVMNode[nTrainings + 2];
@@ -128,13 +117,74 @@ int SVMPredictCorrelationWithMasks(RawMatrix** r_matrices1,
   delete prob->x;
   delete prob;
   svm_destroy_param(param);
-  delete[] simMatrix;
-  for (i = 0; i < nSubs; i++) {
-    delete masked_matrices1[i]->matrix;
-    if (maskFile2 != NULL) delete masked_matrices2[i]->matrix;
+  // LibSVM done
+  /*int nTrainingSamples = nTrials - nTests;
+  float* trainingData = new float[nTrainingSamples*nTrainingSamples];
+  for (j=0 ; j<nTrainingSamples; j++) {
+    for (k=0; k<nTrainingSamples; k++) {
+      trainingData[j*nTrainingSamples+k] = simMatrix[j*nTrials+k]*.001f;
+    }
   }
-  delete masked_matrices1;
-  if (maskFile2 != NULL) delete masked_matrices2;
+  float* labels = new float[nTrainingSamples];
+  for (j=0 ; j<nTrainingSamples; j++) {
+    labels[j] = trials[j].label == 0 ? -1.0f : 1.0f;
+  }
+  Kernel_params kp;
+  kp.gamma = 0;
+  kp.coef0 = 0;
+  kp.degree = 3;
+  // kp.b doesn't need to be preset
+  kp.kernel_type = "precomputed";
+  float cost = 10.0f;
+  SelectionHeuristic heuristicMethod = ADAPTIVE;
+  float tolerance = 1e-3f;
+  float epsilon = 1e-5f;
+  PhiSVMModel* phiSVMModel = performTraining(trainingData, nTrainingSamples,
+                  nTrainingSamples, labels,
+                  &kp, cost, heuristicMethod, epsilon, tolerance, NULL, NULL);
+  #if __MEASURE_TIME__
+    gettimeofday(&end, 0);
+    t_train =
+        end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
+    cout << "phiSVM training done! Takes " << t_train << "s" << endl;
+  #endif
+  float* testData = new float[nTests*nTrainingSamples];
+  for (j=0 ; j<nTests; j++) {
+    for (k=0; k<nTrainingSamples; k++) {
+      testData[j*nTrainingSamples+k] = simMatrix[(j+nTrainingSamples)*nTrials+k]*.001f;
+    }
+  }
+  float* testLabels = new float[nTests];
+  for (j=0 ; j<nTests; j++) {
+    testLabels[j] = trials[j+nTrainingSamples].label == 0 ? -1.0f : 1.0f;
+  }
+  float* result_vec;
+  performClassification(testData, nTests,
+                        nTrainingSamples, &kp, &result_vec, phiSVMModel);
+  //delete phiSVMModel;
+  for (j = 0; j < nTests; j++) {
+    result =
+        (testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < 0)
+            ? result + 1
+            : result;
+  }
+  if (!is_quiet_mode) {
+    using std::cout;
+    using std::endl;
+
+    cout << "blocking testing confidence:" << endl;
+    for (j = 0; j < nTests; j++) {
+      cout << fabs(result_vec[j]) << " (";
+      if ((testLabels[j] == 1 && result_vec[j] >= 0) || (testLabels[j] == -1 && result_vec[j] < 0)) {
+        cout << "Correct) ";
+      } else {
+        cout << "Incorrect) ";
+      }
+    }
+    cout << endl;
+  }*/
+  // phiSVM done
+  delete[] simMatrix;
   return result;
 #else
   return 0;
@@ -160,7 +210,7 @@ float* GetPartialInnerSimMatrixWithMasks(
   int row2 = masked_matrices2[0]->row;  // rows should be the same across
                                         // subjects since we are using the same
                                         // mask file to filter out voxels
-  float* values = new float[nTrials * rowLength * row2];
+  float* values = new float[(CMM_INT)nTrials * rowLength * row2];
   float* simMatrix = new float[nTrials * nTrials];
   memset((void*)simMatrix, 0, nTrials * nTrials * sizeof(float));
   for (i = 0; i < nTrials; i++) {
@@ -174,9 +224,9 @@ float* GetPartialInnerSimMatrixWithMasks(
                                            // subjects have different TRs
     float* mat1 = masked_matrices1[sid]->matrix;
     float* mat2 = masked_matrices2[sid]->matrix;
-    float* buf1 = new float[row1 * col];  // col is more than what really need,
+    float* buf1 = new float[(CMM_INT)row1 * col];  // col is more than what really need,
                                           // just in case
-    float* buf2 = new float[row2 * col];  // col is more than what really need,
+    float* buf2 = new float[(CMM_INT)row2 * col];  // col is more than what really need,
                                           // just in case
     int ml1 = getBuf(sc, ec, row1, col, mat1, buf1);  // get the normalized
                                                       // matrix, return the
@@ -188,7 +238,7 @@ float* GetPartialInnerSimMatrixWithMasks(
                                                       // to be computed, m1==m2
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, rowLength, row2, ml1,
                 1.0, buf1 + sr * ml1, ml1, buf2, ml2, 0.0,
-                values + i * rowLength * row2, row2);
+                values + (CMM_INT)i * rowLength * row2, row2);
     delete[] buf1;
     delete[] buf2;
   }
@@ -222,7 +272,7 @@ int SVMPredictActivationWithMasks(RawMatrix** avg_matrices, int nSubs,
 
   RawMatrix** masked_matrices = NULL;
   if (maskFile != NULL)
-    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile);
+    masked_matrices = GetMaskedMatrices(avg_matrices, nSubs, maskFile, true);
   else
     masked_matrices = avg_matrices;
   cout << "masked matrices generating done!" << endl;

@@ -12,6 +12,8 @@
 #include <cassert>
 #include <sstream>
 #include "ErrorHandling.h"
+#include <hdf5.h>
+#include <hdf5_hl.h>
 
 /*************************
 read a bunch of raw matrix files
@@ -132,6 +134,12 @@ RawMatrix* ReadNiiGzData(std::string fileStr, int sid) {
   r_matrix->nx = nim->nx;
   r_matrix->ny = nim->ny;
   r_matrix->nz = nim->nz;
+  //std::cout << "DEBUG nim->datatype = " << nim->datatype << std::endl;
+  //std::cout << "DEBUG nim->nx = " << nim->nx << std::endl;
+  //std::cout << "DEBUG nim->ny = " << nim->ny << std::endl;
+  //std::cout << "DEBUG nim->nz = " << nim->nz << std::endl;
+  //std::cout << "DEBUG r_matrix->row = " << r_matrix->row << std::endl;
+  //std::cout << "DEBUG r_matrix->col = " << r_matrix->col << std::endl;
   r_matrix->matrix = new float[r_matrix->row * r_matrix->col];
   short* data_short = NULL;
   unsigned short* data_ushort = NULL;
@@ -201,11 +209,11 @@ RawMatrix* ReadNiiGzData(std::string fileStr, int sid) {
 
 /************************************************
 Generate masked matrices using the mask file
-input: the raw data array, the number of subjects, the mask file
+input: the raw data array, the number of subjects, the mask file, bool value to determine if delete the raw data
 output: a masked data array
 *************************************************/
 RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
-                              const char* maskFile) {
+                              const char* maskFile, bool deleteData) {
   RawMatrix** masked_matrices = new RawMatrix* [nSubs];
   nifti_image* nim = nifti_image_read(maskFile, 1);
   int i;
@@ -284,13 +292,16 @@ RawMatrix** GetMaskedMatrices(RawMatrix** r_matrices, int nSubs,
     }
     masked_matrix->row = count;  // update the row information
     masked_matrices[i] = masked_matrix;
+    if (deleteData) {
+      delete [] src_mat; // DEBUG tlw added brackets since deleting an array 2/23/2016 
+    }
   }
   nifti_image_free(nim);
   return masked_matrices;
 }
 
 /************************************************
-Generate a masked matrix using the mask file
+Get a masked matrix using the mask file
 input: the raw data matrix, the mask file
 output: a masked matrix
 *************************************************/
@@ -370,6 +381,59 @@ RawMatrix* GetMaskedMatrix(RawMatrix* r_matrix, const char* maskFile) {
   }
   nifti_image_free(nim);
   return masked_matrix;
+}
+
+/************************************************
+Generate masked matrices using the mask file
+input: the number of subjects, the raw data matrices, the mask file, the masked matrices
+output: write in the masked matrices, delete the raw data matrices
+*************************************************/
+void GenerateMaskedMatrices(int nSubs, RawMatrix** r_matrices1, RawMatrix** r_matrices2,
+                            const char* mask_file1, const char* mask_file2,
+                            RawMatrix*** p_masked_matrices1, RawMatrix*** p_masked_matrices2) {
+  float t = 0.0f;
+  struct timeval start, end;
+  gettimeofday(&start, 0);
+  RawMatrix** masked_matrices1 = NULL;
+  RawMatrix** masked_matrices2 = NULL;
+  if (mask_file1 == NULL) {
+    masked_matrices1 = r_matrices1;
+  }
+  else
+  {
+    if (r_matrices2 == r_matrices1) { 
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, false);
+    }
+    else {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices1 = GetMaskedMatrices(r_matrices1, nSubs, mask_file1, true);
+    }
+  }
+  if (mask_file2 == NULL) {
+    masked_matrices2 = r_matrices2;
+  }
+  else {
+    // This is a special-case optimization (not required) 
+    if (r_matrices1 == r_matrices2 && strcmp(mask_file1, mask_file2) == 0) { 
+      masked_matrices2 = masked_matrices1;
+      // DEBUG tlw added since it's now safe to delete r_matrices
+      for (int i = 0; i < nSubs; i++) {
+        delete [] r_matrices1[i]->matrix;
+      }
+    }
+    else {
+      // after GetMaskedMatrices, the data stored in r_matrices have been deleted
+      masked_matrices2 = GetMaskedMatrices(r_matrices2, nSubs, mask_file2, true);
+    }
+  }
+  gettimeofday(&end, 0);
+  t += end.tv_sec - start.tv_sec + (end.tv_usec - start.tv_usec) * 0.000001;
+  std::cout << "masked matrices generating done! " << "takes " << t << " s"<< std::endl;
+  std::cout << "#voxels for mask1: " << masked_matrices1[0]->row
+       << " #voxels for mask2: " << masked_matrices2[0]->row << std::endl;
+  *p_masked_matrices1 = masked_matrices1;
+  *p_masked_matrices2 = masked_matrices2;
+  return;
 }
 
 /************************************************
@@ -626,6 +690,10 @@ output: write the data to the file
 ********************************/
 void WriteNiiGzData(const char* outputFile, const char* refFile, void* data,
                     int dataType) {
+  if (refFile==NULL) {
+    std::cout<<"No NIfTI file to refer, do not write out NIfTI file"<<std::endl;
+    return;
+  }
   nifti_image* nim =
       nifti_image_read(refFile, 1);  // 1 means reading the data as well
   if (nim == NULL) {
@@ -658,6 +726,10 @@ output: write the data to the file
 ********************************/
 void Write4DNiiGzData(const char* outputFile, const char* refFile, void* data,
                       int dataType, int nt) {
+  if (refFile==NULL) {
+    std::cout<<"No NIfTI file to refer, do not write out 4D NIfTI file"<<std::endl;
+    return;
+  }
   nifti_image* nim =
       nifti_image_read(refFile, 1);  // 1 means reading the data as well
   if (nim == NULL) {
@@ -931,4 +1003,48 @@ int ReadConfigFile(const char* fcma_file, const int& length,
   delete[] text;
   return count;
 }
+
+/* get filename prefix, without extension */
+/* Caller must free returned string */
+static char* GetFilenamePrefixAndFreeResult(const char* mystr) {
+    char *retstr;
+    char *lastdot;
+    if (mystr == NULL)
+        return NULL;
+    if ((retstr = (char*)malloc (strlen (mystr) + 1)) == NULL)
+        return NULL;
+    strcpy (retstr, mystr);
+    lastdot = strrchr (retstr, '.');
+    if (lastdot != NULL)
+        *lastdot = '\0';
+    return retstr;
+}
+
+/*******************************
+ write 4D data to an HDF5 file
+ input: the matrix dimensions and float matrix, and outputfile name
+ output: none, writes the data to HDF5 file
+ ********************************/
+void WriteCorrMatToHDF5(int row1, int row2, float* corrMat, const char* outputfile) {
+    hid_t       file_id;
+    hsize_t     dims[2];
+
+    dims[0] = row1;
+    dims[1] = row2;
+
+    char* prefix = GetFilenamePrefixAndFreeResult(outputfile);
+    char h5out[MAXFILENAMELENGTH];
+    sprintf(h5out,"%s.h5", prefix);
+    free(prefix);
+
+    /* create a HDF5 file */
+    file_id = H5Fcreate (h5out, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+
+    /* create and write an integer type dataset named dset */
+    H5LTmake_dataset(file_id, "/dset", 2, dims, H5T_NATIVE_FLOAT, corrMat);
+
+    /* close file */
+    H5Fclose (file_id);
+}
+
 #endif

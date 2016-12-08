@@ -327,11 +327,14 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs,
   td->nCols = total_cols;
 
   size_t dataSize = sizeof(float) * (size_t)td->nCols * (size_t)td->nVoxels;
-
+  //int tmp;
+  //std::cout<<"input some integer to continue: ";
+  //std::cin>>tmp;
   std::cout << "allocating raw data buffer bytes: " << dataSize << std::endl
             << std::flush;
 
-  td->data = (float*)_mm_malloc(dataSize, 64);
+  //td->data = (float*)_mm_malloc(dataSize, 64);
+  td->data = (float*)malloc(dataSize);
   assert(td->data);
   int cur_cols[nTrials];
   cur_cols[0] = 0;
@@ -361,9 +364,9 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs,
       // normalization 1: get mean+sd for a particular block within a particular
       // subject
       for (int c = sc; c <= ec; c++) {
-        mean += (double)matrix[r * col + c];
-        sd += (double)matrix[r * col + c] *
-              matrix[r * col + c];  // convert to double to avoid overflow
+        mean += (double)matrix[(size_t)r * col + c];
+        sd += (double)matrix[(size_t)r * col + c] *
+              matrix[(size_t)r * col + c];  // convert to double to avoid overflow
       }
       mean /= delta_col;
       sd = sd - delta_col * mean * mean;
@@ -381,10 +384,11 @@ TrialData* PreprocessMatrices(RawMatrix** matrices, Trial* trials, int nSubs,
 #pragma simd
       for (int c = sc; c <= ec; c++) {
         // if sd is zero, a "nan" appears
-        buf[r * delta_col + c - sc] = (matrix[r * col + c] - mean_f) * inv_sd_f;
+        buf[(size_t)r * delta_col + c - sc] = (matrix[(size_t)r * col + c] - mean_f) * inv_sd_f;
       }
       // so buffer data is organized as trialLength vectors (trs in a block)
     }
+    //delete matrix;
   }
   return td;
 }

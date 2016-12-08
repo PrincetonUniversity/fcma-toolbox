@@ -1,13 +1,47 @@
-#ifndef NEW_SVM
-#define NEW_SVM
+#ifndef PHI_SVM
+#define PHI_SVM
 #include <float.h>
-#include "common.h"
+#include <vector>
+#include <list>
+#include <fstream>
+#include <iostream>
+#include <cmath>
+#include <cassert>
+#include <cstring>
+#include <cstdlib>
+#include <sys/time.h>
+
+// BLAS dependency
+#ifdef USE_MKL
+#include <mkl.h>
+#else
+typedef int MKL_INT;
+#if defined __APPLE__
+#include <Accelerate/Accelerate.h>
+#else
+extern "C" {
+#include <cblas.h>
+}
+#endif
+#endif
+
+#include <string>
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+
+#include <sstream>
+
+using namespace std;
 
 #define BLOCKSIZE 256
 #define REDUCE0 0x00000001
 #define REDUCE1 0x00000002
 #define MAX_PITCH 262144
 #define MAX_POINTS (MAX_PITCH / sizeof(float) - 2)
+#define MAXITERATIONS 100000
 #define intDivideRoundUp(a, b) (a % b != 0) ? (a / b + 1) : (a / b)
 
 enum KernelType {
@@ -29,6 +63,34 @@ enum SelectionHeuristic {
   SECONDORDER,
   RANDOM,
   ADAPTIVE
+};
+
+class PhiSVMModel {
+public:
+  int nSamples;
+  int nDimension;
+  float epsilon;
+  float bLow;
+  float bHigh;
+  float* alpha;
+  float* f;
+  float* kernelDiag;
+  float* data;
+  float* labels;
+  PhiSVMModel() { // default constructor for training from the scratch
+  }
+  PhiSVMModel(int maxPoints, int maxDimension) {  // constructor for getting an existing model
+    alpha = new float[maxPoints];
+    f = new float[maxPoints];
+    kernelDiag = new float[maxPoints];
+    data = new float[maxPoints*maxDimension];
+    labels = new float[maxPoints];
+  }
+  ~PhiSVMModel() {  // leave the data and labels to others to delete
+    delete alpha;
+    delete f;
+    delete kernelDiag;
+  }
 };
 
 class NewCache {
@@ -92,18 +154,30 @@ class Controller {
   struct timeval finish;
 };
 
-float crossValidationNoShuffle(float* data, int nPoints, int nDimension,
+bool hasTwoTypes(float* labels, int n);
+
+float crossValidation(float* data, int nPoints, int nDimension,
                                int nFolds, float* labels, Kernel_params* kp,
                                float cost, SelectionHeuristic heuristicMethod,
                                float epsilon, float tolerance,
-                               float* transposedData, int vid);
+                               float* transposedData, bool shuffle);
+
+float incrementalCrossValidation(PhiSVMModel** models, float* data, int nPoints, int nDimension,
+                               int nFolds, float* labels, Kernel_params* kp,
+                               float cost, SelectionHeuristic heuristicMethod,
+                               float epsilon, float tolerance,
+                               float* transposedData, int maxNPoints);
+
 void svmGroupClasses(int nPoints, float* labels, int** start_ret,
                      int** count_ret, int* perm);
-void performTraining(float* data, int nPoints, int nDimension, float* labels,
-                     float** p_alpha, Kernel_params* kp, float cost,
+PhiSVMModel* performTraining(float* data, int nPoints, int nDimension, float* labels,
+                     Kernel_params* kp, float cost,
                      SelectionHeuristic heuristicMethod, float epsilon,
-                     float tolerance, float* transposedData, int fold_id,
-                     int vid);
+                     float tolerance, float* transposedData, PhiSVMModel* curModel);
+PhiSVMModel* performOnlineTraining(int nOldPoints, Kernel_params* kp, float cost,
+                     SelectionHeuristic heuristicMethod, float epsilon,
+                     float tolerance, PhiSVMModel* curModel);
+
 template <int Kernel>
 void firstOrder(float* devData, int devDataPitchInFloats,
                 float* devTransposedData, int devTransposedDataPitchInFloats,
@@ -171,9 +245,8 @@ void launchTakeFirstStep(void* devResult, float* devKernelDiag, float* devData,
                          int nDimension, int iLow, int iHigh, int kType,
                          float parameterA, float parameterB, float parameterC,
                          int nthreads);
-void performClassification(float* data, int nData, float* supportVectors,
-                           int nSV, int nDimension, float* alpha,
-                           Kernel_params* kp, float** p_result);
+void performClassification(float* data, int nData, int nDimension,
+                           Kernel_params* kp, float** p_result, PhiSVMModel* model);
 void computeKernels(float* devNorms, int devNormsPitchInFloats, float* devAlpha,
                     int nPoints, int nSV, const KernelType kType, int degree,
                     float b, float* devResult);
@@ -182,4 +255,60 @@ void makeSelfDots(float* devSource, int devSourcePitchInFloats, float* devDest,
                   int sourceCount, int sourceLength);
 void makeDots(float* devDots, int devDotsPitchInFloats, float* devSVDots,
               float* devDataDots, int nSV, int nPoints);
+
+class DumpModel {
+private:
+  friend class boost::serialization::access;
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int version) {
+    ar & nSamples;
+    ar & nDimension;
+    for (int i=0; i<nSamples*nDimension; i++) {
+      ar & trainingData[i];
+    }
+    ar & phiSVMModel->nSamples;  // redundant with Model::nSamples
+    ar & phiSVMModel->nDimension;  // for precomputed kernel, should be the same as nSamples
+    ar & phiSVMModel->epsilon;
+    ar & phiSVMModel->bLow;
+    ar & phiSVMModel->bHigh;
+    for (int i=0; i<phiSVMModel->nSamples; i++) {
+      ar & phiSVMModel->alpha[i];
+    }
+    for (int i=0; i<phiSVMModel->nSamples; i++) {
+      ar & phiSVMModel->f[i];
+    }
+    for (int i=0; i<phiSVMModel->nSamples; i++) {
+      ar & phiSVMModel->kernelDiag[i];
+    }
+    // the data here for precomputed kernel is the kernel matrix
+    for (int i=0; i<phiSVMModel->nSamples*phiSVMModel->nDimension; i++) {
+      ar & phiSVMModel->data[i];
+    }
+    for (int i=0; i<phiSVMModel->nSamples; i++) {
+      ar & phiSVMModel->labels[i];
+    }
+  }
+public:
+  int nSamples;
+  int nDimension;
+  float* trainingData;
+  PhiSVMModel* phiSVMModel;
+  DumpModel() {}
+  DumpModel(int s, int d) {
+    nSamples = s;
+    nDimension = d;
+    trainingData = new float[s*d];
+    phiSVMModel = new PhiSVMModel(MAX_POINTS, MAX_POINTS);
+  }
+  ~DumpModel() {
+    //delete trainingData;
+    //delete phiSVMModel->data;
+    //delete phiSVMModel->labels;
+    //delete phiSVMModel;
+  }
+};
+
+std::string serialize_DumpModel(DumpModel* model_ptr);
+DumpModel* deserialize_DumpModel(std::string, int, int);
+void DumpModelToDisk(std::string modelStr);
 #endif
